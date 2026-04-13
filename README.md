@@ -8,7 +8,11 @@ A simple, keyboard-driven TUI FTP/SFTP client inspired by [lazygit](https://gith
 [![License](https://img.shields.io/github/license/MawCeron/lazyftp?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/stargazers)
 
+![lazyftp screenshot](lazyftp_screenshot.png)
+
 </div>
+
+---
 
 ## About
 
@@ -21,6 +25,8 @@ Dual-pane local/remote navigation, real-time transfer progress, FTP and SFTP sup
 [![Bubbletea](https://img.shields.io/badge/bubbletea-gray?style=for-the-badge)](https://github.com/charmbracelet/bubbletea)
 [![Lipgloss](https://img.shields.io/badge/lipgloss-gray?style=for-the-badge)](https://github.com/charmbracelet/lipgloss)
 
+---
+
 ## Features
 
 - FTP and SFTP support
@@ -30,6 +36,8 @@ Dual-pane local/remote navigation, real-time transfer progress, FTP and SFTP sup
 - Keyboard-driven navigation (vim-style + arrow keys)
 - Context-aware hints bar
 - Transfer and connection log
+
+---
 
 ## Installation
 
@@ -47,6 +55,8 @@ go build -o lazyftp .
 go install github.com/MawCeron/lazyftp@latest
 ```
 
+---
+
 ## Usage
 
 ```bash
@@ -58,7 +68,7 @@ lazyftp
 Fill in the connection bar at the top:
 
 | Field | Description |
-|-|-|
+|-------|-------------|
 | Host | Server hostname or IP |
 | User | Username |
 | Pass | Password |
@@ -74,12 +84,14 @@ Press `Enter` to connect. The protocol is automatically selected based on the po
 
 If you are in the **local panel**, the file will be uploaded to the current remote path. If you are in the **remote panel**, it will be downloaded to the current local path.
 
+---
+
 ## Keybindings
 
 ### Global
 
 | Key | Action |
-|--|--|
+|-----|--------|
 | `Ctrl+L` | Focus connection bar |
 | `Tab` | Switch between local and remote panels |
 | `Esc` | Exit connection bar |
@@ -88,7 +100,7 @@ If you are in the **local panel**, the file will be uploaded to the current remo
 ### Connection bar
 
 | Key | Action |
-|--|--|
+|-----|--------|
 | `Tab` | Next field |
 | `Shift+Tab` | Previous field |
 | `Enter` | Connect |
@@ -97,13 +109,15 @@ If you are in the **local panel**, the file will be uploaded to the current remo
 ### Panels
 
 | Key | Action |
-|--|--|
+|-----|--------|
 | `j` / `↓` | Move down |
 | `k` / `↑` | Move up |
 | `Enter` / `Space` | Enter directory |
 | `-` / `Backspace` | Go up one level |
 | `x` | Mark / unmark file or directory |
 | `t` | Transfer (upload or download depending on active panel) |
+
+---
 
 ## Roadmap
 
@@ -116,11 +130,14 @@ If you are in the **local panel**, the file will be uploaded to the current remo
 - [ ] Saved connections
 - [ ] Multiple simultaneous connections
 
+---
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first.
 
+---
 
 ## License
 
-Distributed under the MIT License. See LICENSE for more information.
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
