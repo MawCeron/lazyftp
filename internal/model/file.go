@@ -10,7 +10,7 @@ type FileType int
 const (
 	FileTypeFile FileType = iota
 	FileTypeDir
-	FileTypeSymLink
+	FileTypeSymlink
 )
 
 type FileInfo struct {
@@ -26,6 +26,6 @@ func (f FileInfo) IsDir() bool {
 	return f.Type == FileTypeDir
 }
 
-func (f FileInfo) IsSymLink() bool {
-	return f.Type == FileTypeSymLink
+func (f FileInfo) IsSymlink() bool {
+	return f.Type == FileTypeSymlink
 }
