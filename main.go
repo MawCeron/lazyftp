@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MawCeron/lazyftp/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/MawCeron/lazyftp/internal/ui"
 )
 
 func main() {
-	p := tea.NewProgram(
-		ui.NewApp(),
+	var p *tea.Program
+	app := ui.NewApp(func() *tea.Program { return p })
+	p = tea.NewProgram(
+		app,
 		tea.WithAltScreen(),
 	)
 
