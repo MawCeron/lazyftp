@@ -1,8 +1,19 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 func borderWithTitle(content, title string, width, height int, borderColor lipgloss.Color) string {
+	lines := strings.Split(content, "\n")
+	maxLines := height - 4
+	if maxLines > 0 && len(lines) > maxLines {
+		lines = lines[:maxLines]
+		content = strings.Join(lines, "\n")
+	}
+
 	titleStr := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("39")).

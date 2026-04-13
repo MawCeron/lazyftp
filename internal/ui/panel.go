@@ -2,44 +2,155 @@ package ui
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
+	"github.com/MawCeron/lazyftp/internal/model"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/MawCeron/lazyftp/internal/model"
 )
 
+// fileItem implementa list.Item
+type fileItem struct {
+	file model.FileInfo
+}
+
+func (f fileItem) Title() string {
+	if f.file.IsDir() {
+		return f.file.Name + "/"
+	}
+	return f.file.Name
+}
+func (f fileItem) Description() string { return "" }
+func (f fileItem) FilterValue() string { return f.file.Name }
+
+// fileDelegate renderiza cada item de la lista
+type fileDelegate struct {
+	marked map[int]bool
+}
+
+func (d fileDelegate) Height() int                             { return 1 }
+func (d fileDelegate) Spacing() int                            { return 0 }
+func (d fileDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	fi, ok := item.(fileItem)
+	if !ok {
+		return
+	}
+
+	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
+	markedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
+	dirStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
+	normalStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+
+	isSelected := index == m.Index()
+	isMarked := d.marked[index]
+
+	name := fi.file.Name
+	if fi.file.IsDir() {
+		name = name + "/"
+	}
+
+	var prefix string
+	var nameRendered string
+
+	if isMarked {
+		if isSelected {
+			prefix = cursorStyle.Render("> ")
+		} else {
+			prefix = markedStyle.Render("✓ ")
+		}
+		nameRendered = lipgloss.NewStyle().
+			Background(lipgloss.Color("52")).
+			Foreground(lipgloss.Color("214")).
+			Bold(true).
+			Render(name)
+	} else {
+		if isSelected {
+			prefix = cursorStyle.Render("> ")
+			if fi.file.IsDir() {
+				nameRendered = lipgloss.NewStyle().
+					Background(lipgloss.Color("236")).
+					Foreground(lipgloss.Color("75")).
+					Render(name)
+			} else {
+				nameRendered = lipgloss.NewStyle().
+					Background(lipgloss.Color("236")).
+					Render(name)
+			}
+		} else {
+			prefix = "  "
+			if fi.file.IsDir() {
+				nameRendered = dirStyle.Render(name)
+			} else {
+				nameRendered = normalStyle.Render(name)
+			}
+		}
+	}
+
+	fmt.Fprint(w, prefix+nameRendered)
+}
+
+// Panel contiene un list.Model de bubbles
 type Panel struct {
 	title  string
 	path   string
-	files  []model.FileInfo
-	cursor int
+	list   list.Model
 	marked map[int]bool
-	offset int
+	files  []model.FileInfo
 }
 
 func NewPanel(title string) Panel {
+	delegate := fileDelegate{marked: make(map[int]bool)}
+	l := list.New([]list.Item{}, delegate, 0, 0)
+	l.SetShowTitle(false)
+	l.SetShowStatusBar(false)
+	l.SetShowHelp(false)
+	l.SetFilteringEnabled(false)
+	l.DisableQuitKeybindings()
+	l.Styles.NoItems = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).PaddingLeft(2)
+
 	return Panel{
 		title:  title,
 		path:   "/",
-		files:  []model.FileInfo{},
+		list:   l,
 		marked: make(map[int]bool),
+		files:  []model.FileInfo{},
 	}
 }
 
 func (p Panel) WithFiles(files []model.FileInfo, path string) Panel {
+	for strings.Contains(path, "//") {
+		path = strings.ReplaceAll(path, "//", "/")
+	}
+
 	sort.Slice(files, func(i, j int) bool {
 		if files[i].IsDir() != files[j].IsDir() {
 			return files[i].IsDir()
 		}
 		return strings.ToLower(files[i].Name) < strings.ToLower(files[j].Name)
 	})
+
+	items := make([]list.Item, len(files))
+	for i, f := range files {
+		items[i] = fileItem{file: f}
+	}
+
 	p.files = files
 	p.path = path
-	p.cursor = 0
-	p.offset = 0
 	p.marked = make(map[int]bool)
+	p.list.SetItems(items)
+	p.list.Select(0)
+	// actualizar delegate con el nuevo marked vacío
+	p.list.SetDelegate(fileDelegate{marked: p.marked})
+	return p
+}
+
+func (p Panel) SetSize(width, height int) Panel {
+	p.list.SetSize(width-4, height-6)
 	return p
 }
 
@@ -48,22 +159,15 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 
-		case "j", "down":
-			if p.cursor < len(p.files)-1 {
-				p.cursor++
-			}
-
-		case "k", "up":
-			if p.cursor > 0 {
-				p.cursor--
-			}
-
 		case "enter", " ":
-			if len(p.files) > 0 && p.files[p.cursor].IsDir() {
-				name := p.files[p.cursor].Name
-				newPath := p.path + "/" + name
+			item, ok := p.list.SelectedItem().(fileItem)
+			if ok && item.file.IsDir() {
+				name := item.file.Name
+				var newPath string
 				if p.path == "/" {
 					newPath = "/" + name
+				} else {
+					newPath = strings.TrimRight(p.path, "/") + "/" + name
 				}
 				panel := p.title
 				return p, func() tea.Msg {
@@ -79,10 +183,14 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			}
 
 		case "x":
-			p.marked[p.cursor] = !p.marked[p.cursor]
-			if !p.marked[p.cursor] {
-				delete(p.marked, p.cursor)
+			idx := p.list.Index()
+			p.marked[idx] = !p.marked[idx]
+			if !p.marked[idx] {
+				delete(p.marked, idx)
 			}
+			// actualizar delegate para refrescar el render
+			p.list.SetDelegate(fileDelegate{marked: p.marked})
+			return p, nil
 
 		case "t":
 			files := p.selectedFiles()
@@ -96,7 +204,9 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 		}
 	}
 
-	return p, nil
+	var cmd tea.Cmd
+	p.list, cmd = p.list.Update(msg)
+	return p, cmd
 }
 
 func (p Panel) View(width, height int, active bool) string {
@@ -106,95 +216,32 @@ func (p Panel) View(width, height int, active bool) string {
 	}
 
 	pathStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
-	markedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
-	dirStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
-
 	innerWidth := width - 4
+
 	path := p.path
 	if len([]rune(path)) > innerWidth {
 		path = "…" + string([]rune(path)[len([]rune(path))-innerWidth+1:])
 	}
 
-	header := pathStyle.Render(path) + "\n" +
-		strings.Repeat("─", innerWidth)
+	header := pathStyle.Render(path) + "\n" + strings.Repeat("─", innerWidth)
+	body := header + "\n" + p.list.View()
 
-	visibleHeight := height - 5
-	if visibleHeight < 1 {
-		visibleHeight = 1
-	}
-	p.adjustOffset(visibleHeight)
-
-	var rows []string
-	for i := p.offset; i < len(p.files) && i < p.offset+visibleHeight; i++ {
-		f := p.files[i]
-		isMarked := p.marked[i]
-
-		var line string
-		if isMarked {
-			prefix := markedStyle.Render("✓ ")
-			if i == p.cursor {
-				prefix = cursorStyle.Render("> ")
-			}
-			name := markedStyle.Render(f.Name)
-			if f.IsDir() {
-				name = markedStyle.Render(f.Name + "/")
-			}
-			line = prefix + name
-			if active {
-				line = lipgloss.NewStyle().
-					Background(lipgloss.Color("52")).
-					Width(innerWidth).
-					Render(line)
-			}
-		} else {
-			prefix := "  "
-			if i == p.cursor {
-				prefix = cursorStyle.Render("> ")
-			}
-			name := f.Name
-			if f.IsDir() {
-				name = dirStyle.Render(f.Name + "/")
-			}
-			line = prefix + name
-			if i == p.cursor && active {
-				line = lipgloss.NewStyle().
-					Background(lipgloss.Color("236")).
-					Width(innerWidth).
-					Render(line)
-			}
-		}
-
-		rows = append(rows, line)
-	}
-
-	if len(p.files) == 0 {
-		rows = append(rows, pathStyle.Render("  (vacío)"))
-	}
-
-	body := header + "\n" + strings.Join(rows, "\n")
 	return borderWithTitle(body, p.title, width, height, borderColor)
-}
-
-func (p *Panel) adjustOffset(visible int) {
-	if p.cursor < p.offset {
-		p.offset = p.cursor
-	}
-	if p.cursor >= p.offset+visible {
-		p.offset = p.cursor - visible + 1
-	}
 }
 
 func (p Panel) selectedFiles() []model.FileInfo {
 	if len(p.marked) == 0 {
-		if len(p.files) > 0 {
-			return []model.FileInfo{p.files[p.cursor]}
+		item, ok := p.list.SelectedItem().(fileItem)
+		if ok {
+			return []model.FileInfo{item.file}
 		}
 		return nil
 	}
 	var selected []model.FileInfo
 	for i := range p.marked {
-		selected = append(selected, p.files[i])
+		if i < len(p.files) {
+			selected = append(selected, p.files[i])
+		}
 	}
 	return selected
 }

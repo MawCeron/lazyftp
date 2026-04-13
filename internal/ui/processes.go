@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/MawCeron/lazyftp/internal/shared"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/MawCeron/lazyftp/internal/shared"
 )
 
 type TransferDirection = shared.TransferDirection
@@ -94,7 +94,7 @@ func (p ProcessesPanel) View(width, height int) string {
 			Render("  (no transfers)"))
 	}
 
-	body := strings.Join(rows, "\n")
+	body := strings.Join(rows, "\n\n")
 	return borderWithTitle(body, "Processes", width, height, borderColor)
 }
 

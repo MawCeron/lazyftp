@@ -54,7 +54,6 @@ func NewApp(p func() *tea.Program) App {
 		log:       NewLogPanel(),
 		program:   p,
 	}
-
 	app.local.path = home
 	return app
 }
@@ -67,6 +66,23 @@ func (a App) Init() tea.Cmd {
 	return loadLocalDir(home)
 }
 
+// heights devuelve las alturas calculadas para cada sección
+func (a App) heights() (connH, panelH, bottomH int) {
+	connH = 5    // ConnectionBar fija
+	bottomH = 10 // Processes + Log fijo mínimo
+	hintsH := 1
+	panelH = a.height - connH - bottomH - hintsH
+	if panelH < 8 {
+		panelH = 8
+	}
+	// recalcular bottom con espacio real
+	bottomH = a.height - connH - panelH - hintsH
+	if bottomH < 8 {
+		bottomH = 8
+	}
+	return
+}
+
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -75,6 +91,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
+		_, panelH, _ := a.heights()
+		panelW := a.width / 2
+		a.local = a.local.SetSize(panelW, panelH)
+		a.remote = a.remote.SetSize(panelW, panelH)
 		return a, nil
 
 	case tea.KeyMsg:
@@ -119,10 +139,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case LocalDirLoadedMsg:
 		a.local = a.local.WithFiles(msg.Files, msg.Path)
+		_, panelH, _ := a.heights()
+		a.local = a.local.SetSize(a.width/2, panelH)
 		return a, nil
 
 	case RemoteDirLoadedMsg:
 		a.remote = a.remote.WithFiles(msg.Files, msg.Path)
+		_, panelH, _ := a.heights()
+		a.remote = a.remote.SetSize(a.width/2, panelH)
 		return a, nil
 
 	case TransferDoneMsg:
@@ -133,7 +157,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	a.processes, _ = a.processes.Update(msg)
 	a.log, _ = a.log.Update(msg)
 
-	// delegar al componente enfocado
 	switch a.focus {
 	case focusConnectionBar:
 		a.connBar, cmd = a.connBar.Update(msg)
@@ -151,46 +174,27 @@ func (a App) View() string {
 		return "Loading..."
 	}
 
-	// alturas: conexión ~3, paneles 55%, bottom 35%, hints 1
-	connView := a.connBar.View(a.width, a.focus == focusConnectionBar)
-	connHeight := 3
+	_, panelH, bottomH := a.heights()
+	panelW := a.width / 2
 
-	hintsHeight := 1
-	bottomHeight := 8 // mínimo garantizado para processes y log
-	panelHeight := a.height - connHeight - bottomHeight - hintsHeight - 2
-	if panelHeight < 6 {
-		panelHeight = 6
-	}
-	// recalcular bottom con el espacio real restante
-	bottomHeight = a.height - connHeight - panelHeight - hintsHeight - 2
-	if bottomHeight < 6 {
-		bottomHeight = 6
-	}
-
-	panelWidth := a.width / 2
-	localView := a.local.View(panelWidth, panelHeight, a.focus == focusLocal)
-	remoteView := a.remote.View(panelWidth, panelHeight, a.focus == focusRemote)
+	top := a.connBar.View(a.width, a.focus == focusConnectionBar)
+	localView := a.local.View(panelW, panelH, a.focus == focusLocal)
+	remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote)
 	panels := lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
 
-	bottomWidth := a.width / 2
-	processesView := a.processes.View(bottomWidth, bottomHeight)
-	logView := a.log.View(bottomWidth, bottomHeight)
+	processesView := a.processes.View(panelW, bottomH)
+	logView := a.log.View(panelW, bottomH)
 	bottom := lipgloss.JoinHorizontal(lipgloss.Top, processesView, logView)
 
 	hints := a.hintsView()
 
-	return lipgloss.JoinVertical(lipgloss.Left, connView, panels, bottom, hints)
+	return lipgloss.JoinVertical(lipgloss.Left, top, panels, bottom, hints)
 }
 
 func (a App) hintsView() string {
-	keyStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255")).
-		Bold(true)
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-	sepStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("238"))
-
+	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
+	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	sepStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 	sep := sepStyle.Render(" | ")
 
 	hint := func(key, desc string) string {
@@ -198,7 +202,6 @@ func (a App) hintsView() string {
 	}
 
 	var hints []string
-
 	switch a.focus {
 	case focusConnectionBar:
 		hints = []string{
@@ -220,11 +223,10 @@ func (a App) hintsView() string {
 		}
 	}
 
-	line := strings.Join(hints, sep)
 	return lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		Width(a.width).
-		Render(line)
+		Render(strings.Join(hints, sep))
 }
 
 // handlers
@@ -263,6 +265,8 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	}
 
 	a.remote = a.remote.WithFiles(files, "/")
+	_, panelH, _ := a.heights()
+	a.remote = a.remote.SetSize(a.width/2, panelH)
 	a.log = a.log.Add("Conectado a "+msg.Host, LogSuccess)
 
 	return a, nil
@@ -284,6 +288,8 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 	}
 
 	a.remote = a.remote.WithFiles(files, msg.Path)
+	_, panelH, _ := a.heights()
+	a.remote = a.remote.SetSize(a.width/2, panelH)
 	return a, nil
 }
 
@@ -319,10 +325,8 @@ func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
 	return a, nil
 }
 
-func (a App) handleTransferDone(msg TransferDoneMsg) (App, tea.Cmd) {
-	// recargar ambos paneles para reflejar cambios
+func (a App) handleTransferDone(_ TransferDoneMsg) (App, tea.Cmd) {
 	var cmds []tea.Cmd
-
 	cmds = append(cmds, loadLocalDir(a.local.path))
 
 	if a.connected {
@@ -339,8 +343,6 @@ func (a App) handleTransferDone(msg TransferDoneMsg) (App, tea.Cmd) {
 
 	return a, tea.Batch(cmds...)
 }
-
-// Cmds y mensajes auxiliares
 
 func loadLocalDir(path string) tea.Cmd {
 	return func() tea.Msg {
@@ -365,5 +367,4 @@ type RemoteDirLoadedMsg struct {
 	Files []model.FileInfo
 }
 
-// TransferDoneMsg se emite desde manager cuando termina una transferencia exitosa
 type TransferDoneMsg = shared.TransferDoneMsg

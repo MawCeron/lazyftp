@@ -98,7 +98,6 @@ func (c ConnectionBar) View(width int, active bool) string {
 		"User: " + c.inputs[fieldUser].View(),
 		"Pass: " + c.inputs[fieldPass].View(),
 		"Port: " + c.inputs[fieldPort].View(),
-		"[Connect]",
 	}
 
 	body := strings.Join(fields, "  ")
