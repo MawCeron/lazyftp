@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/pkg/sftp"
-	"golang.org/x/crypto/ssh"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
+	"github.com/pkg/sftp"
+	"golang.org/x/crypto/ssh"
 )
 
 type SFTPClient struct {
@@ -37,13 +37,13 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	sshConn, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
-		return fmt.Errorf("no se pudo conectar a %s: %w", addr, err)
+		return fmt.Errorf("unable to connect to %s: %w", addr, err)
 	}
 
 	client, err := sftp.NewClient(sshConn)
 	if err != nil {
 		sshConn.Close()
-		return fmt.Errorf("error iniciando sesión SFTP: %w", err)
+		return fmt.Errorf("error starting SFTP session: %w", err)
 	}
 
 	c.sshConn = sshConn
@@ -64,12 +64,12 @@ func (c *SFTPClient) Disconnect() error {
 
 func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
 	if c.client == nil {
-		return nil, fmt.Errorf("no hay conexión activa")
+		return nil, fmt.Errorf("no active connection")
 	}
 
 	entries, err := c.client.ReadDir(path)
 	if err != nil {
-		return nil, fmt.Errorf("error listando %s: %w", path, err)
+		return nil, fmt.Errorf("error listing %s: %w", path, err)
 	}
 
 	var files []model.FileInfo
@@ -100,24 +100,24 @@ func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
 
 func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) error {
 	if c.client == nil {
-		return fmt.Errorf("no hay conexión activa")
+		return fmt.Errorf("no active connection")
 	}
 
 	f, err := os.Open(localPath)
 	if err != nil {
-		return fmt.Errorf("error abriendo archivo local: %w", err)
+		return fmt.Errorf("error opening local file: %w", err)
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		return fmt.Errorf("error leyendo archivo local: %w", err)
+		return fmt.Errorf("error reading local file: %w", err)
 	}
 
 	remotePath = filepath.Join(remotePath, filepath.Base(localPath))
 	dst, err := c.client.Create(remotePath)
 	if err != nil {
-		return fmt.Errorf("error creando archivo remoto: %w", err)
+		return fmt.Errorf("error creating remote file: %w", err)
 	}
 	defer dst.Close()
 
@@ -128,7 +128,7 @@ func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) 
 	}
 
 	if _, err := io.Copy(dst, reader); err != nil {
-		return fmt.Errorf("error subiendo archivo: %w", err)
+		return fmt.Errorf("error uploading file: %w", err)
 	}
 
 	return nil
@@ -136,24 +136,24 @@ func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) 
 
 func (c *SFTPClient) Download(remotePath, localPath string, progress func(int64)) error {
 	if c.client == nil {
-		return fmt.Errorf("no hay conexión activa")
+		return fmt.Errorf("no active connection")
 	}
 
 	src, err := c.client.Open(remotePath)
 	if err != nil {
-		return fmt.Errorf("error abriendo archivo remoto: %w", err)
+		return fmt.Errorf("error opening remote file: %w", err)
 	}
 	defer src.Close()
 
 	info, err := src.Stat()
 	if err != nil {
-		return fmt.Errorf("error leyendo archivo remoto: %w", err)
+		return fmt.Errorf("error reading remote file: %w", err)
 	}
 
 	destPath := filepath.Join(localPath, filepath.Base(remotePath))
 	f, err := os.Create(destPath)
 	if err != nil {
-		return fmt.Errorf("error creando archivo local: %w", err)
+		return fmt.Errorf("error creating local file: %w", err)
 	}
 	defer f.Close()
 
@@ -164,7 +164,7 @@ func (c *SFTPClient) Download(remotePath, localPath string, progress func(int64)
 	}
 
 	if _, err := io.Copy(writer, src); err != nil {
-		return fmt.Errorf("error escribiendo archivo: %w", err)
+		return fmt.Errorf("error writing file: %w", err)
 	}
 
 	return nil
@@ -176,15 +176,15 @@ func (c *SFTPClient) CurrentPath() string {
 
 func (c *SFTPClient) ChangePath(path string) error {
 	if c.client == nil {
-		return fmt.Errorf("no hay conexión activa")
+		return fmt.Errorf("no active connection")
 	}
 
 	info, err := c.client.Stat(path)
 	if err != nil {
-		return fmt.Errorf("directorio no encontrado: %w", err)
+		return fmt.Errorf("dir not found: %w", err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("%s no es un directorio", path)
+		return fmt.Errorf("%s is not a directory", path)
 	}
 
 	c.path = path

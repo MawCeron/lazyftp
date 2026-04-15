@@ -66,16 +66,16 @@ func (a App) Init() tea.Cmd {
 	return loadLocalDir(home)
 }
 
-// heights devuelve las alturas calculadas para cada sección
+// heights returns calculated heights of each section
 func (a App) heights() (connH, panelH, bottomH int) {
-	connH = 5    // ConnectionBar fija
-	bottomH = 10 // Processes + Log fijo mínimo
+	connH = 5    // ConnectionBar field
+	bottomH = 10 // Processes + Log minimal fixed
 	hintsH := 1
 	panelH = a.height - connH - bottomH - hintsH
 	if panelH < 8 {
 		panelH = 8
 	}
-	// recalcular bottom con espacio real
+	// recalculate boottom with real space
 	bottomH = a.height - connH - panelH - hintsH
 	if bottomH < 8 {
 		bottomH = 8
@@ -153,7 +153,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleTransferDone(msg)
 	}
 
-	// procesos y log siempre escuchan
+	// processes and log are always listening
 	a.processes, _ = a.processes.Update(msg)
 	a.log, _ = a.log.Update(msg)
 
@@ -249,7 +249,7 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	}
 
 	if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
-		a.log = a.log.Add("Error conectando: "+err.Error(), LogError)
+		a.log = a.log.Add("Error connecting: "+err.Error(), LogError)
 		return a, nil
 	}
 
@@ -260,14 +260,14 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 
 	files, err := c.List("/")
 	if err != nil {
-		a.log = a.log.Add("Error listando directorio remoto: "+err.Error(), LogError)
+		a.log = a.log.Add("Error listing remote directory: "+err.Error(), LogError)
 		return a, nil
 	}
 
 	a.remote = a.remote.WithFiles(files, "/")
 	_, panelH, _ := a.heights()
 	a.remote = a.remote.SetSize(a.width/2, panelH)
-	a.log = a.log.Add("Conectado a "+msg.Host, LogSuccess)
+	a.log = a.log.Add("Connecting to "+msg.Host, LogSuccess)
 
 	return a, nil
 }
@@ -295,7 +295,7 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 
 func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
 	if !a.connected {
-		a.log = a.log.Add("No hay conexión activa", LogError)
+		a.log = a.log.Add("No active connection", LogError)
 		return a, nil
 	}
 
@@ -335,7 +335,7 @@ func (a App) handleTransferDone(_ TransferDoneMsg) (App, tea.Cmd) {
 		cmds = append(cmds, func() tea.Msg {
 			files, err := c.List(remotePath)
 			if err != nil {
-				return LogMsg{Message: "Error recargando panel remoto: " + err.Error(), Level: LogError}
+				return LogMsg{Message: "Error refreshing remote panel: " + err.Error(), Level: LogError}
 			}
 			return RemoteDirLoadedMsg{Path: remotePath, Files: files}
 		})
@@ -349,7 +349,7 @@ func loadLocalDir(path string) tea.Cmd {
 		files, err := listLocalDir(path)
 		if err != nil {
 			return LogMsg{
-				Message: "Error listando directorio local: " + err.Error(),
+				Message: "Error listing local directory: " + err.Error(),
 				Level:   LogError,
 			}
 		}

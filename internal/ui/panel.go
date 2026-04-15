@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// fileItem implementa list.Item
+// fileItem implements list.Item
 type fileItem struct {
 	file model.FileInfo
 }
@@ -26,7 +26,7 @@ func (f fileItem) Title() string {
 func (f fileItem) Description() string { return "" }
 func (f fileItem) FilterValue() string { return f.file.Name }
 
-// fileDelegate renderiza cada item de la lista
+// fileDelegate renders each item at the list
 type fileDelegate struct {
 	marked map[int]bool
 }
@@ -94,7 +94,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	fmt.Fprint(w, prefix+nameRendered)
 }
 
-// Panel contiene un list.Model de bubbles
+// Panel contains a bubbles list.Model
 type Panel struct {
 	title  string
 	path   string
@@ -144,7 +144,7 @@ func (p Panel) WithFiles(files []model.FileInfo, path string) Panel {
 	p.marked = make(map[int]bool)
 	p.list.SetItems(items)
 	p.list.Select(0)
-	// actualizar delegate con el nuevo marked vacío
+	// update delegate with the new empty marked
 	p.list.SetDelegate(fileDelegate{marked: p.marked})
 	return p
 }
@@ -188,7 +188,7 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			if !p.marked[idx] {
 				delete(p.marked, idx)
 			}
-			// actualizar delegate para refrescar el render
+			// update delegato to refresh render
 			p.list.SetDelegate(fileDelegate{marked: p.marked})
 			return p, nil
 

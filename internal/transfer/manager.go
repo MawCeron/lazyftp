@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Direction int
@@ -92,7 +92,7 @@ func (m *Manager) run(job Job) {
 		})
 	} else {
 		p.Send(shared.LogMsg{
-			Message: fmt.Sprintf("Transferencia completa: %s", filename),
+			Message: fmt.Sprintf("Complete transfer: %s", filename),
 			Level:   shared.LogSuccess,
 		})
 		p.Send(shared.TransferDoneMsg{Filename: filename})

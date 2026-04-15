@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jlaffaye/ftp"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
+	"github.com/jlaffaye/ftp"
 )
 
 type FTPClient struct {
@@ -28,11 +28,11 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 
 	conn, err := ftp.Dial(addr, ftp.DialWithTimeout(10*time.Second))
 	if err != nil {
-		return fmt.Errorf("no se pudo conectar a %s: %w", addr, err)
+		return fmt.Errorf("unable to connect to %s: %w", addr, err)
 	}
 
 	if err := conn.Login(user, pass); err != nil {
-		return fmt.Errorf("error de autenticación: %w", err)
+		return fmt.Errorf("authentication error: %w", err)
 	}
 
 	c.conn = conn
@@ -49,12 +49,12 @@ func (c *FTPClient) Disconnect() error {
 
 func (c *FTPClient) List(path string) ([]model.FileInfo, error) {
 	if c.conn == nil {
-		return nil, fmt.Errorf("no hay conexión activa")
+		return nil, fmt.Errorf("no active connection")
 	}
 
 	entries, err := c.conn.List(path)
 	if err != nil {
-		return nil, fmt.Errorf("error listando %s: %w", path, err)
+		return nil, fmt.Errorf("error listing %s: %w", path, err)
 	}
 
 	var files []model.FileInfo
@@ -85,18 +85,18 @@ func (c *FTPClient) List(path string) ([]model.FileInfo, error) {
 
 func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) error {
 	if c.conn == nil {
-		return fmt.Errorf("no hay conexión activa")
+		return fmt.Errorf("no active connection")
 	}
 
 	f, err := os.Open(localPath)
 	if err != nil {
-		return fmt.Errorf("error abriendo archivo local: %w", err)
+		return fmt.Errorf("error opening local file: %w", err)
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		return fmt.Errorf("error leyendo archivo local: %w", err)
+		return fmt.Errorf("error reading local file: %w", err)
 	}
 
 	reader := &shared.ProgressReader{
@@ -107,7 +107,7 @@ func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) e
 
 	remotePath = filepath.Join(remotePath, filepath.Base(localPath))
 	if err := c.conn.Stor(remotePath, reader); err != nil {
-		return fmt.Errorf("error subiendo archivo: %w", err)
+		return fmt.Errorf("error uploading file: %w", err)
 	}
 
 	return nil
@@ -115,12 +115,12 @@ func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) e
 
 func (c *FTPClient) Download(remotePath, localPath string, progress func(int64)) error {
 	if c.conn == nil {
-		return fmt.Errorf("no hay conexión activa")
+		return fmt.Errorf("no active connection")
 	}
 
 	resp, err := c.conn.Retr(remotePath)
 	if err != nil {
-		return fmt.Errorf("error descargando archivo: %w", err)
+		return fmt.Errorf("error donwloading file: %w", err)
 	}
 	defer resp.Close()
 
@@ -132,7 +132,7 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 	destPath := filepath.Join(localPath, filepath.Base(remotePath))
 	f, err := os.Create(destPath)
 	if err != nil {
-		return fmt.Errorf("error creando archivo local: %w", err)
+		return fmt.Errorf("error creating local file: %w", err)
 	}
 	defer f.Close()
 
@@ -143,7 +143,7 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 	}
 
 	if _, err := io.Copy(writer, resp); err != nil {
-		return fmt.Errorf("error escribiendo archivo: %w", err)
+		return fmt.Errorf("error writing file: %w", err)
 	}
 
 	return nil
@@ -155,10 +155,10 @@ func (c *FTPClient) CurrentPath() string {
 
 func (c *FTPClient) ChangePath(path string) error {
 	if c.conn == nil {
-		return fmt.Errorf("no hay conexión activa")
+		return fmt.Errorf("no active connection")
 	}
 	if err := c.conn.ChangeDir(path); err != nil {
-		return fmt.Errorf("error cambiando directorio: %w", err)
+		return fmt.Errorf("error changing directories: %w", err)
 	}
 	c.path = path
 	return nil

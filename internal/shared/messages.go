@@ -1,6 +1,6 @@
 package shared
 
-// TransferDirection indica la dirección de una transferencia
+// TransferDirection indicates the direction of a transfer
 type TransferDirection int
 
 const (
@@ -8,7 +8,7 @@ const (
 	DirectionDownload
 )
 
-// TransferStatus indica el estado de una transferencia
+// TransferStatus indicates the status of a transfer
 type TransferStatus int
 
 const (
@@ -17,7 +17,7 @@ const (
 	StatusError
 )
 
-// Transfer representa una transferencia activa
+// Transfer represents an active transfer
 type Transfer struct {
 	Filename  string
 	Total     int64
@@ -60,7 +60,7 @@ type LogMsg struct {
 	Level   LogLevel
 }
 
-// TransferDoneMsg se emite cuando una transferencia termina exitosamente
+// TransferDoneMsg emits when a transfer ends successfully
 type TransferDoneMsg struct {
 	Filename string
 }

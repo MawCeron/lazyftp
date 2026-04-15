@@ -2,7 +2,7 @@ package shared
 
 import "io"
 
-// ProgressReader envuelve un io.Reader reportando bytes leídos
+// ProgressReader wraps an io.Reader reporting bytes read
 type ProgressReader struct {
 	Reader   io.Reader
 	Total    int64
@@ -19,7 +19,7 @@ func (r *ProgressReader) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// ProgressWriter envuelve un io.Writer reportando bytes escritos
+// ProgressWriter wraps an io.Reader reporting bytes written
 type ProgressWriter struct {
 	Writer   io.Writer
 	Total    int64
