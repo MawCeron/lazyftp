@@ -8,6 +8,7 @@ type Client interface {
 	List(path string) ([]model.FileInfo, error)
 	Upload(localPath, remotePath string, progress func(int64)) error
 	Download(remotePath, localPath string, progress func(int64)) error
+	Mkdir(path string) error
 	CurrentPath() string
 	ChangePath(path string) error
 }
