@@ -149,6 +149,13 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 	return nil
 }
 
+func (c *FTPClient) Mkdir(path string) error {
+	if c.conn == nil {
+		return fmt.Errorf("no active connection")
+	}
+	return c.conn.MakeDir(path)
+}
+
 func (c *FTPClient) CurrentPath() string {
 	return c.path
 }
