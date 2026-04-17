@@ -170,6 +170,13 @@ func (c *SFTPClient) Download(remotePath, localPath string, progress func(int64)
 	return nil
 }
 
+func (c *SFTPClient) Mkdir(path string) error {
+	if c.client == nil {
+		return fmt.Errorf("no active connection")
+	}
+	return c.client.MkdirAll(path)
+}
+
 func (c *SFTPClient) CurrentPath() string {
 	return c.path
 }
