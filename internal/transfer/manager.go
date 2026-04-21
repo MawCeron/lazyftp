@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/MawCeron/lazyftp/internal/client"
@@ -38,7 +39,76 @@ func NewManager(c client.Client, p func() *tea.Program) *Manager {
 
 func (m *Manager) Enqueue(jobs []Job) {
 	for _, job := range jobs {
-		go m.run(job)
+		if job.File.IsDir() && job.Direction == Upload {
+			go m.runDir(job)
+		} else {
+			go m.run(job)
+		}
+	}
+}
+
+// runDir() handles the recursive upload of a directory
+func (m *Manager) runDir(job Job) {
+	p := m.program()
+	if p == nil {
+		return
+	}
+
+	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
+	remoteDirPath := filepath.Join(job.RemotePath, job.File.Name)
+
+	// creating remote directory
+	if err := m.client.Mkdir(remoteDirPath); err != nil {
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Error creating remote directory %s: %v", job.File.Name, err),
+			Level:   shared.LogError,
+		})
+		return
+	}
+
+	p.Send(shared.LogMsg{
+		Message: fmt.Sprintf("Directory created: %s", remoteDirPath),
+		Level:   shared.LogInfo,
+	})
+
+	// reading local directory
+	entries, err := os.ReadDir(localDirPath)
+	if err != nil {
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Error reading directory %s: %v", localDirPath, err),
+			Level:   shared.LogError,
+		})
+		return
+	}
+
+	// enqueue every entry recursively
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		fileType := model.FileTypeFile
+		if entry.IsDir() {
+			fileType = model.FileTypeDir
+		}
+
+		subJob := Job{
+			File: model.FileInfo{
+				Name: entry.Name(),
+				Size: info.Size(),
+				Type: fileType,
+			},
+			LocalPath:  localDirPath,
+			RemotePath: remoteDirPath,
+			Direction:  Upload,
+		}
+
+		if entry.IsDir() {
+			m.runDir(subJob)
+		} else {
+			m.run(subJob)
+		}
 	}
 }
 
