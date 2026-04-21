@@ -128,10 +128,11 @@ func renderTransfer(t Transfer, width int) string {
 		strings.Repeat("░", barWidth-filled) + "]"
 
 	suffix := fmt.Sprintf(" %d%%  %s", int(progress*100), dirSymbol)
-	if t.Status == StatusDone {
+	switch t.Status {
+	case StatusDone:
 		suffix = " ✔"
 		bar = lipgloss.NewStyle().Foreground(lipgloss.Color("40")).Render(bar)
-	} else if t.Status == StatusError {
+	case StatusError:
 		suffix = " ✗"
 		bar = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(bar)
 	}
