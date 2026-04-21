@@ -111,12 +111,18 @@ func renderTransfer(t Transfer, width int) string {
 	}
 
 	barWidth := width - maxName - 12
-	if barWidth < 8 {
-		barWidth = 8
+	if barWidth < 4 {
+		barWidth = 4
 	}
 
 	progress := t.Progress()
 	filled := int(float64(barWidth) * progress)
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > barWidth {
+		filled = barWidth
+	}
 
 	bar := "[" + strings.Repeat("█", filled) +
 		strings.Repeat("░", barWidth-filled) + "]"
