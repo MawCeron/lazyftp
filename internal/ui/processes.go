@@ -74,7 +74,7 @@ func (p ProcessesPanel) View(width, height int) string {
 	borderColor := lipgloss.Color("240")
 	innerWidth := width - 4
 
-	visibleHeight := height - 3
+	visibleHeight := height - 3/2 // Each transfer takes 2 lines, this compensates for that
 	if visibleHeight < 1 {
 		visibleHeight = 1
 	}
@@ -94,7 +94,7 @@ func (p ProcessesPanel) View(width, height int) string {
 			Render("  (no transfers)"))
 	}
 
-	body := strings.Join(rows, "\n\n")
+	body := strings.Join(rows, "\n")
 	return borderWithTitle(body, "Processes", width, height, borderColor)
 }
 
@@ -137,5 +137,5 @@ func renderTransfer(t Transfer, width int) string {
 		bar = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(bar)
 	}
 
-	return fmt.Sprintf("  %-*s %s%s", maxName, name, bar, suffix)
+	return fmt.Sprintf("  %-*s %s%s\n", maxName, name, bar, suffix)
 }

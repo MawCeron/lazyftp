@@ -10,7 +10,7 @@ func borderWithTitle(content, title string, width, height int, borderColor lipgl
 	lines := strings.Split(content, "\n")
 	maxLines := height - 4
 	if maxLines > 0 && len(lines) > maxLines {
-		lines = lines[:maxLines]
+		lines = lines[len(lines)-maxLines:] // takes the last maxLines lines
 		content = strings.Join(lines, "\n")
 	}
 
