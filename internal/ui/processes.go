@@ -74,7 +74,7 @@ func (p ProcessesPanel) View(width, height int) string {
 	borderColor := lipgloss.Color("240")
 	innerWidth := width - 4
 
-	visibleHeight := height - 3/2 // Each transfer takes 2 lines, this compensates for that
+	visibleHeight := (height - 3) / 2 // Each transfer takes 2 lines, this compensates for that
 	if visibleHeight < 1 {
 		visibleHeight = 1
 	}
