@@ -39,7 +39,11 @@ would explain what is actually happening on the wire.
 - [ ] [#19](https://github.com/MawCeron/lazyftp/issues/19) Fix the visible-rows calculation in the Processes panel.
 - [ ] [#20](https://github.com/MawCeron/lazyftp/issues/20) **CI**: build, vet and test on push and pull request.
 - [ ] [#21](https://github.com/MawCeron/lazyftp/issues/21) Fix the malformed `v.0.1.1` tag and publish releases with prebuilt binaries.
-- [ ] [#22](https://github.com/MawCeron/lazyftp/issues/22) Remove roughly 215 lines of dead code.
+- [ ] [#22](https://github.com/MawCeron/lazyftp/issues/22) Remove roughly 145 lines of dead code.
+- [ ] [#54](https://github.com/MawCeron/lazyftp/issues/54) **The progress wrapper disables upload resume.** goftp resumes interrupted
+      transfers on its own, but only when the source is seekable — which the wrapper is not, so
+      a large upload that drops starts again from zero.
+- [ ] [#55](https://github.com/MawCeron/lazyftp/issues/55) Open the local panel in the working directory instead of the home directory.
 
 The `client.Client` interface makes a fake straightforward, so the first tests land here.
 
@@ -67,6 +71,8 @@ and six of those go to chrome.
 - [ ] [#32](https://github.com/MawCeron/lazyftp/issues/32) Make the Log panel focusable and scrollable.
 - [ ] [#33](https://github.com/MawCeron/lazyftp/issues/33) Jump to a typed path.
 - [ ] [#34](https://github.com/MawCeron/lazyftp/issues/34) Copy the current path to the clipboard, surviving SSH and tmux.
+- [ ] [#52](https://github.com/MawCeron/lazyftp/issues/52) Mark entries present on only one side, by name — comparing sizes or timestamps is
+      not reliable over plain FTP.
 
 ## v0.3.0 — File operations
 
@@ -94,13 +100,14 @@ Requires extending the client interface with rename and remove operations.
 - [ ] [#53](https://github.com/MawCeron/lazyftp/issues/53) **Read connections from `~/.ssh/config`** — servers the user already maintains for
       `ssh` and `scp`, available with nothing to configure. Suggested by a user in #4.
 - [ ] [#39](https://github.com/MawCeron/lazyftp/issues/39) Connect from the command line.
-- [ ] [#40](https://github.com/MawCeron/lazyftp/issues/40) Local directory bookmarks.
-- [ ] [#41](https://github.com/MawCeron/lazyftp/issues/41) Automatic reconnection with backoff and a degraded view rather than a blank one.
+- [ ] [#41](https://github.com/MawCeron/lazyftp/issues/41) Recover a dropped SFTP session. FTP already survives idle timeouts through goftp's
+      connection pool; SFTP holds a single session with no equivalent.
 - [ ] [#42](https://github.com/MawCeron/lazyftp/issues/42) Loadable community themes, on top of the tokens from #25.
 
 ## v0.5.0 — Transfer queue and permissions
 
-- [ ] [#6](https://github.com/MawCeron/lazyftp/issues/6) Persistent transfer queue
+- [ ] [#6](https://github.com/MawCeron/lazyftp/issues/6) Remember pending transfers across restarts, offering them back as new transfers.
+      Not a resumable queue: resuming is goftp's job once #54 stops preventing it.
 - [ ] [#10](https://github.com/MawCeron/lazyftp/issues/10) File permissions management
 - [ ] [#43](https://github.com/MawCeron/lazyftp/issues/43) **Transfer IDs.** Progress is matched by filename, so identically named files in
       different directories overwrite each other. Prerequisite for the queue.
@@ -115,15 +122,17 @@ Requires extending the client interface with rename and remove operations.
 - [ ] [#48](https://github.com/MawCeron/lazyftp/issues/48) **Edit a remote file in place** with `$EDITOR`, uploading again on save.
 - [ ] [#49](https://github.com/MawCeron/lazyftp/issues/49) Preview file contents, with binary detection.
 
-## v0.7.0 — Advanced
+## Someday
 
-- [ ] [#50](https://github.com/MawCeron/lazyftp/issues/50) **Multiple simultaneous connections.** The most invasive change on this roadmap —
-      the app holds a single client and transfer manager today. Deliberately last, since it
-      wants the queue and the configuration layer settled first.
-- [ ] [#51](https://github.com/MawCeron/lazyftp/issues/51) One-way directory mirror, with a preview of the changes before running them.
-- [ ] [#52](https://github.com/MawCeron/lazyftp/issues/52) Compare both panels, highlighting what differs.
+Ideas worth keeping but outside what lazyftp is for, or needing groundwork the project does
+not have. Nothing here blocks a release.
+
+- [ ] [#51](https://github.com/MawCeron/lazyftp/issues/51) One-way directory mirror. Deciding what "differs" needs guarantees plain FTP does
+      not give — no checksums, and timestamps unreliable enough that goftp ships a setting to
+      compensate. A mirror that gets it wrong silently skips a changed file. rsync and lftp
+      already solve this from the same terminal.
 
 ## Toward v1.0
 
-After v0.7.0 the goal is to stabilize the configuration format and the key bindings so they
+After v0.6.0 the goal is to stabilize the configuration format and the key bindings so they
 can be committed to, and tag v1.0.0.

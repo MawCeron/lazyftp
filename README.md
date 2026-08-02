@@ -129,7 +129,6 @@ If you are in the **local panel**, the file will be uploaded to the current remo
 | v0.4.0 | Connections and authentication — favorites, history, SSH keys |
 | v0.5.0 | Transfer queue and permissions |
 | v0.6.0 | Productivity — edit remote files, previews |
-| v0.7.0 | Advanced — multiple connections, sync, compare |
 
 See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 [milestones](https://github.com/MawCeron/lazyftp/milestones) for progress.
