@@ -32,8 +32,9 @@ would explain what is actually happening on the wire.
 - [ ] [#15](https://github.com/MawCeron/lazyftp/issues/15) **Asynchronous `Connect` and `List`.** They run synchronously inside the update
       loop today, so a connection timeout freezes the interface with no feedback.
 - [ ] [#16](https://github.com/MawCeron/lazyftp/issues/16) **Fix the Windows navigation crash.** Going up from a Windows local path panics.
-- [ ] [#17](https://github.com/MawCeron/lazyftp/issues/17) **Restore the terminal on panic.** Any crash currently leaves the terminal in raw
-      mode and on the alternate screen.
+- [ ] [#17](https://github.com/MawCeron/lazyftp/issues/17) **Recover from panics in transfer goroutines.** They run outside Bubble Tea's own
+      panic handling, so a failure there takes the process down with the terminal still in
+      raw mode.
 - [ ] [#18](https://github.com/MawCeron/lazyftp/issues/18) Guard against negative widths on very narrow terminals.
 - [ ] [#19](https://github.com/MawCeron/lazyftp/issues/19) Fix the visible-rows calculation in the Processes panel.
 - [ ] [#20](https://github.com/MawCeron/lazyftp/issues/20) **CI**: build, vet and test on push and pull request.
