@@ -26,7 +26,8 @@ would explain what is actually happening on the wire.
       hypothesis is EPSV: goftp's own `DisableEPSV` documentation describes the exact
       symptom — *"EPSV connections neither complete nor downgrade to PASV successfully by
       themselves, resulting in hung connections."*
-- [ ] [#13](https://github.com/MawCeron/lazyftp/issues/13) Expose the `goftp.Config` knobs currently left at defaults.
+- [ ] [#13](https://github.com/MawCeron/lazyftp/issues/13) **Negotiate the data connection automatically** — try EPSV, fall back to PASV.
+      Reaching a server is lazyftp's job, not something to be enabled with a flag.
 - [ ] [#14](https://github.com/MawCeron/lazyftp/issues/14) **Explicit protocol selector** (FTP / FTPS / SFTP) instead of inferring it from
       the port. Today SFTP on a non-standard port is impossible.
 - [ ] [#15](https://github.com/MawCeron/lazyftp/issues/15) **Asynchronous `Connect` and `List`.** They run synchronously inside the update
