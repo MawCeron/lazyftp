@@ -44,6 +44,8 @@ would explain what is actually happening on the wire.
       transfers on its own, but only when the source is seekable — which the wrapper is not, so
       a large upload that drops starts again from zero.
 - [ ] [#55](https://github.com/MawCeron/lazyftp/issues/55) Open the local panel in the working directory instead of the home directory.
+- [ ] [#56](https://github.com/MawCeron/lazyftp/issues/56) **Write the log to a file.** The protocol log is trapped inside a full-screen TUI,
+      so it cannot be pasted into an issue — which is what #11 asks for.
 
 The `client.Client` interface makes a fake straightforward, so the first tests land here.
 
@@ -70,7 +72,6 @@ and six of those go to chrome.
 - [ ] [#30](https://github.com/MawCeron/lazyftp/issues/30) **Sort by name, size or date** with a column indicator.
 - [ ] [#32](https://github.com/MawCeron/lazyftp/issues/32) Make the Log panel focusable and scrollable.
 - [ ] [#33](https://github.com/MawCeron/lazyftp/issues/33) Jump to a typed path.
-- [ ] [#34](https://github.com/MawCeron/lazyftp/issues/34) Copy the current path to the clipboard, surviving SSH and tmux.
 - [ ] [#52](https://github.com/MawCeron/lazyftp/issues/52) Mark entries present on only one side, by name — comparing sizes or timestamps is
       not reliable over plain FTP.
 
@@ -108,7 +109,8 @@ Requires extending the client interface with rename and remove operations.
 
 - [ ] [#6](https://github.com/MawCeron/lazyftp/issues/6) Remember pending transfers across restarts, offering them back as new transfers.
       Not a resumable queue: resuming is goftp's job once #54 stops preventing it.
-- [ ] [#10](https://github.com/MawCeron/lazyftp/issues/10) File permissions management
+- [ ] [#10](https://github.com/MawCeron/lazyftp/issues/10) Change permissions on remote files, through the inline input from v0.3.0. SFTP
+      only: goftp has no chmod, and `SITE CHMOD` is outside the FTP standard.
 - [ ] [#43](https://github.com/MawCeron/lazyftp/issues/43) **Transfer IDs.** Progress is matched by filename, so identically named files in
       different directories overwrite each other. Prerequisite for the queue.
 - [ ] [#44](https://github.com/MawCeron/lazyftp/issues/44) **Cancellable transfers and a concurrency limit.** Transfers spawn unbounded
@@ -116,11 +118,6 @@ Requires extending the client interface with rename and remove operations.
 - [ ] [#45](https://github.com/MawCeron/lazyftp/issues/45) **Overwrite protection** — existing files are clobbered silently today.
 - [ ] [#46](https://github.com/MawCeron/lazyftp/issues/46) Transfer speed and estimated time.
 - [ ] [#47](https://github.com/MawCeron/lazyftp/issues/47) Confirm before quitting with transfers in flight.
-
-## v0.6.0 — Productivity
-
-- [ ] [#48](https://github.com/MawCeron/lazyftp/issues/48) **Edit a remote file in place** with `$EDITOR`, uploading again on save.
-- [ ] [#49](https://github.com/MawCeron/lazyftp/issues/49) Preview file contents, with binary detection.
 
 ## Someday
 
@@ -132,7 +129,10 @@ not have. Nothing here blocks a release.
       compensate. A mirror that gets it wrong silently skips a changed file. rsync and lftp
       already solve this from the same terminal.
 
+Editing and previewing remote files were considered and dropped: lazyftp moves files, and the
+editor and pager the user already has are better at reading and changing them.
+
 ## Toward v1.0
 
-After v0.6.0 the goal is to stabilize the configuration format and the key bindings so they
+After v0.5.0 the goal is to stabilize the configuration format and the key bindings so they
 can be committed to, and tag v1.0.0.
