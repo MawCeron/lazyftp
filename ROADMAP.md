@@ -91,6 +91,8 @@ Requires extending the client interface with rename and remove operations.
 - [ ] [#37](https://github.com/MawCeron/lazyftp/issues/37) **SSH key and ssh-agent authentication.** Password auth is the only option today,
       so key-only servers cannot be reached at all.
 - [ ] [#38](https://github.com/MawCeron/lazyftp/issues/38) **Host key verification**, removing the current accept-anything placeholder.
+- [ ] [#53](https://github.com/MawCeron/lazyftp/issues/53) **Read connections from `~/.ssh/config`** — servers the user already maintains for
+      `ssh` and `scp`, available with nothing to configure. Suggested by a user in #4.
 - [ ] [#39](https://github.com/MawCeron/lazyftp/issues/39) Connect from the command line.
 - [ ] [#40](https://github.com/MawCeron/lazyftp/issues/40) Local directory bookmarks.
 - [ ] [#41](https://github.com/MawCeron/lazyftp/issues/41) Automatic reconnection with backoff and a degraded view rather than a blank one.
