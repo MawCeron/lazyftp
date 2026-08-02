@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -12,13 +13,16 @@ import (
 )
 
 type FTPClient struct {
-	conn *goftp.Client
-	host string
-	path string
+	conn   *goftp.Client
+	host   string
+	path   string
+	logger io.Writer
 }
 
-func NewFTPClient() *FTPClient {
-	return &FTPClient{path: "/"}
+// NewFTPClient returns a client that records its control dialogue to logger.
+// A nil logger disables logging.
+func NewFTPClient(logger io.Writer) *FTPClient {
+	return &FTPClient{path: "/", logger: logger}
 }
 
 func (c *FTPClient) Connect(host, user, pass string, port int) error {
@@ -28,6 +32,7 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 		User:     user,
 		Password: pass,
 		Timeout:  10 * time.Second,
+		Logger:   c.logger,
 	}
 
 	conn, err := goftp.DialConfig(config, c.host)

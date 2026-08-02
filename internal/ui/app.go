@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -37,9 +38,11 @@ type App struct {
 	log       LogPanel
 
 	connected bool
+	verbose   bool
+	protoLog  *shared.LineBuffer
 }
 
-func NewApp(p func() *tea.Program) App {
+func NewApp(p func() *tea.Program, verbose bool) App {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "/"
@@ -53,9 +56,22 @@ func NewApp(p func() *tea.Program) App {
 		processes: NewProcessesPanel(),
 		log:       NewLogPanel(),
 		program:   p,
+		verbose:   verbose,
 	}
 	app.local.path = home
 	return app
+}
+
+// drainProtoLog moves buffered protocol lines into the log panel. It is called
+// once the update loop is free, never from inside a blocking call.
+func (a App) drainProtoLog() App {
+	if a.protoLog == nil {
+		return a
+	}
+	for _, line := range a.protoLog.Drain() {
+		a.log = a.log.Add(line, LogInfo)
+	}
+	return a
 }
 
 func (a App) Init() tea.Cmd {
@@ -85,6 +101,8 @@ func (a App) heights() (connH, panelH, bottomH int) {
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+
+	a = a.drainProtoLog()
 
 	switch msg := msg.(type) {
 
@@ -245,13 +263,21 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	if port == 22 {
 		c = client.NewSFTPClient()
 	} else {
-		c = client.NewFTPClient()
+		// A typed nil would satisfy the io.Writer interface and be written to.
+		var logger io.Writer
+		if a.verbose {
+			a.protoLog = &shared.LineBuffer{}
+			logger = a.protoLog
+		}
+		c = client.NewFTPClient(logger)
 	}
 
 	if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
+		a = a.drainProtoLog()
 		a.log = a.log.Add("Error connecting: "+err.Error(), LogError)
 		return a, nil
 	}
+	a = a.drainProtoLog()
 
 	a.client = c
 	a.manager = transfer.NewManager(c, a.program)
@@ -259,6 +285,7 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	a.focus = focusLocal
 
 	files, err := c.List("/")
+	a = a.drainProtoLog()
 	if err != nil {
 		a.log = a.log.Add("Error listing remote directory: "+err.Error(), LogError)
 		return a, nil
@@ -282,6 +309,7 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 	}
 
 	files, err := a.client.List(msg.Path)
+	a = a.drainProtoLog()
 	if err != nil {
 		a.log = a.log.Add("Error: "+err.Error(), LogError)
 		return a, nil
