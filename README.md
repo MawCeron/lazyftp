@@ -4,7 +4,7 @@
 
 A simple, keyboard-driven TUI FTP/SFTP client inspired by [lazygit](https://github.com/jesseduffield/lazygit).
 
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
 [![License](https://img.shields.io/github/license/MawCeron/lazyftp?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/stargazers)
 
@@ -121,14 +121,18 @@ If you are in the **local panel**, the file will be uploaded to the current remo
 
 ## Roadmap
 
-- [ ] SSH key authentication for SFTP
-- [ ] Rename files
-- [ ] Delete files
-- [ ] Create directories
-- [ ] Toggle hidden files
-- [ ] File permissions management
-- [ ] Saved connections
-- [ ] Multiple simultaneous connections
+| Release | Focus |
+|---------|-------|
+| v0.1.2 | FTP connectivity and stability |
+| v0.2.0 | TUI overhaul — responsive layout, theming, help screen |
+| v0.3.0 | File operations — rename, delete, create directories |
+| v0.4.0 | Connections and authentication — favorites, history, SSH keys |
+| v0.5.0 | Transfer queue and permissions |
+| v0.6.0 | Productivity — edit remote files, previews |
+| v0.7.0 | Advanced — multiple connections, sync, compare |
+
+See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
+[milestones](https://github.com/MawCeron/lazyftp/milestones) for progress.
 
 ---
 
