@@ -32,6 +32,7 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 		},
 		// TODO: verificar host key en versiones futuras
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         dialTimeout,
 	}
 
 	addr := fmt.Sprintf("%s:%d", host, port)

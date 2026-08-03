@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -31,7 +30,7 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 	config := goftp.Config{
 		User:     user,
 		Password: pass,
-		Timeout:  10 * time.Second,
+		Timeout:  dialTimeout,
 		Logger:   c.logger,
 	}
 
