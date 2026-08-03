@@ -31,8 +31,8 @@ type fileDelegate struct {
 	marked map[int]bool
 }
 
-func (d fileDelegate) Height() int                             { return 1 }
-func (d fileDelegate) Spacing() int                            { return 0 }
+func (d fileDelegate) Height() int      { return 1 }
+func (d fileDelegate) Spacing() int     { return 0 }
 func (d fileDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
@@ -265,17 +265,4 @@ type NavigateMsg struct {
 type TransferMsg struct {
 	SourcePanel string
 	Files       []model.FileInfo
-}
-
-func formatSize(size int64) string {
-	switch {
-	case size < 1024:
-		return fmt.Sprintf("%dB", size)
-	case size < 1024*1024:
-		return fmt.Sprintf("%.1fK", float64(size)/1024)
-	case size < 1024*1024*1024:
-		return fmt.Sprintf("%.1fM", float64(size)/(1024*1024))
-	default:
-		return fmt.Sprintf("%.1fG", float64(size)/(1024*1024*1024))
-	}
 }

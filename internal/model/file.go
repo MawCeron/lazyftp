@@ -1,7 +1,6 @@
 package model
 
 import (
-	"io/fs"
 	"time"
 )
 
@@ -14,12 +13,10 @@ const (
 )
 
 type FileInfo struct {
-	Name     string
-	Size     int64
-	ModTime  time.Time
-	Type     FileType
-	Mode     fs.FileMode
-	IsHidden bool
+	Name    string
+	Size    int64
+	ModTime time.Time
+	Type    FileType
 }
 
 func (f FileInfo) IsDir() bool {

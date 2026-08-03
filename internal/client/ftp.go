@@ -14,14 +14,13 @@ import (
 type FTPClient struct {
 	conn   *goftp.Client
 	host   string
-	path   string
 	logger io.Writer
 }
 
 // NewFTPClient returns a client that records its control dialogue to logger.
 // A nil logger disables logging.
 func NewFTPClient(logger io.Writer) *FTPClient {
-	return &FTPClient{path: "/", logger: logger}
+	return &FTPClient{logger: logger}
 }
 
 func (c *FTPClient) Connect(host, user, pass string, port int) error {
@@ -40,7 +39,6 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 	}
 
 	c.conn = conn
-	c.path = "/"
 	return nil
 }
 
@@ -75,11 +73,10 @@ func (c *FTPClient) List(path string) ([]model.FileInfo, error) {
 		}
 
 		files = append(files, model.FileInfo{
-			Name:     e.Name(),
-			Size:     e.Size(),
-			ModTime:  e.ModTime(),
-			Type:     fileType,
-			IsHidden: len(e.Name()) > 0 && e.Name()[0] == '.',
+			Name:    e.Name(),
+			Size:    e.Size(),
+			ModTime: e.ModTime(),
+			Type:    fileType,
 		})
 	}
 
@@ -159,24 +156,4 @@ func (c *FTPClient) Mkdir(path string) error {
 	}
 	_, err := c.conn.Mkdir(path)
 	return err
-}
-
-func (c *FTPClient) CurrentPath() string {
-	return c.path
-}
-
-func (c *FTPClient) ChangePath(path string) error {
-	if c.conn == nil {
-		return fmt.Errorf("no active connection")
-	}
-	// Verificar que existe y es directorio
-	info, err := c.conn.Stat(path)
-	if err != nil {
-		return fmt.Errorf("dir not found: %w", err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", path)
-	}
-	c.path = path
-	return nil
 }

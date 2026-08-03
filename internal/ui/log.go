@@ -22,7 +22,7 @@ const (
 type LogEntry struct {
 	Time    time.Time
 	Message string
-	Level   LogLevel
+	Level   shared.LogLevel
 }
 
 type LogPanel struct {
@@ -34,7 +34,7 @@ func NewLogPanel() LogPanel {
 	return LogPanel{maxSize: 100}
 }
 
-func (l LogPanel) Add(msg string, level LogLevel) LogPanel {
+func (l LogPanel) Add(msg string, level shared.LogLevel) LogPanel {
 	l.entries = append(l.entries, LogEntry{
 		Time:    time.Now(),
 		Message: msg,
@@ -48,7 +48,7 @@ func (l LogPanel) Add(msg string, level LogLevel) LogPanel {
 
 func (l LogPanel) Update(msg tea.Msg) (LogPanel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case LogMsg:
+	case shared.LogMsg:
 		return l.Add(msg.Message, msg.Level), nil
 	}
 	return l, nil
