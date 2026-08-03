@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"io"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -98,9 +100,34 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 type Panel struct {
 	title  string
 	path   string
+	local  bool
 	list   list.Model
 	marked map[int]bool
 	files  []model.FileInfo
+}
+
+// Local paths follow the host's rules; remote paths are POSIX whatever the
+// host is, so the two cannot share one set of path operations.
+
+func (p Panel) cleanPath(s string) string {
+	if p.local {
+		return filepath.Clean(s)
+	}
+	return path.Clean(s)
+}
+
+func (p Panel) childPath(name string) string {
+	if p.local {
+		return filepath.Join(p.path, name)
+	}
+	return path.Join(p.path, name)
+}
+
+func (p Panel) parentPath() string {
+	if p.local {
+		return filepath.Dir(p.path)
+	}
+	return path.Dir(p.path)
 }
 
 func NewPanel(title string) Panel {
