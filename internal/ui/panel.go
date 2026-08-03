@@ -130,7 +130,7 @@ func (p Panel) parentPath() string {
 	return path.Dir(p.path)
 }
 
-func NewPanel(title string) Panel {
+func NewPanel(title string, local bool) Panel {
 	delegate := fileDelegate{marked: make(map[int]bool)}
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.SetShowTitle(false)
@@ -143,16 +143,15 @@ func NewPanel(title string) Panel {
 	return Panel{
 		title:  title,
 		path:   "/",
+		local:  local,
 		list:   l,
 		marked: make(map[int]bool),
 		files:  []model.FileInfo{},
 	}
 }
 
-func (p Panel) WithFiles(files []model.FileInfo, path string) Panel {
-	for strings.Contains(path, "//") {
-		path = strings.ReplaceAll(path, "//", "/")
-	}
+func (p Panel) WithFiles(files []model.FileInfo, dir string) Panel {
+	dir = p.cleanPath(dir)
 
 	sort.Slice(files, func(i, j int) bool {
 		if files[i].IsDir() != files[j].IsDir() {
@@ -167,7 +166,7 @@ func (p Panel) WithFiles(files []model.FileInfo, path string) Panel {
 	}
 
 	p.files = files
-	p.path = path
+	p.path = dir
 	p.marked = make(map[int]bool)
 	p.list.SetItems(items)
 	p.list.Select(0)
@@ -189,22 +188,14 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 		case "enter", " ":
 			item, ok := p.list.SelectedItem().(fileItem)
 			if ok && item.file.IsDir() {
-				name := item.file.Name
-				var newPath string
-				if p.path == "/" {
-					newPath = "/" + name
-				} else {
-					newPath = strings.TrimRight(p.path, "/") + "/" + name
-				}
-				panel := p.title
+				panel, child := p.title, p.childPath(item.file.Name)
 				return p, func() tea.Msg {
-					return NavigateMsg{Panel: panel, Path: newPath}
+					return NavigateMsg{Panel: panel, Path: child}
 				}
 			}
 
 		case "-", "backspace":
-			panel := p.title
-			parent := parentPath(p.path)
+			panel, parent := p.title, p.parentPath()
 			return p, func() tea.Msg {
 				return NavigateMsg{Panel: panel, Path: parent}
 			}
@@ -271,17 +262,6 @@ func (p Panel) selectedFiles() []model.FileInfo {
 		}
 	}
 	return selected
-}
-
-func parentPath(path string) string {
-	if path == "/" {
-		return "/"
-	}
-	idx := strings.LastIndex(path, "/")
-	if idx == 0 {
-		return "/"
-	}
-	return path[:idx]
 }
 
 type NavigateMsg struct {

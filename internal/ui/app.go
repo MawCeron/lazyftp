@@ -51,8 +51,8 @@ func NewApp(p func() *tea.Program, verbose bool) App {
 	app := App{
 		focus:     focusConnectionBar,
 		connBar:   NewConnectionBar(),
-		local:     NewPanel("LOCAL"),
-		remote:    NewPanel("REMOTE"),
+		local:     NewPanel("LOCAL", true),
+		remote:    NewPanel("REMOTE", false),
 		processes: NewProcessesPanel(),
 		log:       NewLogPanel(),
 		program:   p,
