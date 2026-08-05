@@ -78,14 +78,14 @@ func startDir() string {
 	return "/"
 }
 
-func NewApp(p func() *tea.Program, verbose bool) App {
+func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer) App {
 	app := App{
 		focus:     focusConnectionBar,
 		connBar:   NewConnectionBar(),
 		local:     NewPanel("LOCAL", true),
 		remote:    NewPanel("REMOTE", false),
 		processes: NewProcessesPanel(),
-		log:       NewLogPanel(),
+		log:       NewLogPanel(logFile),
 		spinner:   spinner.New(spinner.WithSpinner(spinner.Dot)),
 		program:   p,
 		verbose:   verbose,

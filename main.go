@@ -14,7 +14,7 @@ func main() {
 	flag.Parse()
 
 	var p *tea.Program
-	app := ui.NewApp(func() *tea.Program { return p }, *verbose)
+	app := ui.NewApp(func() *tea.Program { return p }, *verbose, nil)
 	p = tea.NewProgram(
 		app,
 		tea.WithAltScreen(),

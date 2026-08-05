@@ -31,7 +31,7 @@ func (s *stubClient) Download(remote, local string, p func(int64)) error {
 var _ client.Client = (*stubClient)(nil)
 
 func connecting() App {
-	a := NewApp(nil, false)
+	a := NewApp(nil, false, nil)
 	a.connecting = true
 	a.connectSeq = 1
 	return a
