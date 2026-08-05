@@ -40,11 +40,45 @@ func NewManager(c client.Client, p func() *tea.Program) *Manager {
 func (m *Manager) Enqueue(jobs []Job) {
 	for _, job := range jobs {
 		if job.File.IsDir() && job.Direction == Upload {
-			go m.runDir(job)
+			go m.guard(job, m.runDir)
 		} else {
-			go m.run(job)
+			go m.guard(job, m.run)
 		}
 	}
+}
+
+// guard stops a panicking transfer from taking the process down with it. These
+// goroutines are started outside Bubble Tea, so its own recovery — the one that
+// restores the terminal on the way out — never sees them, and a panic here ends
+// the program with the terminal still in raw mode.
+//
+// Recursive directory uploads run inside these same frames, so one guard at the
+// point the goroutine starts covers the whole tree.
+func (m *Manager) guard(job Job, run func(Job)) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+
+		p := m.program()
+		if p == nil {
+			return
+		}
+
+		// The row would otherwise sit at "in progress" for the rest of the
+		// session, describing a transfer that is no longer happening.
+		p.Send(shared.TransferErrorMsg{
+			Filename: job.File.Name,
+			Err:      fmt.Errorf("%v", r),
+		})
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Transfer of %s failed: %v", job.File.Name, r),
+			Level:   shared.LogError,
+		})
+	}()
+
+	run(job)
 }
 
 // runDir() handles the recursive upload of a directory
