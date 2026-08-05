@@ -60,6 +60,13 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 	// reports success and then shows an empty panel.
 	if _, err := conn.Getwd(); err != nil {
 		conn.Close()
+		if c.tls {
+			// A server without TLS refuses AUTH TLS with a 530, the same reply
+			// it gives to a bad login, so which of the two happened cannot be
+			// told apart here. Naming both beats reading "please login with
+			// USER and PASS" and going to check a password that was fine.
+			return fmt.Errorf("unable to connect to %s over FTPS; the server may not offer TLS, or the credentials may be wrong: %w", c.host, err)
+		}
 		return fmt.Errorf("unable to connect to %s: %w", c.host, err)
 	}
 
