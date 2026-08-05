@@ -253,25 +253,20 @@ func (a App) hintsView() string {
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	port, err := strconv.Atoi(msg.Port)
 	if err != nil || port <= 0 {
-		port = 22
+		port = msg.Protocol.DefaultPort()
 	}
 
 	if a.client != nil {
 		a.client.Disconnect()
 	}
 
-	var c client.Client
-	if port == 22 {
-		c = client.NewSFTPClient()
-	} else {
-		// A typed nil would satisfy the io.Writer interface and be written to.
-		var logger io.Writer
-		if a.verbose {
-			a.protoLog = &shared.LineBuffer{}
-			logger = a.protoLog
-		}
-		c = client.NewFTPClient(logger)
+	// A typed nil would satisfy the io.Writer interface and be written to.
+	var logger io.Writer
+	if a.verbose {
+		a.protoLog = &shared.LineBuffer{}
+		logger = a.protoLog
 	}
+	c := client.New(msg.Protocol, logger)
 
 	if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
 		a = a.drainProtoLog()
