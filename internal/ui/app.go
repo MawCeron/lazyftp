@@ -304,17 +304,7 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 		return a, nil
 	}
 
-	files, err := a.client.List(msg.Path)
-	a = a.drainProtoLog()
-	if err != nil {
-		a.log = a.log.Add("Error: "+err.Error(), LogError)
-		return a, nil
-	}
-
-	a.remote = a.remote.WithFiles(files, msg.Path)
-	_, panelH, _ := a.heights()
-	a.remote = a.remote.SetSize(a.width/2, panelH)
-	return a, nil
+	return a, loadRemoteDir(a.client, msg.Path)
 }
 
 func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
@@ -354,18 +344,26 @@ func (a App) handleTransferDone(_ TransferDoneMsg) (App, tea.Cmd) {
 	cmds = append(cmds, loadLocalDir(a.local.path))
 
 	if a.connected {
-		remotePath := a.remote.path
-		c := a.client
-		cmds = append(cmds, func() tea.Msg {
-			files, err := c.List(remotePath)
-			if err != nil {
-				return LogMsg{Message: "Error refreshing remote panel: " + err.Error(), Level: LogError}
-			}
-			return RemoteDirLoadedMsg{Path: remotePath, Files: files}
-		})
+		cmds = append(cmds, loadRemoteDir(a.client, a.remote.path))
 	}
 
 	return a, tea.Batch(cmds...)
+}
+
+// loadRemoteDir lists a remote directory off the update loop. Listing is a
+// round trip to the server, and doing it inline holds the interface still for
+// as long as the server takes to answer.
+func loadRemoteDir(c client.Client, path string) tea.Cmd {
+	return func() tea.Msg {
+		files, err := c.List(path)
+		if err != nil {
+			return LogMsg{
+				Message: "Error listing remote directory: " + err.Error(),
+				Level:   LogError,
+			}
+		}
+		return RemoteDirLoadedMsg{Path: path, Files: files}
+	}
 }
 
 func loadLocalDir(path string) tea.Cmd {
