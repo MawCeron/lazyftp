@@ -3,8 +3,11 @@ package client
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -35,11 +38,27 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 		Timeout:         dialTimeout,
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	sshConn, err := ssh.Dial("tcp", addr, config)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+
+	// ssh.Dial bounds the TCP dial and nothing else, so a host that accepts the
+	// connection but never announces itself as SSH — an FTP server sharing port
+	// 22, for one — leaves the handshake waiting with no deadline to end it.
+	tcpConn, err := net.DialTimeout("tcp", addr, dialTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to connect to %s: %w", addr, err)
 	}
+	tcpConn.SetDeadline(time.Now().Add(dialTimeout))
+
+	conn, chans, reqs, err := ssh.NewClientConn(tcpConn, addr, config)
+	if err != nil {
+		tcpConn.Close()
+		return fmt.Errorf("unable to connect to %s: %w", addr, err)
+	}
+
+	// The deadline covered the handshake only. Left in place it would expire
+	// mid-transfer.
+	tcpConn.SetDeadline(time.Time{})
+	sshConn := ssh.NewClient(conn, chans, reqs)
 
 	client, err := sftp.NewClient(sshConn)
 	if err != nil {
