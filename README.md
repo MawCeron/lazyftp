@@ -2,7 +2,7 @@
 
 # lazyftp
 
-A simple, keyboard-driven TUI FTP/SFTP client inspired by [lazygit](https://github.com/jesseduffield/lazygit).
+A simple, keyboard-driven TUI FTP, FTPS and SFTP client inspired by [lazygit](https://github.com/jesseduffield/lazygit).
 
 [![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
 [![License](https://img.shields.io/github/license/MawCeron/lazyftp?style=for-the-badge)](LICENSE)
@@ -18,7 +18,7 @@ A simple, keyboard-driven TUI FTP/SFTP client inspired by [lazygit](https://gith
 
 lazyftp brings a familiar TUI experience to file transfers. If you live in the terminal and find yourself constantly switching to a GUI client just to move files around — this is for you.
 
-Dual-pane local/remote navigation, real-time transfer progress, FTP and SFTP support, all from the keyboard.
+Dual-pane local/remote navigation, real-time transfer progress, FTP, FTPS and SFTP support, all from the keyboard.
 
 ### Built with
 
@@ -29,7 +29,7 @@ Dual-pane local/remote navigation, real-time transfer progress, FTP and SFTP sup
 
 ## Features
 
-- FTP and SFTP support
+- FTP, FTPS and SFTP support, chosen explicitly rather than guessed from the port
 - Dual-pane layout — local and remote side by side
 - Real-time transfer progress with direction indicators
 - Multiple file selection and batch transfers
@@ -63,18 +63,31 @@ go install github.com/MawCeron/lazyftp@latest
 lazyftp
 ```
 
+The local panel opens in the directory you ran it from, so `cd` to the project first and there is
+nothing to navigate.
+
+| Flag | What it does |
+|------|--------------|
+| `--verbose` | Show the FTP control dialogue in the Log panel |
+| `--log-file <path>` | Write the log to a file as well, appending to it |
+
 ### Connecting
 
 Fill in the connection bar at the top:
 
 | Field | Description |
 |-------|-------------|
+| Proto | `FTP`, `FTPS` or `SFTP` — cycle with `←` / `→` |
 | Host | Server hostname or IP |
 | User | Username |
 | Pass | Password |
-| Port | `22` for SFTP, any other port for FTP |
+| Port | Leave empty for the protocol's default: `21` for FTP and FTPS, `22` for SFTP |
 
-Press `Enter` to connect. The protocol is automatically selected based on the port.
+Press `Enter` to connect, `Esc` to give up on an attempt that is taking too long.
+
+FTPS is explicit — TLS is negotiated with `AUTH TLS` once the control connection is open — and the
+server's certificate is verified. A server with a self-signed certificate is refused rather than
+silently accepted.
 
 ### Transferring files
 
@@ -94,7 +107,7 @@ If you are in the **local panel**, the file will be uploaded to the current remo
 |-----|--------|
 | `Ctrl+L` | Focus connection bar |
 | `Tab` | Switch between local and remote panels |
-| `Esc` | Exit connection bar |
+| `Esc` | Exit connection bar, or abandon a connection attempt |
 | `q` / `Q` | Quit |
 
 ### Connection bar
@@ -103,8 +116,9 @@ If you are in the **local panel**, the file will be uploaded to the current remo
 |-----|--------|
 | `Tab` | Next field |
 | `Shift+Tab` | Previous field |
+| `←` / `→` | Change protocol (on the Proto field) |
 | `Enter` | Connect |
-| `Esc` | Close |
+| `Esc` | Close, or abandon an attempt in progress |
 
 ### Panels
 
@@ -134,9 +148,29 @@ See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 
 ---
 
+## Troubleshooting
+
+**A connection fails and you want to know why.** Run with both flags and the whole exchange ends
+up in a file you can read, search or attach to an issue:
+
+```bash
+lazyftp --verbose --log-file lazyftp.log
+```
+
+Passwords are masked in that output, the same as in the Log panel.
+
+**FTPS is refused.** Servers without TLS answer `AUTH TLS` with the same `530` they use for a bad
+login, so the two cannot be told apart from the reply. If the credentials are right, the server
+most likely does not offer TLS — connect over `FTP` instead.
+
+---
+
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first.
+Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: it covers the branch to
+target, the commit format and what falls outside the scope of the project.
+
+For anything larger than a fix, open an issue before writing code.
 
 ---
 
