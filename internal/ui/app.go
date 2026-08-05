@@ -2,6 +2,7 @@ package ui
 
 import (
 	"io"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -37,9 +38,20 @@ type App struct {
 	processes ProcessesPanel
 	log       LogPanel
 
-	connected bool
-	verbose   bool
-	protoLog  *shared.LineBuffer
+	connected  bool
+	connecting bool
+	verbose    bool
+	protoLog   *shared.LineBuffer
+}
+
+// The outcome of a connection attempt, which now runs off the update loop.
+type connectedMsg struct {
+	client client.Client
+	addr   string
+}
+
+type connectFailedMsg struct {
+	err error
 }
 
 func NewApp(p func() *tea.Program, verbose bool) App {
@@ -148,6 +160,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ConnectMsg:
 		return a.handleConnect(msg)
+
+	case connectedMsg:
+		return a.handleConnected(msg)
+
+	case connectFailedMsg:
+		return a.handleConnectFailed(msg)
 
 	case NavigateMsg:
 		return a.handleNavigate(msg)
@@ -267,31 +285,33 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 		logger = a.protoLog
 	}
 	c := client.New(msg.Protocol, logger)
+	addr := net.JoinHostPort(msg.Host, strconv.Itoa(port))
 
-	if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
-		a = a.drainProtoLog()
-		a.log = a.log.Add("Error connecting: "+err.Error(), LogError)
-		return a, nil
+	a.connecting = true
+	a.log = a.log.Add("Connecting to "+addr+" over "+msg.Protocol.String(), LogInfo)
+
+	return a, func() tea.Msg {
+		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
+			return connectFailedMsg{err: err}
+		}
+		return connectedMsg{client: c, addr: addr}
 	}
-	a = a.drainProtoLog()
+}
 
-	a.client = c
-	a.manager = transfer.NewManager(c, a.program)
+func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
+	a.connecting = false
+	a.client = msg.client
+	a.manager = transfer.NewManager(msg.client, a.program)
 	a.connected = true
 	a.focus = focusLocal
+	a.log = a.log.Add("Connected to "+msg.addr, LogSuccess)
 
-	files, err := c.List("/")
-	a = a.drainProtoLog()
-	if err != nil {
-		a.log = a.log.Add("Error listing remote directory: "+err.Error(), LogError)
-		return a, nil
-	}
+	return a, loadRemoteDir(msg.client, "/")
+}
 
-	a.remote = a.remote.WithFiles(files, "/")
-	_, panelH, _ := a.heights()
-	a.remote = a.remote.SetSize(a.width/2, panelH)
-	a.log = a.log.Add("Connecting to "+msg.Host, LogSuccess)
-
+func (a App) handleConnectFailed(msg connectFailedMsg) (App, tea.Cmd) {
+	a.connecting = false
+	a.log = a.log.Add("Error connecting: "+msg.err.Error(), LogError)
 	return a, nil
 }
 
