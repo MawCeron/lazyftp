@@ -29,7 +29,7 @@ Dual-pane local/remote navigation, real-time transfer progress, FTP, FTPS and SF
 
 ## Features
 
-- FTP, FTPS and SFTP support, chosen explicitly rather than guessed from the port
+- FTP, FTPS and SFTP support
 - Dual-pane layout — local and remote side by side
 - Real-time transfer progress with direction indicators
 - Multiple file selection and batch transfers
@@ -63,8 +63,7 @@ go install github.com/MawCeron/lazyftp@latest
 lazyftp
 ```
 
-The local panel opens in the directory you ran it from, so `cd` to the project first and there is
-nothing to navigate.
+The local panel opens in the directory you ran it from.
 
 | Flag | What it does |
 |------|--------------|
@@ -85,9 +84,7 @@ Fill in the connection bar at the top:
 
 Press `Enter` to connect, `Esc` to give up on an attempt that is taking too long.
 
-FTPS is explicit — TLS is negotiated with `AUTH TLS` once the control connection is open — and the
-server's certificate is verified. A server with a self-signed certificate is refused rather than
-silently accepted.
+FTPS certificates are verified, so a server with a self-signed certificate is refused.
 
 ### Transferring files
 
@@ -150,25 +147,21 @@ See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 
 ## Troubleshooting
 
-**A connection fails and you want to know why.** Run with both flags and the whole exchange ends
-up in a file you can read, search or attach to an issue:
+**A connection fails and you want to know why.** Both flags together put the whole exchange in a
+file you can attach to an issue. Passwords are masked.
 
 ```bash
 lazyftp --verbose --log-file lazyftp.log
 ```
 
-Passwords are masked in that output, the same as in the Log panel.
-
-**FTPS is refused.** Servers without TLS answer `AUTH TLS` with the same `530` they use for a bad
-login, so the two cannot be told apart from the reply. If the credentials are right, the server
-most likely does not offer TLS — connect over `FTP` instead.
+**FTPS is refused and the credentials are right.** The server most likely does not offer TLS.
+Connect over `FTP` instead.
 
 ---
 
 ## Contributing
 
-Pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: it covers the branch to
-target, the commit format and what falls outside the scope of the project.
+Pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 For anything larger than a fix, open an issue before writing code.
 
