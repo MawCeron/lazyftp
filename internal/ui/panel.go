@@ -150,7 +150,15 @@ func (p Panel) WithFiles(files []model.FileInfo, path string) Panel {
 }
 
 func (p Panel) SetSize(width, height int) Panel {
-	p.list.SetSize(width-4, height-6)
+	listWidth := width - 4
+	if listWidth < 1 {
+		listWidth = 1
+	}
+	listHeight := height - 6
+	if listHeight < 1 {
+		listHeight = 1
+	}
+	p.list.SetSize(listWidth, listHeight)
 	return p
 }
 
@@ -217,6 +225,9 @@ func (p Panel) View(width, height int, active bool) string {
 
 	pathStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	innerWidth := width - 4
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
 
 	path := p.path
 	if len([]rune(path)) > innerWidth {
