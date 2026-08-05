@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 
+	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,7 +13,8 @@ import (
 type connField int
 
 const (
-	fieldHost connField = iota
+	fieldProtocol connField = iota
+	fieldHost
 	fieldUser
 	fieldPass
 	fieldPort
@@ -19,6 +22,9 @@ const (
 )
 
 type ConnectionBar struct {
+	protocol client.Protocol
+	// Indexed by connField so an index means the same thing everywhere. The
+	// protocol slot stays empty: it is a choice, not something you type into.
 	inputs  [fieldCount]textinput.Model
 	focused connField
 }
@@ -38,16 +44,25 @@ func NewConnectionBar() ConnectionBar {
 	pass.Width = 15
 
 	port := textinput.New()
-	port.Placeholder = "22"
 	port.Width = 5
 
 	bar := ConnectionBar{
-		inputs:  [fieldCount]textinput.Model{host, user, pass, port},
-		focused: fieldHost,
+		inputs: [fieldCount]textinput.Model{
+			fieldHost: host,
+			fieldUser: user,
+			fieldPass: pass,
+			fieldPort: port,
+		},
+		focused: fieldProtocol,
 	}
-	bar.inputs[fieldHost].Focus()
+	return bar.showDefaultPort()
+}
 
-	return bar
+// showDefaultPort keeps the port's placeholder on the protocol's default, so
+// that leaving the field empty connects where the user would expect.
+func (c ConnectionBar) showDefaultPort() ConnectionBar {
+	c.inputs[fieldPort].Placeholder = strconv.Itoa(c.protocol.DefaultPort())
+	return c
 }
 
 func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
@@ -73,13 +88,28 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 		case "enter":
 			return c, func() tea.Msg {
 				return ConnectMsg{
-					Host: c.inputs[fieldHost].Value(),
-					User: c.inputs[fieldUser].Value(),
-					Pass: c.inputs[fieldPass].Value(),
-					Port: c.inputs[fieldPort].Value(),
+					Protocol: c.protocol,
+					Host:     c.inputs[fieldHost].Value(),
+					User:     c.inputs[fieldUser].Value(),
+					Pass:     c.inputs[fieldPass].Value(),
+					Port:     c.inputs[fieldPort].Value(),
 				}
 			}
 		}
+
+		if c.focused == fieldProtocol {
+			switch msg.String() {
+			case "left":
+				c.protocol = c.protocol.Prev()
+			case "right", " ":
+				c.protocol = c.protocol.Next()
+			}
+			return c.showDefaultPort(), nil
+		}
+	}
+
+	if c.focused == fieldProtocol {
+		return c, nil
 	}
 
 	var cmd tea.Cmd
@@ -93,7 +123,16 @@ func (c ConnectionBar) View(width int, active bool) string {
 		borderColor = lipgloss.Color("39")
 	}
 
+	protocol := c.protocol.String()
+	if c.focused == fieldProtocol {
+		protocol = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("39")).
+			Bold(true).
+			Render(protocol)
+	}
+
 	fields := []string{
+		"Proto: " + protocol,
 		"Host: " + c.inputs[fieldHost].View(),
 		"User: " + c.inputs[fieldUser].View(),
 		"Pass: " + c.inputs[fieldPass].View(),
@@ -105,8 +144,9 @@ func (c ConnectionBar) View(width int, active bool) string {
 }
 
 type ConnectMsg struct {
-	Host string
-	User string
-	Pass string
-	Port string
+	Protocol client.Protocol
+	Host     string
+	User     string
+	Pass     string
+	Port     string
 }

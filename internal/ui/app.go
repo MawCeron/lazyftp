@@ -225,6 +225,7 @@ func (a App) hintsView() string {
 		hints = []string{
 			hint("Tab", "next field"),
 			hint("Shift+Tab", "prev field"),
+			hint("←/→", "protocol"),
 			hint("Enter", "connect"),
 			hint("Esc", "close"),
 		}
