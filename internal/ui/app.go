@@ -43,6 +43,7 @@ type App struct {
 
 	connected    bool
 	connecting   bool
+	connectSeq   int
 	connectStart time.Time
 	spinner      spinner.Model
 	verbose      bool
@@ -50,12 +51,16 @@ type App struct {
 }
 
 // The outcome of a connection attempt, which now runs off the update loop.
+// Each attempt carries the number it was started as, so that the result of an
+// abandoned one can be recognised and dropped when it eventually arrives.
 type connectedMsg struct {
+	seq    int
 	client client.Client
 	addr   string
 }
 
 type connectFailedMsg struct {
+	seq int
 	err error
 }
 
@@ -158,6 +163,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 		case "esc":
+			if a.connecting {
+				// Neither goftp nor ssh takes a context, so the attempt cannot
+				// be cancelled — only let go of. It ends on its own timeout and
+				// its result is discarded when it arrives.
+				a.connectSeq++
+				a.connecting = false
+				a.log = a.log.Add("Connection attempt abandoned", LogInfo)
+				return a, nil
+			}
 			if a.focus == focusConnectionBar {
 				a.focus = focusLocal
 			}
@@ -258,7 +272,8 @@ func (a App) hintsView() string {
 		return lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")).
 			Width(a.width).
-			Render(fmt.Sprintf("%s connecting… %s", a.spinner.View(), elapsed))
+			Render(fmt.Sprintf("%s connecting… %s   %s", a.spinner.View(), elapsed,
+				hint("Esc", "abandon")))
 	}
 
 	var hints []string
@@ -313,13 +328,15 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 
 	a.connecting = true
 	a.connectStart = time.Now()
+	a.connectSeq++
+	seq := a.connectSeq
 	a.log = a.log.Add("Connecting to "+addr+" over "+msg.Protocol.String(), LogInfo)
 
 	attempt := func() tea.Msg {
 		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
-			return connectFailedMsg{err: err}
+			return connectFailedMsg{seq: seq, err: err}
 		}
-		return connectedMsg{client: c, addr: addr}
+		return connectedMsg{seq: seq, client: c, addr: addr}
 	}
 
 	// The spinner is what keeps the update loop turning while the attempt runs,
@@ -328,6 +345,13 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 }
 
 func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
+	if msg.seq != a.connectSeq {
+		// Abandoned, but the attempt ran to completion regardless. Close what it
+		// opened rather than leaving a session nobody holds.
+		msg.client.Disconnect()
+		return a, nil
+	}
+
 	a.connecting = false
 	a.client = msg.client
 	a.manager = transfer.NewManager(msg.client, a.program)
@@ -339,6 +363,10 @@ func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
 }
 
 func (a App) handleConnectFailed(msg connectFailedMsg) (App, tea.Cmd) {
+	if msg.seq != a.connectSeq {
+		return a, nil
+	}
+
 	a.connecting = false
 	a.log = a.log.Add("Error connecting: "+msg.err.Error(), LogError)
 	return a, nil
