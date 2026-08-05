@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"os"
@@ -16,12 +17,20 @@ type FTPClient struct {
 	host   string
 	path   string
 	logger io.Writer
+	tls    bool
 }
 
 // NewFTPClient returns a client that records its control dialogue to logger.
 // A nil logger disables logging.
 func NewFTPClient(logger io.Writer) *FTPClient {
 	return &FTPClient{path: "/", logger: logger}
+}
+
+// NewFTPSClient is NewFTPClient over TLS, negotiated with AUTH TLS once the
+// control connection is open. Implicit FTPS, which expects TLS from the first
+// byte, is not offered.
+func NewFTPSClient(logger io.Writer) *FTPClient {
+	return &FTPClient{path: "/", logger: logger, tls: true}
 }
 
 func (c *FTPClient) Connect(host, user, pass string, port int) error {
@@ -32,6 +41,12 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 		Password: pass,
 		Timeout:  dialTimeout,
 		Logger:   c.logger,
+	}
+
+	if c.tls {
+		// Certificates are verified. A server with a self-signed certificate
+		// fails here, which is the honest outcome rather than a silent bypass.
+		config.TLSConfig = &tls.Config{ServerName: host}
 	}
 
 	conn, err := goftp.DialConfig(config, c.host)
