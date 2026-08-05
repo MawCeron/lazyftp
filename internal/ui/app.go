@@ -64,12 +64,21 @@ type connectFailedMsg struct {
 	err error
 }
 
-func NewApp(p func() *tea.Program, verbose bool) App {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "/"
+// startDir is where the local panel opens. A terminal tool is expected to act
+// on the directory it was launched from, which for the common case — cd to the
+// project, run lazyftp, upload — removes the navigation entirely. The home
+// directory is the fallback for when there is no working directory to be had.
+func startDir() string {
+	if wd, err := os.Getwd(); err == nil {
+		return wd
 	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return home
+	}
+	return "/"
+}
 
+func NewApp(p func() *tea.Program, verbose bool) App {
 	app := App{
 		focus:     focusConnectionBar,
 		connBar:   NewConnectionBar(),
@@ -81,7 +90,7 @@ func NewApp(p func() *tea.Program, verbose bool) App {
 		program:   p,
 		verbose:   verbose,
 	}
-	app.local.path = home
+	app.local.path = startDir()
 	return app
 }
 
@@ -98,11 +107,7 @@ func (a App) drainProtoLog() App {
 }
 
 func (a App) Init() tea.Cmd {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "/"
-	}
-	return loadLocalDir(home)
+	return loadLocalDir(a.local.path)
 }
 
 // heights returns calculated heights of each section
