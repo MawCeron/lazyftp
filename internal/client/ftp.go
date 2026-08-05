@@ -54,6 +54,15 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to connect to %s: %w", c.host, err)
 	}
 
+	// DialConfig only builds a connection pool; nothing has reached the server
+	// yet. One round trip is what turns an unreachable host, a refused login or
+	// a server without TLS into an error here, instead of a connection that
+	// reports success and then shows an empty panel.
+	if _, err := conn.Getwd(); err != nil {
+		conn.Close()
+		return fmt.Errorf("unable to connect to %s: %w", c.host, err)
+	}
+
 	c.conn = conn
 	c.path = "/"
 	return nil
