@@ -1,16 +1,19 @@
 package ui
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
 	"github.com/MawCeron/lazyftp/internal/transfer"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -38,10 +41,12 @@ type App struct {
 	processes ProcessesPanel
 	log       LogPanel
 
-	connected  bool
-	connecting bool
-	verbose    bool
-	protoLog   *shared.LineBuffer
+	connected    bool
+	connecting   bool
+	connectStart time.Time
+	spinner      spinner.Model
+	verbose      bool
+	protoLog     *shared.LineBuffer
 }
 
 // The outcome of a connection attempt, which now runs off the update loop.
@@ -67,6 +72,7 @@ func NewApp(p func() *tea.Program, verbose bool) App {
 		remote:    NewPanel("REMOTE", false),
 		processes: NewProcessesPanel(),
 		log:       NewLogPanel(),
+		spinner:   spinner.New(spinner.WithSpinner(spinner.Dot)),
 		program:   p,
 		verbose:   verbose,
 	}
@@ -161,6 +167,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ConnectMsg:
 		return a.handleConnect(msg)
 
+	case spinner.TickMsg:
+		// Ticking stops by not asking for the next one.
+		if !a.connecting {
+			return a, nil
+		}
+		a.spinner, cmd = a.spinner.Update(msg)
+		return a, cmd
+
 	case connectedMsg:
 		return a.handleConnected(msg)
 
@@ -237,6 +251,16 @@ func (a App) hintsView() string {
 		return keyStyle.Render(key) + ": " + descStyle.Render(desc)
 	}
 
+	// While an attempt is running the footer says so instead. Movement is the
+	// point: a still screen cannot be told apart from a hung one.
+	if a.connecting {
+		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Width(a.width).
+			Render(fmt.Sprintf("%s connecting… %s", a.spinner.View(), elapsed))
+	}
+
 	var hints []string
 	switch a.focus {
 	case focusConnectionBar:
@@ -288,14 +312,19 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	addr := net.JoinHostPort(msg.Host, strconv.Itoa(port))
 
 	a.connecting = true
+	a.connectStart = time.Now()
 	a.log = a.log.Add("Connecting to "+addr+" over "+msg.Protocol.String(), LogInfo)
 
-	return a, func() tea.Msg {
+	attempt := func() tea.Msg {
 		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
 			return connectFailedMsg{err: err}
 		}
 		return connectedMsg{client: c, addr: addr}
 	}
+
+	// The spinner is what keeps the update loop turning while the attempt runs,
+	// so the elapsed time advances and buffered protocol lines reach the log.
+	return a, tea.Batch(attempt, a.spinner.Tick)
 }
 
 func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
