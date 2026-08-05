@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/MawCeron/lazyftp/internal/ui"
@@ -19,6 +20,14 @@ func main() {
 	// A typed nil would satisfy the io.Writer interface and be written to.
 	var logWriter io.Writer
 	if *logFile != "" {
+		// --log-file takes a value, so the flag written after it is taken as the
+		// filename: --log-file --verbose writes to a file called "--verbose" and
+		// quietly drops the verbose logging that was asked for.
+		if strings.HasPrefix(*logFile, "-") {
+			fmt.Fprintf(os.Stderr, "error: --log-file needs a filename, got %q\n", *logFile)
+			os.Exit(1)
+		}
+
 		f, err := os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 		if err != nil {
 			// Reported now rather than discovered as an empty file afterwards.
