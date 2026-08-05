@@ -65,25 +65,41 @@ func (c ConnectionBar) showDefaultPort() ConnectionBar {
 	return c
 }
 
+// focus and blur skip the protocol field. There is no text input behind it, and
+// the empty slot standing in for one has an uninitialised cursor that panics on
+// being focused.
+
+func (c ConnectionBar) focus() ConnectionBar {
+	if c.focused != fieldProtocol {
+		c.inputs[c.focused].Focus()
+	}
+	return c
+}
+
+func (c ConnectionBar) blur() ConnectionBar {
+	if c.focused != fieldProtocol {
+		c.inputs[c.focused].Blur()
+	}
+	return c
+}
+
 func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
-			c.inputs[c.focused].Blur()
+			c = c.blur()
 			c.focused = (c.focused + 1) % fieldCount
-			c.inputs[c.focused].Focus()
-			return c, nil
+			return c.focus(), nil
 
 		case "shift+tab":
-			c.inputs[c.focused].Blur()
+			c = c.blur()
 			if c.focused == 0 {
 				c.focused = fieldCount - 1
 			} else {
 				c.focused--
 			}
-			c.inputs[c.focused].Focus()
-			return c, nil
+			return c.focus(), nil
 
 		case "enter":
 			return c, func() tea.Msg {
