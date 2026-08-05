@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"time"
 
 	"github.com/MawCeron/lazyftp/internal/ui"
 	tea "github.com/charmbracelet/bubbletea"
@@ -11,10 +13,29 @@ import (
 
 func main() {
 	verbose := flag.Bool("verbose", false, "log the FTP control dialogue to the Log panel")
+	logFile := flag.String("log-file", "", "also write the log to this file, appending to it")
 	flag.Parse()
 
+	// A typed nil would satisfy the io.Writer interface and be written to.
+	var logWriter io.Writer
+	if *logFile != "" {
+		f, err := os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err != nil {
+			// Reported now rather than discovered as an empty file afterwards.
+			fmt.Fprintf(os.Stderr, "error: cannot write to %s: %v\n", *logFile, err)
+			os.Exit(1)
+		}
+		defer f.Close()
+
+		// The file is appended to, so runs would otherwise run together, and a
+		// session that logs nothing would be indistinguishable from a flag that
+		// did not work.
+		fmt.Fprintf(f, "\n%s ---- lazyftp started ----\n", time.Now().Format(time.RFC3339))
+		logWriter = f
+	}
+
 	var p *tea.Program
-	app := ui.NewApp(func() *tea.Program { return p }, *verbose, nil)
+	app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter)
 	p = tea.NewProgram(
 		app,
 		tea.WithAltScreen(),
