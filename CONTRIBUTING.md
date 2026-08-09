@@ -13,6 +13,10 @@ are self-contained and don't need any prior knowledge of the codebase.
 [ROADMAP.md](ROADMAP.md) says what each release is for and why the issues are ordered the way
 they are. If what you have in mind isn't there, open an issue before writing code.
 
+[docs/architecture.md](docs/architecture.md) is the map of the codebase: where things live, how a
+keystroke becomes a transfer, and the rules that are easy to break. Its first two sections are
+enough for most changes.
+
 ## Branches
 
 Work lands on `develop`. Branch from it and target it with your pull request. `main` only moves
@@ -26,8 +30,8 @@ go vet ./...
 go test ./...
 ```
 
-All three have to pass. There's no CI yet ([#20](https://github.com/MawCeron/lazyftp/issues/20)),
-so this is the only check there is.
+All three have to pass. CI runs them on Linux and Windows for every pull request, so running them
+first saves a round trip.
 
 Leave a test behind for anything with real logic — a branch, a loop, a parser. One test that
 fails if the logic breaks is enough; no frameworks or fixtures.
