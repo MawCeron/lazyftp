@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/MawCeron/lazyftp/internal/client"
@@ -104,5 +105,28 @@ func TestACurrentAttemptStillConnects(t *testing.T) {
 	}
 	if stub.disconnected {
 		t.Error("a current attempt was disconnected")
+	}
+}
+
+// Rendering reaches lipgloss and the bubbles list through several derived
+// widths and heights, any one of which can go negative before the others do.
+// Sweeping the sizes covers the arithmetic without having to find each one.
+func TestRenderingSurvivesAnyTerminalSize(t *testing.T) {
+	files := []model.FileInfo{
+		{Name: "a-rather-long-file-name-to-truncate.txt"},
+		{Name: "dir", Type: model.FileTypeDir},
+	}
+
+	for w := 0; w <= 24; w++ {
+		for h := 0; h <= 24; h++ {
+			t.Run(fmt.Sprintf("%dx%d", w, h), func(t *testing.T) {
+				a := NewApp(nil, false, nil)
+				a.local = a.local.WithFiles(files, "/a/deep/enough/path/to/be/truncated")
+				a.remote = a.remote.WithFiles(files, "/another/path")
+
+				model, _ := a.Update(tea.WindowSizeMsg{Width: w, Height: h})
+				_ = model.(App).View()
+			})
+		}
 	}
 }
