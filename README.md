@@ -41,6 +41,12 @@ Dual-pane local/remote navigation, real-time transfer progress, FTP, FTPS and SF
 
 ## Installation
 
+### Download a binary
+
+Grab the archive for your platform from the [latest release](https://github.com/MawCeron/lazyftp/releases/latest),
+unpack it and put `lazyftp` somewhere on your `PATH`. Linux, macOS and Windows, on both x86-64
+and arm64. No Go toolchain needed.
+
 ### From source
 
 ```bash
