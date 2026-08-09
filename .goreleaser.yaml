@@ -16,3 +16,20 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+
+changelog:
+  abbrev: -1
+  filters:
+    exclude:
+      - '^docs'
+      - '^test'
+      - '^ci'
+      - '^chore'
+      - '^build'
+      - '^refactor'
+      - '^Merge '
+
+release:
+  footer: |
+    Full notes, including the earlier releases:
+    https://github.com/MawCeron/lazyftp/blob/main/CHANGELOG.md
