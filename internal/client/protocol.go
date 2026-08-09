@@ -2,7 +2,6 @@ package client
 
 import "io"
 
-// Protocol is chosen by the user, not inferred from the port.
 type Protocol int
 
 const (
@@ -20,7 +19,7 @@ func (p Protocol) String() string {
 	return protocolNames[p]
 }
 
-// DefaultPort is used when the user leaves the port blank.
+// DefaultPort applies when the port field is left blank.
 func (p Protocol) DefaultPort() int {
 	if p == SFTP {
 		return 22
@@ -28,7 +27,6 @@ func (p Protocol) DefaultPort() int {
 	return 21
 }
 
-// Next and Prev cycle through the protocols, wrapping at both ends.
 func (p Protocol) Next() Protocol {
 	return Protocol((int(p) + 1) % len(protocolNames))
 }
@@ -37,8 +35,7 @@ func (p Protocol) Prev() Protocol {
 	return Protocol((int(p) + len(protocolNames) - 1) % len(protocolNames))
 }
 
-// New returns a client speaking the given protocol. A non-nil logger records
-// the FTP control dialogue; SFTP has no equivalent and ignores it.
+// SFTP has no control dialogue and ignores logger.
 func New(p Protocol, logger io.Writer) Client {
 	switch p {
 	case SFTP:

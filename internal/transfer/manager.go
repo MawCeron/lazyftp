@@ -47,9 +47,9 @@ func (m *Manager) Enqueue(jobs []Job) {
 	}
 }
 
-// guard stops a panicking transfer from taking the process down. These
-// goroutines run outside Bubble Tea, whose own recovery never sees them.
-// Recursive directory uploads share these frames, so one guard covers the tree.
+// These goroutines run outside Bubble Tea, whose own panic recovery never sees
+// them. Recursive directory uploads share these frames, so one guard covers the
+// whole tree.
 func (m *Manager) guard(job Job, run func(Job)) {
 	defer func() {
 		r := recover()
@@ -76,7 +76,6 @@ func (m *Manager) guard(job Job, run func(Job)) {
 	run(job)
 }
 
-// runDir() handles the recursive upload of a directory
 func (m *Manager) runDir(job Job) {
 	p := m.program()
 	if p == nil {
@@ -86,7 +85,6 @@ func (m *Manager) runDir(job Job) {
 	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
 	remoteDirPath := filepath.Join(job.RemotePath, job.File.Name)
 
-	// creating remote directory
 	if err := m.client.Mkdir(remoteDirPath); err != nil {
 		p.Send(shared.LogMsg{
 			Message: fmt.Sprintf("Error creating remote directory %s: %v", job.File.Name, err),
@@ -100,7 +98,6 @@ func (m *Manager) runDir(job Job) {
 		Level:   shared.LogInfo,
 	})
 
-	// reading local directory
 	entries, err := os.ReadDir(localDirPath)
 	if err != nil {
 		p.Send(shared.LogMsg{
@@ -110,7 +107,6 @@ func (m *Manager) runDir(job Job) {
 		return
 	}
 
-	// enqueue every entry recursively
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err != nil {

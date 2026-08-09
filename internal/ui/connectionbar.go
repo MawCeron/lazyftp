@@ -23,8 +23,7 @@ const (
 
 type ConnectionBar struct {
 	protocol client.Protocol
-	// Indexed by connField; the protocol slot stays empty.
-	inputs  [fieldCount]textinput.Model
+	inputs   [fieldCount]textinput.Model
 	focused connField
 }
 
@@ -57,14 +56,12 @@ func NewConnectionBar() ConnectionBar {
 	return bar.showDefaultPort()
 }
 
-// showDefaultPort keeps the port placeholder on the protocol's default.
 func (c ConnectionBar) showDefaultPort() ConnectionBar {
 	c.inputs[fieldPort].Placeholder = strconv.Itoa(c.protocol.DefaultPort())
 	return c
 }
 
-// focus and blur skip the protocol field: the empty slot standing in for a text
-// input has an uninitialised cursor that panics on being focused.
+// A zero-value textinput panics on Focus, so the protocol slot is never focused.
 
 func (c ConnectionBar) focus() ConnectionBar {
 	if c.focused != fieldProtocol {

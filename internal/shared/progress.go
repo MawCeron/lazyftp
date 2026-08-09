@@ -2,8 +2,7 @@ package shared
 
 import "io"
 
-// ProgressReader wraps an io.ReadSeeker reporting bytes read. It must be a
-// seeker: goftp resumes an upload only when the source is one.
+// Must be a seeker: goftp resumes an upload only when the source is one.
 type ProgressReader struct {
 	Reader   io.ReadSeeker
 	Total    int64
@@ -35,7 +34,6 @@ func (r *ProgressReader) Seek(offset int64, whence int) (int64, error) {
 	return pos, nil
 }
 
-// ProgressWriter wraps an io.Reader reporting bytes written
 type ProgressWriter struct {
 	Writer   io.Writer
 	Total    int64

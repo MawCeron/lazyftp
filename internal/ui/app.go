@@ -50,8 +50,7 @@ type App struct {
 	protoLog     *shared.LineBuffer
 }
 
-// Each attempt carries the number it was started as, so the result of an
-// abandoned one can be dropped when it arrives.
+// seq identifies the attempt, so an abandoned one's result can be dropped.
 type connectedMsg struct {
 	seq    int
 	client client.Client
@@ -63,8 +62,6 @@ type connectFailedMsg struct {
 	err error
 }
 
-// startDir is where the local panel opens: the directory lazyftp was run from,
-// falling back to the home directory.
 func startDir() string {
 	if wd, err := os.Getwd(); err == nil {
 		return wd
@@ -107,7 +104,6 @@ func (a App) Init() tea.Cmd {
 	return loadLocalDir(a.local.path)
 }
 
-// heights returns calculated heights of each section
 func (a App) heights() (connH, panelH, bottomH int) {
 	connH = 5    // ConnectionBar field
 	bottomH = 10 // Processes + Log minimal fixed
@@ -116,7 +112,6 @@ func (a App) heights() (connH, panelH, bottomH int) {
 	if panelH < 8 {
 		panelH = 8
 	}
-	// recalculate boottom with real space
 	bottomH = a.height - connH - panelH - hintsH
 	if bottomH < 8 {
 		bottomH = 8
@@ -218,7 +213,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleTransferDone(msg)
 	}
 
-	// processes and log are always listening
 	a.processes, _ = a.processes.Update(msg)
 	a.log, _ = a.log.Update(msg)
 
@@ -266,7 +260,6 @@ func (a App) hintsView() string {
 		return keyStyle.Render(key) + ": " + descStyle.Render(desc)
 	}
 
-	// While an attempt runs the footer says so instead.
 	if a.connecting {
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
 		return lipgloss.NewStyle().
@@ -304,8 +297,6 @@ func (a App) hintsView() string {
 		Width(a.width).
 		Render(strings.Join(hints, sep))
 }
-
-// handlers
 
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	port, err := strconv.Atoi(msg.Port)
@@ -426,7 +417,6 @@ func (a App) handleTransferDone(_ TransferDoneMsg) (App, tea.Cmd) {
 	return a, tea.Batch(cmds...)
 }
 
-// loadRemoteDir lists a remote directory off the update loop.
 func loadRemoteDir(c client.Client, path string) tea.Cmd {
 	return func() tea.Msg {
 		files, err := c.List(path)

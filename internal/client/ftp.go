@@ -20,14 +20,12 @@ type FTPClient struct {
 	tls    bool
 }
 
-// NewFTPClient returns a client that records its control dialogue to logger.
 // A nil logger disables logging.
 func NewFTPClient(logger io.Writer) *FTPClient {
 	return &FTPClient{path: "/", logger: logger}
 }
 
-// NewFTPSClient is NewFTPClient over explicit TLS. Implicit FTPS is not
-// offered.
+// Explicit TLS only; implicit FTPS is not offered.
 func NewFTPSClient(logger io.Writer) *FTPClient {
 	return &FTPClient{path: "/", logger: logger, tls: true}
 }
@@ -52,8 +50,7 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to connect to %s: %w", c.host, err)
 	}
 
-	// DialConfig only builds a pool; nothing has reached the server yet. One
-	// round trip makes a failure surface here rather than on the first listing.
+	// DialConfig only builds a pool; nothing has reached the server yet.
 	if _, err := conn.Getwd(); err != nil {
 		conn.Close()
 		if c.tls {
@@ -146,7 +143,6 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 		return fmt.Errorf("no active connection")
 	}
 
-	// Obtener tamaño antes de descargar para el progress
 	entries, err := c.conn.ReadDir(filepath.Dir(remotePath))
 	size := int64(0)
 	if err == nil {
@@ -194,7 +190,6 @@ func (c *FTPClient) ChangePath(path string) error {
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
 	}
-	// Verificar que existe y es directorio
 	info, err := c.conn.Stat(path)
 	if err != nil {
 		return fmt.Errorf("dir not found: %w", err)

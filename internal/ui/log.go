@@ -32,8 +32,7 @@ type LogPanel struct {
 	file    io.Writer
 }
 
-// NewLogPanel mirrors everything it shows to file, if one is given. The panel
-// keeps the last hundred entries; the file keeps the session.
+// The panel drops old entries; the file keeps the whole session.
 func NewLogPanel(file io.Writer) LogPanel {
 	return LogPanel{maxSize: 100, file: file}
 }
