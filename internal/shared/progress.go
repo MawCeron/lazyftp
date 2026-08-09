@@ -2,12 +2,8 @@ package shared
 
 import "io"
 
-// ProgressReader wraps an io.ReadSeeker reporting bytes read.
-//
-// It has to be a seeker, not merely a reader: goftp resumes an interrupted
-// upload only when the source can seek back to where the server got to, and it
-// checks for that by type assertion. Wrapping a file that can seek in something
-// that cannot is enough to turn resuming off.
+// ProgressReader wraps an io.ReadSeeker reporting bytes read. It must be a
+// seeker: goftp resumes an upload only when the source is one.
 type ProgressReader struct {
 	Reader   io.ReadSeeker
 	Total    int64
@@ -30,10 +26,7 @@ func (r *ProgressReader) Seek(offset int64, whence int) (int64, error) {
 		return pos, err
 	}
 
-	// Progress follows the file rather than the bytes handed over. A resume
-	// starts again from what the server already holds, which is usually less
-	// than what was read before the transfer broke; counting on from the old
-	// total would report more sent than ever arrived.
+	// Progress follows the file, not the bytes read so far.
 	r.Current = pos
 	if r.Callback != nil {
 		r.Callback(r.Current)

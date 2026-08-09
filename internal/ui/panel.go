@@ -106,8 +106,7 @@ type Panel struct {
 	files  []model.FileInfo
 }
 
-// Local paths follow the host's rules; remote paths are POSIX whatever the
-// host is, so the two cannot share one set of path operations.
+// Local paths follow the host's rules; remote paths are always POSIX.
 
 func (p Panel) cleanPath(s string) string {
 	if p.local {

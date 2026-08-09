@@ -50,9 +50,8 @@ type App struct {
 	protoLog     *shared.LineBuffer
 }
 
-// The outcome of a connection attempt, which now runs off the update loop.
-// Each attempt carries the number it was started as, so that the result of an
-// abandoned one can be recognised and dropped when it eventually arrives.
+// Each attempt carries the number it was started as, so the result of an
+// abandoned one can be dropped when it arrives.
 type connectedMsg struct {
 	seq    int
 	client client.Client
@@ -64,10 +63,8 @@ type connectFailedMsg struct {
 	err error
 }
 
-// startDir is where the local panel opens. A terminal tool is expected to act
-// on the directory it was launched from, which for the common case — cd to the
-// project, run lazyftp, upload — removes the navigation entirely. The home
-// directory is the fallback for when there is no working directory to be had.
+// startDir is where the local panel opens: the directory lazyftp was run from,
+// falling back to the home directory.
 func startDir() string {
 	if wd, err := os.Getwd(); err == nil {
 		return wd
@@ -169,9 +166,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "esc":
 			if a.connecting {
-				// Neither goftp nor ssh takes a context, so the attempt cannot
-				// be cancelled — only let go of. It ends on its own timeout and
-				// its result is discarded when it arrives.
+				// Neither client takes a context, so the attempt is let go of
+				// rather than cancelled: it ends on its own timeout.
 				a.connectSeq++
 				a.connecting = false
 				a.log = a.log.Add("Connection attempt abandoned", LogInfo)
@@ -270,8 +266,7 @@ func (a App) hintsView() string {
 		return keyStyle.Render(key) + ": " + descStyle.Render(desc)
 	}
 
-	// While an attempt is running the footer says so instead. Movement is the
-	// point: a still screen cannot be told apart from a hung one.
+	// While an attempt runs the footer says so instead.
 	if a.connecting {
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
 		return lipgloss.NewStyle().
@@ -344,15 +339,14 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 		return connectedMsg{seq: seq, client: c, addr: addr}
 	}
 
-	// The spinner is what keeps the update loop turning while the attempt runs,
-	// so the elapsed time advances and buffered protocol lines reach the log.
+	// The spinner keeps the update loop turning, which advances the elapsed time
+	// and drains buffered protocol lines into the log.
 	return a, tea.Batch(attempt, a.spinner.Tick)
 }
 
 func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
 	if msg.seq != a.connectSeq {
-		// Abandoned, but the attempt ran to completion regardless. Close what it
-		// opened rather than leaving a session nobody holds.
+		// Abandoned, but it connected anyway. Close what nobody holds.
 		msg.client.Disconnect()
 		return a, nil
 	}
@@ -432,9 +426,7 @@ func (a App) handleTransferDone(_ TransferDoneMsg) (App, tea.Cmd) {
 	return a, tea.Batch(cmds...)
 }
 
-// loadRemoteDir lists a remote directory off the update loop. Listing is a
-// round trip to the server, and doing it inline holds the interface still for
-// as long as the server takes to answer.
+// loadRemoteDir lists a remote directory off the update loop.
 func loadRemoteDir(c client.Client, path string) tea.Cmd {
 	return func() tea.Msg {
 		files, err := c.List(path)

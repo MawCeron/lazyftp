@@ -2,8 +2,7 @@ package client
 
 import "io"
 
-// Protocol is chosen by the user rather than inferred from the port, so that a
-// server on a non-standard port is still reachable.
+// Protocol is chosen by the user, not inferred from the port.
 type Protocol int
 
 const (

@@ -47,13 +47,9 @@ func (m *Manager) Enqueue(jobs []Job) {
 	}
 }
 
-// guard stops a panicking transfer from taking the process down with it. These
-// goroutines are started outside Bubble Tea, so its own recovery — the one that
-// restores the terminal on the way out — never sees them, and a panic here ends
-// the program with the terminal still in raw mode.
-//
-// Recursive directory uploads run inside these same frames, so one guard at the
-// point the goroutine starts covers the whole tree.
+// guard stops a panicking transfer from taking the process down. These
+// goroutines run outside Bubble Tea, whose own recovery never sees them.
+// Recursive directory uploads share these frames, so one guard covers the tree.
 func (m *Manager) guard(job Job, run func(Job)) {
 	defer func() {
 		r := recover()
@@ -66,8 +62,7 @@ func (m *Manager) guard(job Job, run func(Job)) {
 			return
 		}
 
-		// The row would otherwise sit at "in progress" for the rest of the
-		// session, describing a transfer that is no longer happening.
+		// Otherwise the row sits at "in progress" for the rest of the session.
 		p.Send(shared.TransferErrorMsg{
 			Filename: job.File.Name,
 			Err:      fmt.Errorf("%v", r),

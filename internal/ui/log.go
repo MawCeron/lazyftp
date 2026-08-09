@@ -32,8 +32,8 @@ type LogPanel struct {
 	file    io.Writer
 }
 
-// NewLogPanel writes everything it shows to file as well, if one is given. The
-// panel keeps the last hundred entries; the file keeps the session.
+// NewLogPanel mirrors everything it shows to file, if one is given. The panel
+// keeps the last hundred entries; the file keeps the session.
 func NewLogPanel(file io.Writer) LogPanel {
 	return LogPanel{maxSize: 100, file: file}
 }
@@ -57,9 +57,7 @@ func (l LogPanel) Add(msg string, level LogLevel) LogPanel {
 	}
 
 	if l.file != nil {
-		// Written on the way in, unbuffered, so that a hang or a crash still
-		// leaves everything that came before it on disk. The level is spelled
-		// out because a file cannot carry the colour the panel uses.
+		// Unbuffered, so a crash still leaves what came before it on disk.
 		fmt.Fprintf(l.file, "%s %-5s %s\n",
 			entry.Time.Format(time.RFC3339), levelNames[level], msg)
 	}

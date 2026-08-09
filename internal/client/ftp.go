@@ -26,9 +26,8 @@ func NewFTPClient(logger io.Writer) *FTPClient {
 	return &FTPClient{path: "/", logger: logger}
 }
 
-// NewFTPSClient is NewFTPClient over TLS, negotiated with AUTH TLS once the
-// control connection is open. Implicit FTPS, which expects TLS from the first
-// byte, is not offered.
+// NewFTPSClient is NewFTPClient over explicit TLS. Implicit FTPS is not
+// offered.
 func NewFTPSClient(logger io.Writer) *FTPClient {
 	return &FTPClient{path: "/", logger: logger, tls: true}
 }
@@ -44,8 +43,7 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 	}
 
 	if c.tls {
-		// Certificates are verified. A server with a self-signed certificate
-		// fails here, which is the honest outcome rather than a silent bypass.
+		// Certificates are verified; a self-signed one fails here.
 		config.TLSConfig = &tls.Config{ServerName: host}
 	}
 
@@ -54,17 +52,13 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to connect to %s: %w", c.host, err)
 	}
 
-	// DialConfig only builds a connection pool; nothing has reached the server
-	// yet. One round trip is what turns an unreachable host, a refused login or
-	// a server without TLS into an error here, instead of a connection that
-	// reports success and then shows an empty panel.
+	// DialConfig only builds a pool; nothing has reached the server yet. One
+	// round trip makes a failure surface here rather than on the first listing.
 	if _, err := conn.Getwd(); err != nil {
 		conn.Close()
 		if c.tls {
-			// A server without TLS refuses AUTH TLS with a 530, the same reply
-			// it gives to a bad login, so which of the two happened cannot be
-			// told apart here. Naming both beats reading "please login with
-			// USER and PASS" and going to check a password that was fine.
+			// A server without TLS refuses AUTH TLS with the same 530 it gives
+			// a bad login, so the two cannot be told apart here.
 			return fmt.Errorf("unable to connect to %s over FTPS; the server may not offer TLS, or the credentials may be wrong: %w", c.host, err)
 		}
 		return fmt.Errorf("unable to connect to %s: %w", c.host, err)

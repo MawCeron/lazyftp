@@ -40,9 +40,8 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
-	// ssh.Dial bounds the TCP dial and nothing else, so a host that accepts the
-	// connection but never announces itself as SSH — an FTP server sharing port
-	// 22, for one — leaves the handshake waiting with no deadline to end it.
+	// ssh.Dial bounds the TCP dial only. A host that accepts without speaking
+	// SSH leaves the handshake waiting with nothing to end it.
 	tcpConn, err := net.DialTimeout("tcp", addr, dialTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to connect to %s: %w", addr, err)
@@ -55,8 +54,7 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to connect to %s: %w", addr, err)
 	}
 
-	// The deadline covered the handshake only. Left in place it would expire
-	// mid-transfer.
+	// Left in place the deadline would expire mid-transfer.
 	tcpConn.SetDeadline(time.Time{})
 	sshConn := ssh.NewClient(conn, chans, reqs)
 
