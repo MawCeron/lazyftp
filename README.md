@@ -167,7 +167,7 @@ Connect over `FTP` instead.
 
 ## Contributing
 
-Pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Pull requests are welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 For anything larger than a fix, open an issue before writing code.
 

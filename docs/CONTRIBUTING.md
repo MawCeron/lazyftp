@@ -10,12 +10,14 @@ same patch.
 Issues labelled [`good first issue`](https://github.com/MawCeron/lazyftp/labels/good%20first%20issue)
 are self-contained and don't need any prior knowledge of the codebase.
 
-[ROADMAP.md](ROADMAP.md) says what each release is for and why the issues are ordered the way
+[ROADMAP.md](../ROADMAP.md) says what each release is for and why the issues are ordered the way
 they are. If what you have in mind isn't there, open an issue before writing code.
 
-[docs/architecture.md](docs/architecture.md) is the map of the codebase: where things live, how a
+[architecture.md](architecture.md) is the map of the codebase: where things live, how a
 keystroke becomes a transfer, and the rules that are easy to break. Its first two sections are
 enough for most changes.
+
+[style.md](style.md) says what a patch is expected to look like — comments, naming, errors, tests.
 
 ## Branches
 

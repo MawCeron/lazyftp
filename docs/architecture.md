@@ -6,6 +6,9 @@ The first two sections are the map and are worth reading before any change. The 
 how to build and test it. The three in between — the client package, the rules, the traps — matter
 once you touch the network or the update loop, and can wait until you do.
 
+[style.md](style.md) is the companion to this one: it covers what the patch itself should look
+like, where this covers where it goes.
+
 ## The shape of the program
 
 lazyftp moves files between the local machine and a server, from the keyboard. It is a single
