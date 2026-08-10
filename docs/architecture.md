@@ -92,14 +92,16 @@ before any panel can see it, which is why `Ctrl+L` works from anywhere.
 the panel and the path. `App` receives that message and decides what it means — a local
 navigation reads the filesystem, a remote one calls the client, and neither happens if there is no
 connection. The panel does not know which side it is on beyond a `local` flag, and knows nothing
-about clients at all.
+about clients at all. `TransferMsg` is the same shape: marking files and pressing the transfer key
+produces a message naming the source panel and the files, which `App` hands to the transfer
+manager.
 
 Messages that cross a package boundary live in `internal/shared/messages.go`; the transfer manager
 runs in its own package and needs to reach the UI, so its messages live there. Everything else is
 declared where it is produced — `ConnectMsg` in `connectionbar.go`, `NavigateMsg` in `panel.go`.
-Note that the export status of the UI's own messages is not a signal: `connectedMsg` is unexported
-and `NavigateMsg` is exported, and both are used only inside `internal/ui`. New UI-only messages
-should be unexported.
+The export status of the UI's own messages carries no meaning: `connectedMsg` is unexported and
+`NavigateMsg` is exported, yet neither is used outside `internal/ui`. That inconsistency is
+historical. New UI-only messages should be unexported.
 
 ### Two ways to leave the update loop
 
@@ -194,8 +196,9 @@ flowchart TD
     X --> N
 ```
 
-`client.New(protocol, logger)` is the only way to build one, and it returns the interface, so
-nothing outside the package knows which implementation it holds. The protocol comes from the
+`client.New(protocol, logger)` maps a protocol to an implementation and returns the interface, so
+the application holds a `Client` and never a concrete type. The individual constructors are
+exported as well, but going through `New` is what keeps the choice in one place. The protocol comes from the
 user's choice in the connection bar, never from the port: a server is free to sit on a
 non-standard port, and guessing from the port is what made plain FTP unreachable before v0.1.2.
 Adding a fourth protocol means a constant in `Protocol`, an entry in `protocolNames`, a case in
@@ -285,7 +288,8 @@ it — `shared.LineBuffer` is the existing example.
 and in the goroutines it starts for commands, and restores the terminal on the way out. It knows
 nothing about a goroutine started with `go`, and a panic there kills the process with the
 terminal still in raw mode, leaving the user with an unusable shell. `transfer.Manager.guard` is
-the pattern.
+the pattern: it recovers, sends a `TransferErrorMsg` so the row stops reading as in progress, and
+logs which file failed.
 
 **Local and remote paths do not share code.** Remote paths are POSIX regardless of the machine
 lazyftp runs on; local paths follow the host, which on Windows means backslashes and a `C:\` root
@@ -296,7 +300,8 @@ home directory.
 **Every derived width and height can go negative.** The layout divides the terminal and subtracts
 for borders and titles, so a narrow enough window produces negative numbers that reach
 `strings.Repeat`, which panics, and slice expressions, which panic differently. Clamp at the point
-of derivation.
+of derivation — the current code does, and `TestRenderingSurvivesAnyTerminalSize` is what keeps it
+that way.
 
 **The `client` package returns errors and never prints.** What the user is told, and whether it
 reaches the log panel or a file, is the UI's decision.
@@ -351,8 +356,8 @@ go build -o lazyftp . && ./lazyftp
 go build ./... && go vet ./... && go test ./...
 ```
 
-CI runs those three on Linux and Windows for every push and pull request, plus `go test -race` on
-Linux — the race detector needs cgo, which is not available on every runner. Windows is in the
+CI runs those three on Linux and Windows for every pull request and for pushes to `main` and
+`develop`, plus `go test -race` on Linux — the race detector needs cgo, which is not available on every runner. Windows is in the
 matrix deliberately: path handling differs there, and the crash that put it in the matrix was
 reachable on the first keystroke of a fresh install.
 
