@@ -264,7 +264,8 @@ unusable for IPv6 hosts, and `go vet` will tell you so.
 ### Choices that look arbitrary
 
 - **`dialTimeout` is a constant.** Anything a user must configure before they can connect is a
-  bug, not an option. The only flags are `--verbose` and `--log-file`, and both are diagnostic.
+  bug, not an option. Nothing lazyftp accepts on the command line changes how it behaves:
+  `--verbose` and `--log-file` are diagnostic, and `--version` prints and exits.
 - **FTPS certificates are verified.** The absence of `InsecureSkipVerify` is deliberate: a
   self-signed certificate fails loudly rather than being waved through.
 - **A refused FTPS connection names two causes.** Servers without TLS refuse `AUTH TLS` with a

@@ -12,10 +12,19 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// Set by the linker from the tag being built. A build from source keeps "dev".
+var version = "dev"
+
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	verbose := flag.Bool("verbose", false, "log the FTP control dialogue to the Log panel")
 	logFile := flag.String("log-file", "", "also write the log to this file, appending to it")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println("lazyftp", version)
+		return
+	}
 
 	// A typed nil would satisfy the io.Writer interface and be written to.
 	var logWriter io.Writer

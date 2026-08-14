@@ -80,6 +80,7 @@ The local panel opens in the directory you ran it from.
 |------|--------------|
 | `--verbose` | Show the FTP control dialogue in the Log panel |
 | `--log-file <path>` | Write the log to a file as well, appending to it |
+| `--version` | Print the version and exit |
 
 ### Connecting
 
