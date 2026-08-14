@@ -1,7 +1,6 @@
 package model
 
 import (
-	"io/fs"
 	"time"
 )
 
@@ -18,7 +17,6 @@ type FileInfo struct {
 	Size     int64
 	ModTime  time.Time
 	Type     FileType
-	Mode     fs.FileMode
 	IsHidden bool
 }
 

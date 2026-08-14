@@ -31,7 +31,6 @@ func listLocalDir(path string) ([]model.FileInfo, error) {
 			Size:     info.Size(),
 			ModTime:  info.ModTime(),
 			Type:     fileType,
-			Mode:     info.Mode(),
 			IsHidden: len(e.Name()) > 0 && e.Name()[0] == '.',
 		})
 	}

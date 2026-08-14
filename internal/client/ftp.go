@@ -1,10 +1,11 @@
 package client
 
 import (
+	"crypto/tls"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -12,13 +13,20 @@ import (
 )
 
 type FTPClient struct {
-	conn *goftp.Client
-	host string
-	path string
+	conn   *goftp.Client
+	host   string
+	logger io.Writer
+	tls    bool
 }
 
-func NewFTPClient() *FTPClient {
-	return &FTPClient{path: "/"}
+// A nil logger disables logging.
+func NewFTPClient(logger io.Writer) *FTPClient {
+	return &FTPClient{logger: logger}
+}
+
+// Explicit TLS only; implicit FTPS is not offered.
+func NewFTPSClient(logger io.Writer) *FTPClient {
+	return &FTPClient{logger: logger, tls: true}
 }
 
 func (c *FTPClient) Connect(host, user, pass string, port int) error {
@@ -27,7 +35,13 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 	config := goftp.Config{
 		User:     user,
 		Password: pass,
-		Timeout:  10 * time.Second,
+		Timeout:  dialTimeout,
+		Logger:   c.logger,
+	}
+
+	if c.tls {
+		// Certificates are verified; a self-signed one fails here.
+		config.TLSConfig = &tls.Config{ServerName: host}
 	}
 
 	conn, err := goftp.DialConfig(config, c.host)
@@ -35,8 +49,18 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to connect to %s: %w", c.host, err)
 	}
 
+	// DialConfig only builds a pool; nothing has reached the server yet.
+	if _, err := conn.Getwd(); err != nil {
+		conn.Close()
+		if c.tls {
+			// A server without TLS refuses AUTH TLS with the same 530 it gives
+			// a bad login, so the two cannot be told apart here.
+			return fmt.Errorf("unable to connect to %s over FTPS; the server may not offer TLS, or the credentials may be wrong: %w", c.host, err)
+		}
+		return fmt.Errorf("unable to connect to %s: %w", c.host, err)
+	}
+
 	c.conn = conn
-	c.path = "/"
 	return nil
 }
 
@@ -117,7 +141,6 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 		return fmt.Errorf("no active connection")
 	}
 
-	// Obtener tamaño antes de descargar para el progress
 	entries, err := c.conn.ReadDir(filepath.Dir(remotePath))
 	size := int64(0)
 	if err == nil {
@@ -155,24 +178,4 @@ func (c *FTPClient) Mkdir(path string) error {
 	}
 	_, err := c.conn.Mkdir(path)
 	return err
-}
-
-func (c *FTPClient) CurrentPath() string {
-	return c.path
-}
-
-func (c *FTPClient) ChangePath(path string) error {
-	if c.conn == nil {
-		return fmt.Errorf("no active connection")
-	}
-	// Verificar que existe y es directorio
-	info, err := c.conn.Stat(path)
-	if err != nil {
-		return fmt.Errorf("dir not found: %w", err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", path)
-	}
-	c.path = path
-	return nil
 }

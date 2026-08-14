@@ -1,14 +1,19 @@
 package ui
 
 import (
+	"fmt"
+	"io"
+	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
 	"github.com/MawCeron/lazyftp/internal/transfer"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -36,37 +41,69 @@ type App struct {
 	processes ProcessesPanel
 	log       LogPanel
 
-	connected bool
+	connected    bool
+	connecting   bool
+	connectSeq   int
+	connectStart time.Time
+	spinner      spinner.Model
+	verbose      bool
+	protoLog     *shared.LineBuffer
 }
 
-func NewApp(p func() *tea.Program) App {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "/"
-	}
+// seq identifies the attempt, so an abandoned one's result can be dropped.
+type connectedMsg struct {
+	seq    int
+	client client.Client
+	addr   string
+}
 
+type connectFailedMsg struct {
+	seq int
+	err error
+}
+
+func startDir() string {
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		return home
+	}
+	return "/"
+}
+
+func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer) App {
 	app := App{
 		focus:     focusConnectionBar,
 		connBar:   NewConnectionBar(),
-		local:     NewPanel("LOCAL"),
-		remote:    NewPanel("REMOTE"),
+		local:     NewPanel("LOCAL", true),
+		remote:    NewPanel("REMOTE", false),
 		processes: NewProcessesPanel(),
-		log:       NewLogPanel(),
+		log:       NewLogPanel(logFile),
+		spinner:   spinner.New(spinner.WithSpinner(spinner.Dot)),
 		program:   p,
+		verbose:   verbose,
 	}
-	app.local.path = home
+	app.local.path = startDir()
 	return app
 }
 
-func (a App) Init() tea.Cmd {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		home = "/"
+// drainProtoLog moves buffered protocol lines into the log panel. It is called
+// once the update loop is free, never from inside a blocking call.
+func (a App) drainProtoLog() App {
+	if a.protoLog == nil {
+		return a
 	}
-	return loadLocalDir(home)
+	for _, line := range a.protoLog.Drain() {
+		a.log = a.log.Add(line, LogInfo)
+	}
+	return a
 }
 
-// heights returns calculated heights of each section
+func (a App) Init() tea.Cmd {
+	return loadLocalDir(a.local.path)
+}
+
 func (a App) heights() (connH, panelH, bottomH int) {
 	connH = 5    // ConnectionBar field
 	bottomH = 10 // Processes + Log minimal fixed
@@ -75,7 +112,6 @@ func (a App) heights() (connH, panelH, bottomH int) {
 	if panelH < 8 {
 		panelH = 8
 	}
-	// recalculate boottom with real space
 	bottomH = a.height - connH - panelH - hintsH
 	if bottomH < 8 {
 		bottomH = 8
@@ -85,6 +121,8 @@ func (a App) heights() (connH, panelH, bottomH int) {
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
+
+	a = a.drainProtoLog()
 
 	switch msg := msg.(type) {
 
@@ -122,6 +160,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 		case "esc":
+			if a.connecting {
+				// Neither client takes a context, so the attempt is let go of
+				// rather than cancelled: it ends on its own timeout.
+				a.connectSeq++
+				a.connecting = false
+				a.log = a.log.Add("Connection attempt abandoned", LogInfo)
+				return a, nil
+			}
 			if a.focus == focusConnectionBar {
 				a.focus = focusLocal
 			}
@@ -130,6 +176,20 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ConnectMsg:
 		return a.handleConnect(msg)
+
+	case spinner.TickMsg:
+		// Ticking stops by not asking for the next one.
+		if !a.connecting {
+			return a, nil
+		}
+		a.spinner, cmd = a.spinner.Update(msg)
+		return a, cmd
+
+	case connectedMsg:
+		return a.handleConnected(msg)
+
+	case connectFailedMsg:
+		return a.handleConnectFailed(msg)
 
 	case NavigateMsg:
 		return a.handleNavigate(msg)
@@ -153,7 +213,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleTransferDone(msg)
 	}
 
-	// processes and log are always listening
 	a.processes, _ = a.processes.Update(msg)
 	a.log, _ = a.log.Update(msg)
 
@@ -201,12 +260,22 @@ func (a App) hintsView() string {
 		return keyStyle.Render(key) + ": " + descStyle.Render(desc)
 	}
 
+	if a.connecting {
+		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
+		return lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			Width(a.width).
+			Render(fmt.Sprintf("%s connecting… %s   %s", a.spinner.View(), elapsed,
+				hint("Esc", "abandon")))
+	}
+
 	var hints []string
 	switch a.focus {
 	case focusConnectionBar:
 		hints = []string{
 			hint("Tab", "next field"),
 			hint("Shift+Tab", "prev field"),
+			hint("←/→", "protocol"),
 			hint("Enter", "connect"),
 			hint("Esc", "close"),
 		}
@@ -229,46 +298,67 @@ func (a App) hintsView() string {
 		Render(strings.Join(hints, sep))
 }
 
-// handlers
-
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	port, err := strconv.Atoi(msg.Port)
 	if err != nil || port <= 0 {
-		port = 22
+		port = msg.Protocol.DefaultPort()
 	}
 
 	if a.client != nil {
 		a.client.Disconnect()
 	}
 
-	var c client.Client
-	if port == 22 {
-		c = client.NewSFTPClient()
-	} else {
-		c = client.NewFTPClient()
+	// A typed nil would satisfy the io.Writer interface and be written to.
+	var logger io.Writer
+	if a.verbose {
+		a.protoLog = &shared.LineBuffer{}
+		logger = a.protoLog
+	}
+	c := client.New(msg.Protocol, logger)
+	addr := net.JoinHostPort(msg.Host, strconv.Itoa(port))
+
+	a.connecting = true
+	a.connectStart = time.Now()
+	a.connectSeq++
+	seq := a.connectSeq
+	a.log = a.log.Add("Connecting to "+addr+" over "+msg.Protocol.String(), LogInfo)
+
+	attempt := func() tea.Msg {
+		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
+			return connectFailedMsg{seq: seq, err: err}
+		}
+		return connectedMsg{seq: seq, client: c, addr: addr}
 	}
 
-	if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
-		a.log = a.log.Add("Error connecting: "+err.Error(), LogError)
+	// The spinner keeps the update loop turning, which advances the elapsed time
+	// and drains buffered protocol lines into the log.
+	return a, tea.Batch(attempt, a.spinner.Tick)
+}
+
+func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
+	if msg.seq != a.connectSeq {
+		// Abandoned, but it connected anyway. Close what nobody holds.
+		msg.client.Disconnect()
 		return a, nil
 	}
 
-	a.client = c
-	a.manager = transfer.NewManager(c, a.program)
+	a.connecting = false
+	a.client = msg.client
+	a.manager = transfer.NewManager(msg.client, a.program)
 	a.connected = true
 	a.focus = focusLocal
+	a.log = a.log.Add("Connected to "+msg.addr, LogSuccess)
 
-	files, err := c.List("/")
-	if err != nil {
-		a.log = a.log.Add("Error listing remote directory: "+err.Error(), LogError)
+	return a, loadRemoteDir(msg.client, "/")
+}
+
+func (a App) handleConnectFailed(msg connectFailedMsg) (App, tea.Cmd) {
+	if msg.seq != a.connectSeq {
 		return a, nil
 	}
 
-	a.remote = a.remote.WithFiles(files, "/")
-	_, panelH, _ := a.heights()
-	a.remote = a.remote.SetSize(a.width/2, panelH)
-	a.log = a.log.Add("Connecting to "+msg.Host, LogSuccess)
-
+	a.connecting = false
+	a.log = a.log.Add("Error connecting: "+msg.err.Error(), LogError)
 	return a, nil
 }
 
@@ -281,16 +371,7 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 		return a, nil
 	}
 
-	files, err := a.client.List(msg.Path)
-	if err != nil {
-		a.log = a.log.Add("Error: "+err.Error(), LogError)
-		return a, nil
-	}
-
-	a.remote = a.remote.WithFiles(files, msg.Path)
-	_, panelH, _ := a.heights()
-	a.remote = a.remote.SetSize(a.width/2, panelH)
-	return a, nil
+	return a, loadRemoteDir(a.client, msg.Path)
 }
 
 func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
@@ -330,18 +411,23 @@ func (a App) handleTransferDone(_ TransferDoneMsg) (App, tea.Cmd) {
 	cmds = append(cmds, loadLocalDir(a.local.path))
 
 	if a.connected {
-		remotePath := a.remote.path
-		c := a.client
-		cmds = append(cmds, func() tea.Msg {
-			files, err := c.List(remotePath)
-			if err != nil {
-				return LogMsg{Message: "Error refreshing remote panel: " + err.Error(), Level: LogError}
-			}
-			return RemoteDirLoadedMsg{Path: remotePath, Files: files}
-		})
+		cmds = append(cmds, loadRemoteDir(a.client, a.remote.path))
 	}
 
 	return a, tea.Batch(cmds...)
+}
+
+func loadRemoteDir(c client.Client, path string) tea.Cmd {
+	return func() tea.Msg {
+		files, err := c.List(path)
+		if err != nil {
+			return LogMsg{
+				Message: "Error listing remote directory: " + err.Error(),
+				Level:   LogError,
+			}
+		}
+		return RemoteDirLoadedMsg{Path: path, Files: files}
+	}
 }
 
 func loadLocalDir(path string) tea.Cmd {

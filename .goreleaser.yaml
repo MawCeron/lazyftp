@@ -1,0 +1,36 @@
+version: 2
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+changelog:
+  abbrev: -1
+  filters:
+    exclude:
+      - '^docs'
+      - '^test'
+      - '^ci'
+      - '^chore'
+      - '^build'
+      - '^refactor'
+      - '^Merge '
+      - '^Update '
+
+release:
+  footer: |
+    Full notes, including the earlier releases:
+    https://github.com/MawCeron/lazyftp/blob/main/CHANGELOG.md

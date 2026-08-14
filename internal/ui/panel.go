@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"io"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -12,7 +14,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// fileItem implements list.Item
 type fileItem struct {
 	file model.FileInfo
 }
@@ -26,13 +27,12 @@ func (f fileItem) Title() string {
 func (f fileItem) Description() string { return "" }
 func (f fileItem) FilterValue() string { return f.file.Name }
 
-// fileDelegate renders each item at the list
 type fileDelegate struct {
 	marked map[int]bool
 }
 
-func (d fileDelegate) Height() int                             { return 1 }
-func (d fileDelegate) Spacing() int                            { return 0 }
+func (d fileDelegate) Height() int      { return 1 }
+func (d fileDelegate) Spacing() int     { return 0 }
 func (d fileDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
@@ -94,16 +94,39 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	fmt.Fprint(w, prefix+nameRendered)
 }
 
-// Panel contains a bubbles list.Model
 type Panel struct {
 	title  string
 	path   string
+	local  bool
 	list   list.Model
 	marked map[int]bool
 	files  []model.FileInfo
 }
 
-func NewPanel(title string) Panel {
+// Local paths follow the host's rules; remote paths are always POSIX.
+
+func (p Panel) cleanPath(s string) string {
+	if p.local {
+		return filepath.Clean(s)
+	}
+	return path.Clean(s)
+}
+
+func (p Panel) childPath(name string) string {
+	if p.local {
+		return filepath.Join(p.path, name)
+	}
+	return path.Join(p.path, name)
+}
+
+func (p Panel) parentPath() string {
+	if p.local {
+		return filepath.Dir(p.path)
+	}
+	return path.Dir(p.path)
+}
+
+func NewPanel(title string, local bool) Panel {
 	delegate := fileDelegate{marked: make(map[int]bool)}
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.SetShowTitle(false)
@@ -116,16 +139,15 @@ func NewPanel(title string) Panel {
 	return Panel{
 		title:  title,
 		path:   "/",
+		local:  local,
 		list:   l,
 		marked: make(map[int]bool),
 		files:  []model.FileInfo{},
 	}
 }
 
-func (p Panel) WithFiles(files []model.FileInfo, path string) Panel {
-	for strings.Contains(path, "//") {
-		path = strings.ReplaceAll(path, "//", "/")
-	}
+func (p Panel) WithFiles(files []model.FileInfo, dir string) Panel {
+	dir = p.cleanPath(dir)
 
 	sort.Slice(files, func(i, j int) bool {
 		if files[i].IsDir() != files[j].IsDir() {
@@ -140,17 +162,24 @@ func (p Panel) WithFiles(files []model.FileInfo, path string) Panel {
 	}
 
 	p.files = files
-	p.path = path
+	p.path = dir
 	p.marked = make(map[int]bool)
 	p.list.SetItems(items)
 	p.list.Select(0)
-	// update delegate with the new empty marked
 	p.list.SetDelegate(fileDelegate{marked: p.marked})
 	return p
 }
 
 func (p Panel) SetSize(width, height int) Panel {
-	p.list.SetSize(width-4, height-6)
+	listWidth := width - 4
+	if listWidth < 1 {
+		listWidth = 1
+	}
+	listHeight := height - 6
+	if listHeight < 1 {
+		listHeight = 1
+	}
+	p.list.SetSize(listWidth, listHeight)
 	return p
 }
 
@@ -162,22 +191,14 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 		case "enter", " ":
 			item, ok := p.list.SelectedItem().(fileItem)
 			if ok && item.file.IsDir() {
-				name := item.file.Name
-				var newPath string
-				if p.path == "/" {
-					newPath = "/" + name
-				} else {
-					newPath = strings.TrimRight(p.path, "/") + "/" + name
-				}
-				panel := p.title
+				panel, child := p.title, p.childPath(item.file.Name)
 				return p, func() tea.Msg {
-					return NavigateMsg{Panel: panel, Path: newPath}
+					return NavigateMsg{Panel: panel, Path: child}
 				}
 			}
 
 		case "-", "backspace":
-			panel := p.title
-			parent := parentPath(p.path)
+			panel, parent := p.title, p.parentPath()
 			return p, func() tea.Msg {
 				return NavigateMsg{Panel: panel, Path: parent}
 			}
@@ -188,7 +209,6 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			if !p.marked[idx] {
 				delete(p.marked, idx)
 			}
-			// update delegato to refresh render
 			p.list.SetDelegate(fileDelegate{marked: p.marked})
 			return p, nil
 
@@ -217,6 +237,9 @@ func (p Panel) View(width, height int, active bool) string {
 
 	pathStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	innerWidth := width - 4
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
 
 	path := p.path
 	if len([]rune(path)) > innerWidth {
@@ -246,17 +269,6 @@ func (p Panel) selectedFiles() []model.FileInfo {
 	return selected
 }
 
-func parentPath(path string) string {
-	if path == "/" {
-		return "/"
-	}
-	idx := strings.LastIndex(path, "/")
-	if idx == 0 {
-		return "/"
-	}
-	return path[:idx]
-}
-
 type NavigateMsg struct {
 	Panel string
 	Path  string
@@ -265,17 +277,4 @@ type NavigateMsg struct {
 type TransferMsg struct {
 	SourcePanel string
 	Files       []model.FileInfo
-}
-
-func formatSize(size int64) string {
-	switch {
-	case size < 1024:
-		return fmt.Sprintf("%dB", size)
-	case size < 1024*1024:
-		return fmt.Sprintf("%.1fK", float64(size)/1024)
-	case size < 1024*1024*1024:
-		return fmt.Sprintf("%.1fM", float64(size)/(1024*1024))
-	default:
-		return fmt.Sprintf("%.1fG", float64(size)/(1024*1024*1024))
-	}
 }

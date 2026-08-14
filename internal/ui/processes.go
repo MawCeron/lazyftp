@@ -9,30 +9,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type TransferDirection = shared.TransferDirection
-type TransferStatus = shared.TransferStatus
-type Transfer = shared.Transfer
-type TransferStartMsg = shared.TransferStartMsg
-type TransferProgressMsg = shared.TransferProgressMsg
-type TransferErrorMsg = shared.TransferErrorMsg
-
-const (
-	DirectionUpload   = shared.DirectionUpload
-	DirectionDownload = shared.DirectionDownload
-	StatusInProgress  = shared.StatusInProgress
-	StatusDone        = shared.StatusDone
-	StatusError       = shared.StatusError
-)
-
 type ProcessesPanel struct {
-	transfers []Transfer
+	transfers []shared.Transfer
 }
 
 func NewProcessesPanel() ProcessesPanel {
 	return ProcessesPanel{}
 }
 
-func (p ProcessesPanel) AddTransfer(t Transfer) ProcessesPanel {
+func (p ProcessesPanel) AddTransfer(t shared.Transfer) ProcessesPanel {
 	p.transfers = append(p.transfers, t)
 	return p
 }
@@ -42,7 +27,7 @@ func (p ProcessesPanel) UpdateTransfer(filename string, current int64) Processes
 		if t.Filename == filename {
 			p.transfers[i].Current = current
 			if current >= t.Total && t.Total > 0 {
-				p.transfers[i].Status = StatusDone
+				p.transfers[i].Status = shared.StatusDone
 			}
 		}
 	}
@@ -52,7 +37,7 @@ func (p ProcessesPanel) UpdateTransfer(filename string, current int64) Processes
 func (p ProcessesPanel) MarkError(filename string) ProcessesPanel {
 	for i, t := range p.transfers {
 		if t.Filename == filename {
-			p.transfers[i].Status = StatusError
+			p.transfers[i].Status = shared.StatusError
 		}
 	}
 	return p
@@ -60,11 +45,11 @@ func (p ProcessesPanel) MarkError(filename string) ProcessesPanel {
 
 func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case TransferStartMsg:
+	case shared.TransferStartMsg:
 		return p.AddTransfer(msg.Transfer), nil
-	case TransferProgressMsg:
+	case shared.TransferProgressMsg:
 		return p.UpdateTransfer(msg.Filename, msg.Current), nil
-	case TransferErrorMsg:
+	case shared.TransferErrorMsg:
 		return p.MarkError(msg.Filename), nil
 	}
 	return p, nil
@@ -74,7 +59,7 @@ func (p ProcessesPanel) View(width, height int) string {
 	borderColor := lipgloss.Color("240")
 	innerWidth := width - 4
 
-	visibleHeight := height - 3/2 // Each transfer takes 2 lines, this compensates for that
+	visibleHeight := (height - 4) / 2 // Each transfer takes 2 lines, and the border reserves 4
 	if visibleHeight < 1 {
 		visibleHeight = 1
 	}
@@ -98,9 +83,9 @@ func (p ProcessesPanel) View(width, height int) string {
 	return borderWithTitle(body, "Processes", width, height, borderColor)
 }
 
-func renderTransfer(t Transfer, width int) string {
+func renderTransfer(t shared.Transfer, width int) string {
 	dirSymbol := "↑"
-	if t.Direction == DirectionDownload {
+	if t.Direction == shared.DirectionDownload {
 		dirSymbol = "↓"
 	}
 
@@ -129,10 +114,10 @@ func renderTransfer(t Transfer, width int) string {
 
 	suffix := fmt.Sprintf(" %d%%  %s", int(progress*100), dirSymbol)
 	switch t.Status {
-	case StatusDone:
+	case shared.StatusDone:
 		suffix = " ✔"
 		bar = lipgloss.NewStyle().Foreground(lipgloss.Color("40")).Render(bar)
-	case StatusError:
+	case shared.StatusError:
 		suffix = " ✗"
 		bar = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(bar)
 	}

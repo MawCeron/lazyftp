@@ -3,8 +3,11 @@ package client
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -15,13 +18,10 @@ import (
 type SFTPClient struct {
 	sshConn *ssh.Client
 	client  *sftp.Client
-	path    string
 }
 
 func NewSFTPClient() *SFTPClient {
-	return &SFTPClient{
-		path: "/",
-	}
+	return &SFTPClient{}
 }
 
 func (c *SFTPClient) Connect(host, user, pass string, port int) error {
@@ -32,13 +32,28 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 		},
 		// TODO: verificar host key en versiones futuras
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         dialTimeout,
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	sshConn, err := ssh.Dial("tcp", addr, config)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+
+	// ssh.Dial bounds the TCP dial only. A host that accepts without speaking
+	// SSH leaves the handshake waiting with nothing to end it.
+	tcpConn, err := net.DialTimeout("tcp", addr, dialTimeout)
 	if err != nil {
 		return fmt.Errorf("unable to connect to %s: %w", addr, err)
 	}
+	tcpConn.SetDeadline(time.Now().Add(dialTimeout))
+
+	conn, chans, reqs, err := ssh.NewClientConn(tcpConn, addr, config)
+	if err != nil {
+		tcpConn.Close()
+		return fmt.Errorf("unable to connect to %s: %w", addr, err)
+	}
+
+	// Left in place the deadline would expire mid-transfer.
+	tcpConn.SetDeadline(time.Time{})
+	sshConn := ssh.NewClient(conn, chans, reqs)
 
 	client, err := sftp.NewClient(sshConn)
 	if err != nil {
@@ -48,7 +63,6 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 
 	c.sshConn = sshConn
 	c.client = client
-	c.path = "/"
 	return nil
 }
 
@@ -90,7 +104,6 @@ func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
 			Size:     e.Size(),
 			ModTime:  e.ModTime(),
 			Type:     fileType,
-			Mode:     e.Mode(),
 			IsHidden: len(e.Name()) > 0 && e.Name()[0] == '.',
 		})
 	}
@@ -175,25 +188,4 @@ func (c *SFTPClient) Mkdir(path string) error {
 		return fmt.Errorf("no active connection")
 	}
 	return c.client.MkdirAll(path)
-}
-
-func (c *SFTPClient) CurrentPath() string {
-	return c.path
-}
-
-func (c *SFTPClient) ChangePath(path string) error {
-	if c.client == nil {
-		return fmt.Errorf("no active connection")
-	}
-
-	info, err := c.client.Stat(path)
-	if err != nil {
-		return fmt.Errorf("dir not found: %w", err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", path)
-	}
-
-	c.path = path
-	return nil
 }

@@ -9,6 +9,9 @@
 *.dylib
 lazyftp
 
+# Release artifacts
+dist/
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -31,3 +34,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local code index
+.codegraph/

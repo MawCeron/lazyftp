@@ -40,14 +40,42 @@ func NewManager(c client.Client, p func() *tea.Program) *Manager {
 func (m *Manager) Enqueue(jobs []Job) {
 	for _, job := range jobs {
 		if job.File.IsDir() && job.Direction == Upload {
-			go m.runDir(job)
+			go m.guard(job, m.runDir)
 		} else {
-			go m.run(job)
+			go m.guard(job, m.run)
 		}
 	}
 }
 
-// runDir() handles the recursive upload of a directory
+// These goroutines run outside Bubble Tea, whose own panic recovery never sees
+// them. Recursive directory uploads share these frames, so one guard covers the
+// whole tree.
+func (m *Manager) guard(job Job, run func(Job)) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			return
+		}
+
+		p := m.program()
+		if p == nil {
+			return
+		}
+
+		// Otherwise the row sits at "in progress" for the rest of the session.
+		p.Send(shared.TransferErrorMsg{
+			Filename: job.File.Name,
+			Err:      fmt.Errorf("%v", r),
+		})
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Transfer of %s failed: %v", job.File.Name, r),
+			Level:   shared.LogError,
+		})
+	}()
+
+	run(job)
+}
+
 func (m *Manager) runDir(job Job) {
 	p := m.program()
 	if p == nil {
@@ -57,7 +85,6 @@ func (m *Manager) runDir(job Job) {
 	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
 	remoteDirPath := filepath.Join(job.RemotePath, job.File.Name)
 
-	// creating remote directory
 	if err := m.client.Mkdir(remoteDirPath); err != nil {
 		p.Send(shared.LogMsg{
 			Message: fmt.Sprintf("Error creating remote directory %s: %v", job.File.Name, err),
@@ -71,7 +98,6 @@ func (m *Manager) runDir(job Job) {
 		Level:   shared.LogInfo,
 	})
 
-	// reading local directory
 	entries, err := os.ReadDir(localDirPath)
 	if err != nil {
 		p.Send(shared.LogMsg{
@@ -81,7 +107,6 @@ func (m *Manager) runDir(job Job) {
 		return
 	}
 
-	// enqueue every entry recursively
 	for _, entry := range entries {
 		info, err := entry.Info()
 		if err != nil {
