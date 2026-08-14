@@ -15,19 +15,18 @@ import (
 type FTPClient struct {
 	conn   *goftp.Client
 	host   string
-	path   string
 	logger io.Writer
 	tls    bool
 }
 
 // A nil logger disables logging.
 func NewFTPClient(logger io.Writer) *FTPClient {
-	return &FTPClient{path: "/", logger: logger}
+	return &FTPClient{logger: logger}
 }
 
 // Explicit TLS only; implicit FTPS is not offered.
 func NewFTPSClient(logger io.Writer) *FTPClient {
-	return &FTPClient{path: "/", logger: logger, tls: true}
+	return &FTPClient{logger: logger, tls: true}
 }
 
 func (c *FTPClient) Connect(host, user, pass string, port int) error {
@@ -62,7 +61,6 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 	}
 
 	c.conn = conn
-	c.path = "/"
 	return nil
 }
 
@@ -180,23 +178,4 @@ func (c *FTPClient) Mkdir(path string) error {
 	}
 	_, err := c.conn.Mkdir(path)
 	return err
-}
-
-func (c *FTPClient) CurrentPath() string {
-	return c.path
-}
-
-func (c *FTPClient) ChangePath(path string) error {
-	if c.conn == nil {
-		return fmt.Errorf("no active connection")
-	}
-	info, err := c.conn.Stat(path)
-	if err != nil {
-		return fmt.Errorf("dir not found: %w", err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", path)
-	}
-	c.path = path
-	return nil
 }

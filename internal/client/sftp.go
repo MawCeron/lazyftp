@@ -18,13 +18,10 @@ import (
 type SFTPClient struct {
 	sshConn *ssh.Client
 	client  *sftp.Client
-	path    string
 }
 
 func NewSFTPClient() *SFTPClient {
-	return &SFTPClient{
-		path: "/",
-	}
+	return &SFTPClient{}
 }
 
 func (c *SFTPClient) Connect(host, user, pass string, port int) error {
@@ -66,7 +63,6 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 
 	c.sshConn = sshConn
 	c.client = client
-	c.path = "/"
 	return nil
 }
 
@@ -108,7 +104,6 @@ func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
 			Size:     e.Size(),
 			ModTime:  e.ModTime(),
 			Type:     fileType,
-			Mode:     e.Mode(),
 			IsHidden: len(e.Name()) > 0 && e.Name()[0] == '.',
 		})
 	}
@@ -193,25 +188,4 @@ func (c *SFTPClient) Mkdir(path string) error {
 		return fmt.Errorf("no active connection")
 	}
 	return c.client.MkdirAll(path)
-}
-
-func (c *SFTPClient) CurrentPath() string {
-	return c.path
-}
-
-func (c *SFTPClient) ChangePath(path string) error {
-	if c.client == nil {
-		return fmt.Errorf("no active connection")
-	}
-
-	info, err := c.client.Stat(path)
-	if err != nil {
-		return fmt.Errorf("dir not found: %w", err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", path)
-	}
-
-	c.path = path
-	return nil
 }
