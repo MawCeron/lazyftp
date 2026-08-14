@@ -41,6 +41,12 @@ to be.
   ([#14](https://github.com/MawCeron/lazyftp/issues/14))
 - The FTP client moved from `jlaffaye/ftp` to `secsy/goftp`, for connections through NAT.
 
+### Removed
+
+- Dead code: an unreachable hints module, two client interface methods nothing called, and a size
+  formatter with no callers. Nothing changes for users — thanks to
+  [@OdaloV](https://github.com/OdaloV). ([#22](https://github.com/MawCeron/lazyftp/issues/22))
+
 ### Fixed
 
 - **Plain FTP servers on port 21 could not be connected to.** An empty port field selected SFTP
