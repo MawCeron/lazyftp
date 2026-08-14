@@ -28,6 +28,7 @@ changelog:
       - '^build'
       - '^refactor'
       - '^Merge '
+      - '^Update '
 
 release:
   footer: |

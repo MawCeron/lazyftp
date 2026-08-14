@@ -5,7 +5,7 @@ All notable changes to lazyftp are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.2] - 2026-08-13
 
 The release that makes plain FTP work. Connecting to an FTP server on port 21 was not possible,
 and the surrounding crashes and silences made every failure harder to understand than it needed
@@ -29,6 +29,7 @@ to be.
   requires a Go toolchain. ([#21](https://github.com/MawCeron/lazyftp/issues/21))
 - Continuous integration on Linux and Windows.
   ([#20](https://github.com/MawCeron/lazyftp/issues/20))
+- `--version` prints the version and exits, so a downloaded binary can be identified.
 
 ### Changed
 
@@ -105,6 +106,7 @@ First working release.
 - Keyboard navigation, vim-style keys and arrows.
 - A hints bar reflecting the focused panel, and a panel logging transfers and connections.
 
-[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/MawCeron/lazyftp/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/MawCeron/lazyftp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MawCeron/lazyftp/releases/tag/v0.1.0
