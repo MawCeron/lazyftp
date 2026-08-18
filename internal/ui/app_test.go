@@ -36,6 +36,33 @@ func connecting() App {
 	return a
 }
 
+// Unlike "q", Ctrl+C must quit from every focus state -- including the
+// connection bar, where "q" is deliberately left to reach the text field.
+func TestCtrlCQuitsFromEveryFocusState(t *testing.T) {
+	for _, focus := range []focus{focusConnectionBar, focusLocal, focusRemote} {
+		a := NewApp(nil, false, nil)
+		a.focus = focus
+		a.connected = true
+		stub := &stubClient{}
+		a.client = stub
+
+		// Text is empty, as it is for a real ctrl+c: modifier combos don't
+		// produce printable text, and a non-empty Text would short-circuit
+		// String() into ignoring Mod entirely.
+		_, cmd := a.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
+		if cmd == nil {
+			t.Errorf("focus %d: ctrl+c returned no command", focus)
+			continue
+		}
+		if _, ok := cmd().(tea.QuitMsg); !ok {
+			t.Errorf("focus %d: ctrl+c did not quit", focus)
+		}
+		if !stub.disconnected {
+			t.Errorf("focus %d: ctrl+c did not disconnect the client", focus)
+		}
+	}
+}
+
 func TestEscAbandonsAnAttemptInProgress(t *testing.T) {
 	a := connecting()
 

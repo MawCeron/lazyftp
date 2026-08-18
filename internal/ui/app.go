@@ -140,6 +140,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tea.KeyPressMsg:
+		// Ctrl+C must always quit cleanly, from every focus state -- unlike
+		// "q", it's a control chord that a text field would never receive as
+		// literal input.
+		if msg.String() == "ctrl+c" {
+			if a.client != nil {
+				a.client.Disconnect()
+			}
+			return a, tea.Quit
+		}
+
 		if a.focus != focusConnectionBar {
 			switch msg.String() {
 			case "q", "Q":
