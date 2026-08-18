@@ -24,7 +24,7 @@ const (
 type ConnectionBar struct {
 	protocol client.Protocol
 	inputs   [fieldCount]textinput.Model
-	focused connField
+	focused  connField
 }
 
 func NewConnectionBar() ConnectionBar {
@@ -128,15 +128,15 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 }
 
 func (c ConnectionBar) View(width int, active bool) string {
-	borderColor := lipgloss.Color("240")
+	borderColor := colorMuted
 	if active {
-		borderColor = lipgloss.Color("39")
+		borderColor = colorAccent
 	}
 
 	protocol := c.protocol.String()
 	if c.focused == fieldProtocol {
 		protocol = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("39")).
+			Foreground(colorAccent).
 			Bold(true).
 			Render(protocol)
 	}
