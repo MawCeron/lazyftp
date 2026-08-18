@@ -33,22 +33,22 @@ func NewConnectionBar() ConnectionBar {
 	host := textinput.New()
 	host.Prompt = ""
 	host.Placeholder = "Host"
-	host.SetWidth(24)
+	host.SetWidth(32)
 
 	user := textinput.New()
 	user.Prompt = ""
 	user.Placeholder = "User"
-	user.SetWidth(24)
+	user.SetWidth(32)
 
 	pass := textinput.New()
 	pass.Prompt = ""
 	pass.Placeholder = "Pass"
 	pass.EchoMode = textinput.EchoPassword
-	pass.SetWidth(24)
+	pass.SetWidth(32)
 
 	port := textinput.New()
 	port.Prompt = ""
-	port.SetWidth(6)
+	port.SetWidth(8)
 
 	bar := ConnectionBar{
 		inputs: [fieldCount]textinput.Model{
@@ -137,7 +137,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 // wider than maxWidth. It is always shown focused: the app only renders it
 // at all while it holds focus.
 func (c ConnectionBar) View(maxWidth int) string {
-	width := 40
+	width := 56
 	if width > maxWidth-2 {
 		width = maxWidth - 2
 	}
@@ -145,31 +145,16 @@ func (c ConnectionBar) View(maxWidth int) string {
 		width = 20
 	}
 
-	// bubbles/textinput's own styles set only Foreground, so its rendered
-	// output doesn't inherit a background from the box wrapped around it
-	// afterward -- the terminal's real background shows through wherever
-	// that pre-styled text sits. Every style used here sets Background
-	// explicitly instead of relying on inheritance.
-	bg := colorOverlayBg
-	labelStyle := lipgloss.NewStyle().Foreground(colorEmphasis).Background(bg).Bold(true).Width(10)
-	arrowStyle := lipgloss.NewStyle().Foreground(colorMuted).Background(bg)
-
-	fieldStyles := textinput.DefaultDarkStyles()
-	for _, s := range []*textinput.StyleState{&fieldStyles.Focused, &fieldStyles.Blurred} {
-		s.Text = s.Text.Background(bg)
-		s.Placeholder = s.Placeholder.Background(bg)
-		s.Prompt = s.Prompt.Background(bg)
-		s.Suggestion = s.Suggestion.Background(bg)
-	}
+	labelStyle := lipgloss.NewStyle().Foreground(colorEmphasis).Bold(true).Width(10)
+	arrowStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
 	protocol := c.protocol.String()
 	if c.focused == fieldProtocol {
-		protocol = lipgloss.NewStyle().Foreground(colorAccent).Background(bg).Bold(true).Render(protocol)
+		protocol = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(protocol)
 	}
 	arrows := arrowStyle.Render("◂ ") + protocol + arrowStyle.Render(" ▸")
 
 	row := func(label string, ti textinput.Model) string {
-		ti.SetStyles(fieldStyles)
 		return labelStyle.Render(label+":") + " " + ti.View()
 	}
 
@@ -185,13 +170,13 @@ func (c ConnectionBar) View(maxWidth int) string {
 		row("Pass", c.inputs[fieldPass]),
 	}
 
-	hint := lipgloss.NewStyle().Foreground(colorMuted).Background(bg).Render("Enter connect · Esc cancel")
+	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
 	body := strings.Join(fields, "\n") + "\n\n" + hint
 
 	// Exactly as tall as the content needs: this is a fixed-size dialog, not
 	// a panel truncating to fit whatever space is left.
 	height := lipgloss.Height(body) + 4
-	return borderWithTitleBg(body, "Connection", width, height, colorAccent, colorOverlayBg)
+	return borderWithTitle(body, "Connection", width, height, colorAccent)
 }
 
 type ConnectMsg struct {
