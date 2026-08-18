@@ -85,9 +85,9 @@ func (p ProcessesPanel) View(width, height int) string {
 }
 
 func renderTransfer(t shared.Transfer, width int) string {
-	dirSymbol := "↑"
+	dirSymbol := iconUpload()
 	if t.Direction == shared.DirectionDownload {
-		dirSymbol = "↓"
+		dirSymbol = iconDownload()
 	}
 
 	maxName := 20
@@ -114,10 +114,10 @@ func renderTransfer(t shared.Transfer, width int) string {
 	suffix := fmt.Sprintf(" %d%%  %s", int(progress*100), dirSymbol)
 	switch t.Status {
 	case shared.StatusDone:
-		suffix = " ✔"
+		suffix = " " + iconDone()
 		bar = lipgloss.NewStyle().Foreground(colorSuccess).Render(bar)
 	case shared.StatusError:
-		suffix = " ✗"
+		suffix = " " + iconError()
 		bar = lipgloss.NewStyle().Foreground(colorError).Render(bar)
 	}
 
