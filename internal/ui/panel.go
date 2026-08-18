@@ -55,14 +55,14 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	}
 
 	// Cursor and mark each own a column so neither displaces the other:
-	// a marked, selected file shows both "> " and "✓" at once.
+	// a marked, selected file shows both the cursor and the mark at once.
 	cursorChar := " "
 	if isSelected {
 		cursorChar = cursorStyle.Render(">")
 	}
 	markChar := " "
 	if isMarked {
-		markChar = markedStyle.Render("✓")
+		markChar = markedStyle.Render(iconMark())
 	}
 	prefix := cursorChar + markChar + " "
 

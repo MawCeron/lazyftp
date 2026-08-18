@@ -27,7 +27,7 @@ func TestFileDelegateShowsCursorAndMarkTogether(t *testing.T) {
 	if !strings.Contains(out, ">") {
 		t.Errorf("Render() = %q, want a cursor indicator", out)
 	}
-	if !strings.Contains(out, "✓") {
+	if !strings.Contains(out, iconMark()) {
 		t.Errorf("Render() = %q, want a mark indicator", out)
 	}
 }
