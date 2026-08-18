@@ -307,12 +307,13 @@ func (a App) hintsView() string {
 		}
 	case focusLocal, focusRemote:
 		hints = []string{
-			hint("j/k", "navigate"),
-			hint("Enter", "open dir"),
-			hint("-", "go up"),
-			hint("x", "mark"),
+			hint("hjkl", "navigate"),
+			hint("l/Enter", "open dir"),
+			hint("h/-", "go up"),
+			hint("Space", "mark"),
 			hint("t", "transfer"),
 			hint("U/D", "upload/download marked"),
+			hint("r", "refresh"),
 			hint("Tab", "switch panel"),
 			hint("Ctrl+L", "connection"),
 			hint("q", "quit"),

@@ -2,12 +2,14 @@ package ui
 
 import (
 	"bytes"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
 	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/model"
 )
 
@@ -29,6 +31,61 @@ func TestFileDelegateShowsCursorAndMarkTogether(t *testing.T) {
 	}
 	if !strings.Contains(out, iconMark()) {
 		t.Errorf("Render() = %q, want a mark indicator", out)
+	}
+}
+
+// The bug this guards against: bubbles/list binds h/l to PrevPage/NextPage by
+// default, and unhandled keys fall through to the list -- so h/l silently
+// paginated instead of navigating.
+func TestHAndLDoNotTriggerListPagination(t *testing.T) {
+	files := make([]model.FileInfo, 30)
+	for i := range files {
+		files[i] = model.FileInfo{Name: fmt.Sprintf("file-%02d.txt", i)}
+	}
+
+	p := NewPanel("LOCAL", true).WithFiles(files, "/tmp")
+	p = p.SetSize(40, 10) // short enough to force multiple pages
+	before := p.list.Paginator.Page
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	if p.list.Paginator.Page != before {
+		t.Errorf("l changed the page from %d to %d, want unchanged", before, p.list.Paginator.Page)
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	if p.list.Paginator.Page != before {
+		t.Errorf("h changed the page from %d to %d, want unchanged", before, p.list.Paginator.Page)
+	}
+}
+
+func TestSpaceTogglesMark(t *testing.T) {
+	files := []model.FileInfo{{Name: "a.txt"}, {Name: "b.txt"}}
+	p := NewPanel("LOCAL", true).WithFiles(files, "/tmp")
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	if !p.marked[0] {
+		t.Fatal("space did not mark the file under the cursor")
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	if p.marked[0] {
+		t.Fatal("space did not unmark an already-marked file")
+	}
+}
+
+func TestRefreshReloadsTheCurrentPath(t *testing.T) {
+	p := NewPanel("REMOTE", false).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/srv")
+
+	_, cmd := p.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+	if cmd == nil {
+		t.Fatal("r did not return a command")
+	}
+	msg, ok := cmd().(NavigateMsg)
+	if !ok {
+		t.Fatalf("r returned %T, want NavigateMsg", cmd())
+	}
+	if msg.Panel != "REMOTE" || msg.Path != "/srv" {
+		t.Errorf("r navigated to %+v, want {REMOTE /srv} (the current path)", msg)
 	}
 }
 

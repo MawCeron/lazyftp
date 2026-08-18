@@ -177,7 +177,7 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 
-		case "enter", " ":
+		case "enter", "l":
 			item, ok := p.list.SelectedItem().(fileItem)
 			if ok && item.file.IsDir() {
 				panel, child := p.title, p.childPath(item.file.Name)
@@ -185,14 +185,23 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 					return NavigateMsg{Panel: panel, Path: child}
 				}
 			}
+			// Swallowed even on a non-directory: "l" must never fall through
+			// to the list, which binds it to pagination.
+			return p, nil
 
-		case "-", "backspace":
+		case "-", "backspace", "h":
 			panel, parent := p.title, p.parentPath()
 			return p, func() tea.Msg {
 				return NavigateMsg{Panel: panel, Path: parent}
 			}
 
-		case "x":
+		case "r":
+			panel, path := p.title, p.path
+			return p, func() tea.Msg {
+				return NavigateMsg{Panel: panel, Path: path}
+			}
+
+		case "space":
 			idx := p.list.Index()
 			p.marked[idx] = !p.marked[idx]
 			if !p.marked[idx] {
