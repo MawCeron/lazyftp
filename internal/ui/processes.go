@@ -7,6 +7,7 @@ import (
 	"github.com/MawCeron/lazyftp/internal/shared"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 type ProcessesPanel struct {
@@ -89,11 +90,9 @@ func renderTransfer(t shared.Transfer, width int) string {
 		dirSymbol = "↓"
 	}
 
-	name := t.Filename
 	maxName := 20
-	if len(name) > maxName {
-		name = name[:maxName-3] + "..."
-	}
+	name := runewidth.Truncate(t.Filename, maxName, "...")
+	name = runewidth.FillRight(name, maxName)
 
 	barWidth := width - maxName - 12
 	if barWidth < 4 {
@@ -122,5 +121,5 @@ func renderTransfer(t shared.Transfer, width int) string {
 		bar = lipgloss.NewStyle().Foreground(colorError).Render(bar)
 	}
 
-	return fmt.Sprintf("  %-*s %s%s\n", maxName, name, bar, suffix)
+	return fmt.Sprintf("  %s %s%s\n", name, bar, suffix)
 }
