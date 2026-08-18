@@ -73,7 +73,7 @@ func (l LogPanel) Update(msg tea.Msg) (LogPanel, tea.Cmd) {
 }
 
 func (l LogPanel) View(width, height int) string {
-	borderColor := lipgloss.Color("240")
+	borderColor := colorMuted
 	innerWidth := width - 4
 
 	maxVisible := height - 3
@@ -93,7 +93,7 @@ func (l LogPanel) View(width, height int) string {
 
 	if len(l.entries) == 0 {
 		rows = append(rows, lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
+			Foreground(colorMuted).
 			Render("  (no logs)"))
 	}
 
@@ -104,15 +104,15 @@ func (l LogPanel) View(width, height int) string {
 func renderLogEntry(e LogEntry, width int) string {
 	timeStr := e.Time.Format("15:04:05")
 
-	color := lipgloss.Color("252")
+	color := colorPrimary
 	switch e.Level {
 	case LogSuccess:
-		color = lipgloss.Color("40")
+		color = colorSuccess
 	case LogError:
-		color = lipgloss.Color("196")
+		color = colorError
 	}
 
-	timeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	timeStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	msgStyle := lipgloss.NewStyle().Foreground(color)
 
 	maxMsg := width - 12
