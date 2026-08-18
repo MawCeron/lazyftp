@@ -54,7 +54,8 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	markedStyle := lipgloss.NewStyle().Foreground(colorMarked).Bold(true)
 	dirStyle := lipgloss.NewStyle().Foreground(colorDirectory)
 	normalStyle := lipgloss.NewStyle().Foreground(colorPrimary)
-	mutedStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	sizeMetaStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	dateMetaStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
 	isSelected := index == m.Index()
 	isMarked := d.marked[index]
@@ -76,26 +77,28 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	}
 	prefix := cursorChar + markChar + " "
 
-	// nameStyle carries the row's state; metaStyle matches it when the row
-	// is marked or selected, so the whole row highlights as one block
-	// instead of just the name. Otherwise size/date are dimmed metadata.
-	var nameStyle, metaStyle lipgloss.Style
+	// nameStyle carries the row's state; sizeStyle/dateStyle match it when
+	// the row is marked or selected, so the whole row highlights as one
+	// block instead of just the name. Otherwise size and date are each
+	// their own shade of metadata, dim enough to read as secondary but
+	// distinguishable from one another.
+	var nameStyle, sizeStyle, dateStyle lipgloss.Style
 	switch {
 	case isMarked:
 		nameStyle = lipgloss.NewStyle().Foreground(colorMarked).Bold(true).Reverse(true)
-		metaStyle = nameStyle
+		sizeStyle, dateStyle = nameStyle, nameStyle
 	case isSelected && fi.file.IsDir():
 		nameStyle = lipgloss.NewStyle().Foreground(colorDirectory).Reverse(true)
-		metaStyle = nameStyle
+		sizeStyle, dateStyle = nameStyle, nameStyle
 	case isSelected:
 		nameStyle = lipgloss.NewStyle().Reverse(true)
-		metaStyle = nameStyle
+		sizeStyle, dateStyle = nameStyle, nameStyle
 	case fi.file.IsDir():
 		nameStyle = dirStyle
-		metaStyle = mutedStyle
+		sizeStyle, dateStyle = sizeMetaStyle, dateMetaStyle
 	default:
 		nameStyle = normalStyle
-		metaStyle = mutedStyle
+		sizeStyle, dateStyle = sizeMetaStyle, dateMetaStyle
 	}
 
 	sizeStr := "-"
@@ -104,9 +107,16 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	}
 	dateStr := fi.file.ModTime.Format("2006-01-02 15:04")
 
-	// prefix is always exactly 3 display cells (cursor + mark + gap),
-	// regardless of which of its two characters render.
-	avail := m.Width() - 3
+	// prefix is 3 display cells (cursor + mark + gap); widthSlack is an
+	// empirical safety margin. A real terminal wrapped rows at the reported
+	// width with all three columns shown, meaning m.Width() reads wider
+	// than what's actually safe to fill.
+	// ponytail: widthSlack papers over an unpinned discrepancy between
+	// list.Model.Width() and the real usable width instead of tracking it
+	// down live; raise it further (or find the exact cause) if wrapping
+	// recurs at a specific width/terminal.
+	const widthSlack = 3
+	avail := m.Width() - 3 - widthSlack
 	showDate := avail >= minNameWidth+1+sizeColWidth+1+dateColWidth
 	showSize := showDate || avail >= minNameWidth+1+sizeColWidth
 
@@ -126,10 +136,10 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 
 	row := nameStyle.Render(name)
 	if showSize {
-		row += " " + metaStyle.Render(runewidth.FillLeft(sizeStr, sizeColWidth))
+		row += " " + sizeStyle.Render(runewidth.FillLeft(sizeStr, sizeColWidth))
 	}
 	if showDate {
-		row += " " + metaStyle.Render(dateStr)
+		row += " " + dateStyle.Render(dateStr)
 	}
 
 	fmt.Fprint(w, prefix+row)
