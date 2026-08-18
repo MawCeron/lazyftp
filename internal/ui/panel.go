@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/model"
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type fileItem struct {
@@ -174,7 +174,7 @@ func (p Panel) SetSize(width, height int) Panel {
 
 func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 
 		case "enter", " ":

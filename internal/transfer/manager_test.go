@@ -3,8 +3,8 @@ package transfer
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/model"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Transfers run as bare goroutines, outside Bubble Tea's panic handling. An

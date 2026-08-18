@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/ui"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Set by the linker from the tag being built. A build from source keeps "dev".
@@ -53,10 +53,7 @@ func main() {
 
 	var p *tea.Program
 	app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter)
-	p = tea.NewProgram(
-		app,
-		tea.WithAltScreen(),
-	)
+	p = tea.NewProgram(app)
 
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

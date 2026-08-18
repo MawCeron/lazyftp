@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/list"
 	"github.com/MawCeron/lazyftp/internal/model"
-	"github.com/charmbracelet/bubbles/list"
 )
 
 // The bug this guards against: cursor and mark used to share one character

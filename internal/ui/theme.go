@@ -1,17 +1,36 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
 
-// Semantic color tokens. Values are the AdaptiveColor's Dark/Light 256-color
-// codes; lipgloss/termenv downgrade automatically to ANSI16 or monochrome
-// on terminals that support less, and honor NO_COLOR.
-var (
-	colorAccent    = lipgloss.AdaptiveColor{Light: "25", Dark: "39"}   // focus, cursor
-	colorMuted     = lipgloss.AdaptiveColor{Light: "240", Dark: "240"} // secondary text, inactive border, separators
-	colorPrimary   = lipgloss.AdaptiveColor{Light: "235", Dark: "252"} // default text
-	colorEmphasis  = lipgloss.AdaptiveColor{Light: "235", Dark: "255"} // footer key hints
-	colorSuccess   = lipgloss.AdaptiveColor{Light: "28", Dark: "40"}
-	colorError     = lipgloss.AdaptiveColor{Light: "160", Dark: "196"}
-	colorDirectory = lipgloss.AdaptiveColor{Light: "26", Dark: "75"}
-	colorMarked    = lipgloss.AdaptiveColor{Light: "130", Dark: "214"}
+	"charm.land/lipgloss/v2"
 )
+
+// Semantic color tokens, defaulting to the values that suit a dark terminal
+// (the common case) until SetTheme resolves the real background. Bubble Tea
+// queries that asynchronously via tea.BackgroundColorMsg, so a static
+// default avoids an unstyled first frame.
+var (
+	colorAccent    color.Color = lipgloss.Color("39")  // focus, cursor
+	colorMuted     color.Color = lipgloss.Color("240") // secondary text, inactive border, separators
+	colorPrimary   color.Color = lipgloss.Color("252") // default text
+	colorEmphasis  color.Color = lipgloss.Color("255") // footer key hints
+	colorSuccess   color.Color = lipgloss.Color("40")
+	colorError     color.Color = lipgloss.Color("196")
+	colorDirectory color.Color = lipgloss.Color("75")
+	colorMarked    color.Color = lipgloss.Color("214")
+)
+
+// SetTheme resolves every token against the terminal's actual background.
+// Call once from App.Update on tea.BackgroundColorMsg.
+func SetTheme(isDark bool) {
+	ld := lipgloss.LightDark(isDark)
+	colorAccent = ld(lipgloss.Color("25"), lipgloss.Color("39"))
+	colorMuted = ld(lipgloss.Color("240"), lipgloss.Color("240"))
+	colorPrimary = ld(lipgloss.Color("235"), lipgloss.Color("252"))
+	colorEmphasis = ld(lipgloss.Color("235"), lipgloss.Color("255"))
+	colorSuccess = ld(lipgloss.Color("28"), lipgloss.Color("40"))
+	colorError = ld(lipgloss.Color("160"), lipgloss.Color("196"))
+	colorDirectory = ld(lipgloss.Color("26"), lipgloss.Color("75"))
+	colorMarked = ld(lipgloss.Color("130"), lipgloss.Color("214"))
+}

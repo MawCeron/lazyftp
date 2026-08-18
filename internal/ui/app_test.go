@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 // stubClient stands in for a server. Only Disconnect is observed: abandoning an
@@ -39,7 +39,7 @@ func connecting() App {
 func TestEscAbandonsAnAttemptInProgress(t *testing.T) {
 	a := connecting()
 
-	model, _ := a.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	a = model.(App)
 
 	if a.connecting {
@@ -55,7 +55,7 @@ func TestEscAbandonsAnAttemptInProgress(t *testing.T) {
 func TestAnAbandonedAttemptDoesNotConnect(t *testing.T) {
 	a := connecting()
 
-	model, _ := a.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	a = model.(App)
 
 	stub := &stubClient{}
@@ -76,7 +76,7 @@ func TestAnAbandonedAttemptDoesNotConnect(t *testing.T) {
 func TestAnAbandonedAttemptDoesNotReportItsError(t *testing.T) {
 	a := connecting()
 
-	model, _ := a.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	a = model.(App)
 	before := len(a.log.entries)
 

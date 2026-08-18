@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
 	"github.com/MawCeron/lazyftp/internal/transfer"
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type focus int
@@ -101,7 +101,7 @@ func (a App) drainProtoLog() App {
 }
 
 func (a App) Init() tea.Cmd {
-	return loadLocalDir(a.local.path)
+	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor)
 }
 
 func (a App) heights() (connH, panelH, bottomH int) {
@@ -135,7 +135,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.remote = a.remote.SetSize(panelW, panelH)
 		return a, nil
 
-	case tea.KeyMsg:
+	case tea.BackgroundColorMsg:
+		SetTheme(msg.IsDark())
+		return a, nil
+
+	case tea.KeyPressMsg:
 		if a.focus != focusConnectionBar {
 			switch msg.String() {
 			case "q", "Q":
@@ -228,7 +232,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, cmd
 }
 
-func (a App) View() string {
+func (a App) View() tea.View {
+	v := tea.NewView(a.render())
+	v.AltScreen = true
+	return v
+}
+
+func (a App) render() string {
 	if a.width == 0 {
 		return "Loading..."
 	}

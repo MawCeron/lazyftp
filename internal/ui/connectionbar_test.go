@@ -3,22 +3,23 @@ package ui
 import (
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
-func key(s string) tea.KeyMsg {
+func key(s string) tea.KeyPressMsg {
 	if s == " " {
-		return tea.KeyMsg{Type: tea.KeySpace, Runes: []rune{' '}}
+		return tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
 	}
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
+	r := []rune(s)
+	return tea.KeyPressMsg{Code: r[0], Text: s}
 }
 
 var (
-	tab      = tea.KeyMsg{Type: tea.KeyTab}
-	shiftTab = tea.KeyMsg{Type: tea.KeyShiftTab}
-	left     = tea.KeyMsg{Type: tea.KeyLeft}
-	right    = tea.KeyMsg{Type: tea.KeyRight}
+	tab      = tea.KeyPressMsg{Code: tea.KeyTab}
+	shiftTab = tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
+	left     = tea.KeyPressMsg{Code: tea.KeyLeft}
+	right    = tea.KeyPressMsg{Code: tea.KeyRight}
 )
 
 // The protocol field has no text input behind it, so tabbing onto it used to

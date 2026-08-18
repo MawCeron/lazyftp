@@ -1,13 +1,14 @@
 package ui
 
 import (
+	"image/color"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 )
 
-func borderWithTitle(content, title string, width, height int, borderColor lipgloss.TerminalColor) string {
+func borderWithTitle(content, title string, width, height int, borderColor color.Color) string {
 	lines := strings.Split(content, "\n")
 	maxLines := height - 4
 	if maxLines > 0 && len(lines) > maxLines {

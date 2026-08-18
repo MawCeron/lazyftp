@@ -4,10 +4,10 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type connField int
@@ -30,19 +30,19 @@ type ConnectionBar struct {
 func NewConnectionBar() ConnectionBar {
 	host := textinput.New()
 	host.Placeholder = "Host"
-	host.Width = 20
+	host.SetWidth(20)
 
 	user := textinput.New()
 	user.Placeholder = "User"
-	user.Width = 15
+	user.SetWidth(15)
 
 	pass := textinput.New()
 	pass.Placeholder = "Pass"
 	pass.EchoMode = textinput.EchoPassword
-	pass.Width = 15
+	pass.SetWidth(15)
 
 	port := textinput.New()
-	port.Width = 5
+	port.SetWidth(5)
 
 	bar := ConnectionBar{
 		inputs: [fieldCount]textinput.Model{
@@ -79,7 +79,7 @@ func (c ConnectionBar) blur() ConnectionBar {
 
 func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "tab":
 			c = c.blur()
