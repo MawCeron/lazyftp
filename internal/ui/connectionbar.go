@@ -173,7 +173,10 @@ func (c ConnectionBar) View(maxWidth int) string {
 	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
 	body := strings.Join(fields, "\n") + "\n\n" + hint
 
-	return borderWithTitle(body, "Connection", width, 20, colorAccent)
+	// Exactly as tall as the content needs: this is a fixed-size dialog, not
+	// a panel truncating to fit whatever space is left.
+	height := lipgloss.Height(body) + 4
+	return borderWithTitle(body, "Connection", width, height, colorAccent)
 }
 
 type ConnectMsg struct {
