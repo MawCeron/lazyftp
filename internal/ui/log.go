@@ -114,16 +114,20 @@ func renderLogEntry(e LogEntry, width int) string {
 	}
 
 	timeStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	levelStyle := lipgloss.NewStyle().Foreground(color)
 	msgStyle := lipgloss.NewStyle().Foreground(color)
 
-	maxMsg := width - 12
+	level := fmt.Sprintf("[%-5s]", levelNames[e.Level])
+
+	maxMsg := width - 21
 	if maxMsg < 1 {
 		maxMsg = 1
 	}
 	msg := runewidth.Truncate(e.Message, maxMsg, "...")
 
-	return fmt.Sprintf("  %s %s",
+	return fmt.Sprintf("  %s %s %s",
 		timeStyle.Render("["+timeStr+"]"),
+		levelStyle.Render(level),
 		msgStyle.Render(msg),
 	)
 }

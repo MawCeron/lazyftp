@@ -51,6 +51,27 @@ func TestTheFileKeepsMoreThanThePanelShows(t *testing.T) {
 	}
 }
 
+// The panel used to signal level by color alone, invisible with NO_COLOR or
+// to colorblind users. Every level must also carry a text label.
+func TestLogEntryLevelIsReadableWithoutColor(t *testing.T) {
+	cases := []struct {
+		level LogLevel
+		want  string
+	}{
+		{LogInfo, "INFO"},
+		{LogSuccess, "OK"},
+		{LogError, "ERROR"},
+	}
+
+	for _, c := range cases {
+		entry := LogEntry{Message: "test", Level: c.level}
+		out := renderLogEntry(entry, 80)
+		if !strings.Contains(out, c.want) {
+			t.Errorf("renderLogEntry(%v) = %q, want it to contain %q", c.level, out, c.want)
+		}
+	}
+}
+
 func TestLogWithoutAFileDoesNotPanic(t *testing.T) {
 	log := NewLogPanel(nil)
 	log = log.Add("nothing to write to", LogInfo)
