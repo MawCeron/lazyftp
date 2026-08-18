@@ -31,8 +31,8 @@ type fileDelegate struct {
 	marked map[int]bool
 }
 
-func (d fileDelegate) Height() int      { return 1 }
-func (d fileDelegate) Spacing() int     { return 0 }
+func (d fileDelegate) Height() int                             { return 1 }
+func (d fileDelegate) Spacing() int                            { return 0 }
 func (d fileDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
@@ -41,10 +41,10 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		return
 	}
 
-	cursorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
-	markedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
-	dirStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
-	normalStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	cursorStyle := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	markedStyle := lipgloss.NewStyle().Foreground(colorMarked).Bold(true)
+	dirStyle := lipgloss.NewStyle().Foreground(colorDirectory)
+	normalStyle := lipgloss.NewStyle().Foreground(colorPrimary)
 
 	isSelected := index == m.Index()
 	isMarked := d.marked[index]
@@ -64,21 +64,21 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 			prefix = markedStyle.Render("✓ ")
 		}
 		nameRendered = lipgloss.NewStyle().
-			Background(lipgloss.Color("52")).
-			Foreground(lipgloss.Color("214")).
+			Foreground(colorMarked).
 			Bold(true).
+			Reverse(true).
 			Render(name)
 	} else {
 		if isSelected {
 			prefix = cursorStyle.Render("> ")
 			if fi.file.IsDir() {
 				nameRendered = lipgloss.NewStyle().
-					Background(lipgloss.Color("236")).
-					Foreground(lipgloss.Color("75")).
+					Foreground(colorDirectory).
+					Reverse(true).
 					Render(name)
 			} else {
 				nameRendered = lipgloss.NewStyle().
-					Background(lipgloss.Color("236")).
+					Reverse(true).
 					Render(name)
 			}
 		} else {
@@ -134,7 +134,7 @@ func NewPanel(title string, local bool) Panel {
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(false)
 	l.DisableQuitKeybindings()
-	l.Styles.NoItems = lipgloss.NewStyle().Foreground(lipgloss.Color("240")).PaddingLeft(2)
+	l.Styles.NoItems = lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2)
 
 	return Panel{
 		title:  title,
@@ -230,12 +230,12 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 }
 
 func (p Panel) View(width, height int, active bool) string {
-	borderColor := lipgloss.Color("240")
+	borderColor := colorMuted
 	if active {
-		borderColor = lipgloss.Color("39")
+		borderColor = colorAccent
 	}
 
-	pathStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	pathStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	innerWidth := width - 4
 	if innerWidth < 1 {
 		innerWidth = 1
