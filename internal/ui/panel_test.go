@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -86,6 +87,45 @@ func TestRefreshReloadsTheCurrentPath(t *testing.T) {
 	}
 	if msg.Panel != "REMOTE" || msg.Path != "/srv" {
 		t.Errorf("r navigated to %+v, want {REMOTE /srv} (the current path)", msg)
+	}
+}
+
+func TestFileDelegateColumnsDegradeWithWidth(t *testing.T) {
+	modTime := time.Date(2026, 8, 15, 14, 30, 0, 0, time.UTC)
+	file := fileItem{file: model.FileInfo{Name: "report.txt", Size: 2048, ModTime: modTime}}
+	items := []list.Item{file}
+	delegate := fileDelegate{marked: map[int]bool{}}
+
+	render := func(width int) string {
+		l := list.New(items, delegate, width, 10)
+		var buf bytes.Buffer
+		delegate.Render(&buf, l, 0, items[0])
+		return buf.String()
+	}
+
+	wantDate := "2026-08-15 14:30"
+
+	if out := render(50); !strings.Contains(out, "2.0 KB") || !strings.Contains(out, wantDate) {
+		t.Errorf("wide: Render() = %q, want both size and date", out)
+	}
+	if out := render(30); !strings.Contains(out, "2.0 KB") || strings.Contains(out, wantDate) {
+		t.Errorf("medium: Render() = %q, want size but not date", out)
+	}
+	if out := render(20); strings.Contains(out, "2.0 KB") || strings.Contains(out, wantDate) {
+		t.Errorf("narrow: Render() = %q, want neither size nor date", out)
+	}
+}
+
+func TestFileDelegateShowsNoSizeForDirectories(t *testing.T) {
+	dir := fileItem{file: model.FileInfo{Name: "docs", Type: model.FileTypeDir}}
+	items := []list.Item{dir}
+	delegate := fileDelegate{marked: map[int]bool{}}
+	l := list.New(items, delegate, 50, 10)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, items[0])
+	if out := buf.String(); !strings.Contains(out, "-") {
+		t.Errorf("Render() for a directory = %q, want a placeholder instead of a size", out)
 	}
 }
 

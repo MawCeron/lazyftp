@@ -12,6 +12,15 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/model"
+	"github.com/mattn/go-runewidth"
+)
+
+// Column widths for the size/date fields; degradation order (drop date,
+// then size, keeping only the name) lives in Render.
+const (
+	sizeColWidth = 8  // "999.9 GB" and under
+	dateColWidth = 16 // "2006-01-02 15:04"
+	minNameWidth = 15
 )
 
 type fileItem struct {
@@ -45,6 +54,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	markedStyle := lipgloss.NewStyle().Foreground(colorMarked).Bold(true)
 	dirStyle := lipgloss.NewStyle().Foreground(colorDirectory)
 	normalStyle := lipgloss.NewStyle().Foreground(colorPrimary)
+	mutedStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
 	isSelected := index == m.Index()
 	isMarked := d.marked[index]
@@ -66,21 +76,63 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	}
 	prefix := cursorChar + markChar + " "
 
-	var nameRendered string
+	// nameStyle carries the row's state; metaStyle matches it when the row
+	// is marked or selected, so the whole row highlights as one block
+	// instead of just the name. Otherwise size/date are dimmed metadata.
+	var nameStyle, metaStyle lipgloss.Style
 	switch {
 	case isMarked:
-		nameRendered = lipgloss.NewStyle().Foreground(colorMarked).Bold(true).Reverse(true).Render(name)
+		nameStyle = lipgloss.NewStyle().Foreground(colorMarked).Bold(true).Reverse(true)
+		metaStyle = nameStyle
 	case isSelected && fi.file.IsDir():
-		nameRendered = lipgloss.NewStyle().Foreground(colorDirectory).Reverse(true).Render(name)
+		nameStyle = lipgloss.NewStyle().Foreground(colorDirectory).Reverse(true)
+		metaStyle = nameStyle
 	case isSelected:
-		nameRendered = lipgloss.NewStyle().Reverse(true).Render(name)
+		nameStyle = lipgloss.NewStyle().Reverse(true)
+		metaStyle = nameStyle
 	case fi.file.IsDir():
-		nameRendered = dirStyle.Render(name)
+		nameStyle = dirStyle
+		metaStyle = mutedStyle
 	default:
-		nameRendered = normalStyle.Render(name)
+		nameStyle = normalStyle
+		metaStyle = mutedStyle
 	}
 
-	fmt.Fprint(w, prefix+nameRendered)
+	sizeStr := "-"
+	if !fi.file.IsDir() {
+		sizeStr = formatSize(fi.file.Size)
+	}
+	dateStr := fi.file.ModTime.Format("2006-01-02 15:04")
+
+	// prefix is always exactly 3 display cells (cursor + mark + gap),
+	// regardless of which of its two characters render.
+	avail := m.Width() - 3
+	showDate := avail >= minNameWidth+1+sizeColWidth+1+dateColWidth
+	showSize := showDate || avail >= minNameWidth+1+sizeColWidth
+
+	nameW := avail
+	if showSize {
+		nameW -= 1 + sizeColWidth
+	}
+	if showDate {
+		nameW -= 1 + dateColWidth
+	}
+	if nameW < 1 {
+		nameW = 1
+	}
+
+	name = runewidth.Truncate(name, nameW, "...")
+	name = runewidth.FillRight(name, nameW)
+
+	row := nameStyle.Render(name)
+	if showSize {
+		row += " " + metaStyle.Render(runewidth.FillLeft(sizeStr, sizeColWidth))
+	}
+	if showDate {
+		row += " " + metaStyle.Render(dateStr)
+	}
+
+	fmt.Fprint(w, prefix+row)
 }
 
 type Panel struct {
