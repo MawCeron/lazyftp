@@ -6,9 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MawCeron/lazyftp/internal/shared"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/MawCeron/lazyftp/internal/shared"
+	"github.com/mattn/go-runewidth"
 )
 
 type LogLevel = shared.LogLevel
@@ -119,10 +120,7 @@ func renderLogEntry(e LogEntry, width int) string {
 	if maxMsg < 1 {
 		maxMsg = 1
 	}
-	msg := e.Message
-	if len(msg) > maxMsg {
-		msg = msg[:maxMsg-3] + "..."
-	}
+	msg := runewidth.Truncate(e.Message, maxMsg, "...")
 
 	return fmt.Sprintf("  %s %s",
 		timeStyle.Render("["+timeStr+"]"),
