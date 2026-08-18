@@ -56,7 +56,7 @@ func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 }
 
 func (p ProcessesPanel) View(width, height int) string {
-	borderColor := lipgloss.Color("240")
+	borderColor := colorMuted
 	innerWidth := width - 4
 
 	visibleHeight := (height - 4) / 2 // Each transfer takes 2 lines, and the border reserves 4
@@ -75,7 +75,7 @@ func (p ProcessesPanel) View(width, height int) string {
 
 	if len(p.transfers) == 0 {
 		rows = append(rows, lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
+			Foreground(colorMuted).
 			Render("  (no transfers)"))
 	}
 
@@ -116,10 +116,10 @@ func renderTransfer(t shared.Transfer, width int) string {
 	switch t.Status {
 	case shared.StatusDone:
 		suffix = " ✔"
-		bar = lipgloss.NewStyle().Foreground(lipgloss.Color("40")).Render(bar)
+		bar = lipgloss.NewStyle().Foreground(colorSuccess).Render(bar)
 	case shared.StatusError:
 		suffix = " ✗"
-		bar = lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Render(bar)
+		bar = lipgloss.NewStyle().Foreground(colorError).Render(bar)
 	}
 
 	return fmt.Sprintf("  %-*s %s%s\n", maxName, name, bar, suffix)
