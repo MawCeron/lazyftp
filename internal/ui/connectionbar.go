@@ -143,33 +143,35 @@ func (c ConnectionBar) View(maxWidth int) string {
 		width = 20
 	}
 
-	labelStyle := lipgloss.NewStyle().Foreground(colorMuted).Width(9)
+	labelStyle := lipgloss.NewStyle().Foreground(colorEmphasis).Bold(true).Width(10)
 	arrowStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
 	protocol := c.protocol.String()
-	arrows := arrowStyle.Render("◂ ") + protocol + arrowStyle.Render(" ▸")
 	if c.focused == fieldProtocol {
 		protocol = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(protocol)
-		arrows = arrowStyle.Render("◂ ") + protocol + arrowStyle.Render(" ▸")
 	}
+	arrows := arrowStyle.Render("◂ ") + protocol + arrowStyle.Render(" ▸")
 
 	row := func(label string, ti textinput.Model) string {
-		return labelStyle.Render(label) + ti.View()
+		return labelStyle.Render(label+":") + " " + ti.View()
 	}
 
 	fields := []string{
-		labelStyle.Render("Protocol") + arrows,
+		labelStyle.Render("Protocol:") + " " + arrows,
 		"",
 		row("Host", c.inputs[fieldHost]),
+		"",
 		row("Port", c.inputs[fieldPort]),
+		"",
 		row("User", c.inputs[fieldUser]),
+		"",
 		row("Pass", c.inputs[fieldPass]),
 	}
 
 	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
 	body := strings.Join(fields, "\n") + "\n\n" + hint
 
-	return borderWithTitle(body, "Connection", width, 14, colorAccent)
+	return borderWithTitle(body, "Connection", width, 20, colorAccent)
 }
 
 type ConnectMsg struct {
