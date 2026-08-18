@@ -54,41 +54,30 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		name = name + "/"
 	}
 
-	var prefix string
-	var nameRendered string
-
+	// Cursor and mark each own a column so neither displaces the other:
+	// a marked, selected file shows both "> " and "✓" at once.
+	cursorChar := " "
+	if isSelected {
+		cursorChar = cursorStyle.Render(">")
+	}
+	markChar := " "
 	if isMarked {
-		if isSelected {
-			prefix = cursorStyle.Render("> ")
-		} else {
-			prefix = markedStyle.Render("✓ ")
-		}
-		nameRendered = lipgloss.NewStyle().
-			Foreground(colorMarked).
-			Bold(true).
-			Reverse(true).
-			Render(name)
-	} else {
-		if isSelected {
-			prefix = cursorStyle.Render("> ")
-			if fi.file.IsDir() {
-				nameRendered = lipgloss.NewStyle().
-					Foreground(colorDirectory).
-					Reverse(true).
-					Render(name)
-			} else {
-				nameRendered = lipgloss.NewStyle().
-					Reverse(true).
-					Render(name)
-			}
-		} else {
-			prefix = "  "
-			if fi.file.IsDir() {
-				nameRendered = dirStyle.Render(name)
-			} else {
-				nameRendered = normalStyle.Render(name)
-			}
-		}
+		markChar = markedStyle.Render("✓")
+	}
+	prefix := cursorChar + markChar + " "
+
+	var nameRendered string
+	switch {
+	case isMarked:
+		nameRendered = lipgloss.NewStyle().Foreground(colorMarked).Bold(true).Reverse(true).Render(name)
+	case isSelected && fi.file.IsDir():
+		nameRendered = lipgloss.NewStyle().Foreground(colorDirectory).Reverse(true).Render(name)
+	case isSelected:
+		nameRendered = lipgloss.NewStyle().Reverse(true).Render(name)
+	case fi.file.IsDir():
+		nameRendered = dirStyle.Render(name)
+	default:
+		nameRendered = normalStyle.Render(name)
 	}
 
 	fmt.Fprint(w, prefix+nameRendered)

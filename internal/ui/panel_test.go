@@ -1,10 +1,36 @@
 package ui
 
 import (
+	"bytes"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/MawCeron/lazyftp/internal/model"
+	"github.com/charmbracelet/bubbles/list"
 )
+
+// The bug this guards against: cursor and mark used to share one character
+// slot, so selecting a marked file hid its checkmark.
+func TestFileDelegateShowsCursorAndMarkTogether(t *testing.T) {
+	items := []list.Item{fileItem{file: model.FileInfo{Name: "report.txt"}}}
+	marked := map[int]bool{0: true}
+	delegate := fileDelegate{marked: marked}
+	l := list.New(items, delegate, 80, 10)
+	l.Select(0)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, items[0])
+	out := buf.String()
+
+	if !strings.Contains(out, ">") {
+		t.Errorf("Render() = %q, want a cursor indicator", out)
+	}
+	if !strings.Contains(out, "✓") {
+		t.Errorf("Render() = %q, want a mark indicator", out)
+	}
+}
 
 func TestRemotePathsStayPOSIX(t *testing.T) {
 	// Remote paths are POSIX regardless of the host lazyftp runs on, so these
