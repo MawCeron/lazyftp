@@ -251,9 +251,9 @@ func (a App) View() string {
 }
 
 func (a App) hintsView() string {
-	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255"))
-	descStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	sepStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(colorEmphasis)
+	descStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	sepStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	sep := sepStyle.Render(" | ")
 
 	hint := func(key, desc string) string {
@@ -263,7 +263,7 @@ func (a App) hintsView() string {
 	if a.connecting {
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
 		return lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
+			Foreground(colorMuted).
 			Width(a.width).
 			Render(fmt.Sprintf("%s connecting… %s   %s", a.spinner.View(), elapsed,
 				hint("Esc", "abandon")))
@@ -293,7 +293,7 @@ func (a App) hintsView() string {
 	}
 
 	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
+		Foreground(colorMuted).
 		Width(a.width).
 		Render(strings.Join(hints, sep))
 }
