@@ -241,10 +241,7 @@ func (p Panel) View(width, height int, active bool) string {
 		innerWidth = 1
 	}
 
-	path := p.path
-	if len([]rune(path)) > innerWidth {
-		path = "…" + string([]rune(path)[len([]rune(path))-innerWidth+1:])
-	}
+	path := truncateHead(p.path, innerWidth)
 
 	header := pathStyle.Render(path) + "\n" + strings.Repeat("─", innerWidth)
 	body := header + "\n" + p.list.View()
