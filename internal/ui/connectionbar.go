@@ -12,12 +12,14 @@ import (
 
 type connField int
 
+// Order matches the visual layout top-to-bottom, so Tab follows reading
+// order instead of skipping around it.
 const (
 	fieldProtocol connField = iota
 	fieldHost
+	fieldPort
 	fieldUser
 	fieldPass
-	fieldPort
 	fieldCount
 )
 

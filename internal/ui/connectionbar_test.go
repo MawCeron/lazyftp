@@ -22,6 +22,22 @@ var (
 	right    = tea.KeyPressMsg{Code: tea.KeyRight}
 )
 
+// Tab order must match the visual layout (Protocol, Host, Port, User, Pass):
+// it used to follow the field enum's declaration order instead, so tabbing
+// from Host skipped over the visually-adjacent Port field.
+func TestTabFollowsVisualOrder(t *testing.T) {
+	bar := NewConnectionBar()
+	want := []connField{fieldHost, fieldPort, fieldUser, fieldPass, fieldProtocol}
+
+	bar, _ = bar.Update(tab) // off the protocol field, onto Host
+	for i, field := range want {
+		if bar.focused != field {
+			t.Fatalf("step %d: focused field %d, want %d", i, bar.focused, field)
+		}
+		bar, _ = bar.Update(tab)
+	}
+}
+
 // The protocol field has no text input behind it, so tabbing onto it used to
 // focus an uninitialised one and panic.
 func TestTabbingReachesEveryFieldAndWrapsAround(t *testing.T) {
