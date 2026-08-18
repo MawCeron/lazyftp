@@ -164,7 +164,7 @@ func (p Panel) SetSize(width, height int) Panel {
 	if listWidth < 1 {
 		listWidth = 1
 	}
-	listHeight := height - 6
+	listHeight := height - 5
 	if listHeight < 1 {
 		listHeight = 1
 	}
@@ -241,8 +241,7 @@ func (p Panel) View(width, height int, active bool) string {
 
 	path := truncateHead(p.path, innerWidth)
 
-	header := pathStyle.Render(path) + "\n" + strings.Repeat("─", innerWidth)
-	body := header + "\n" + p.list.View()
+	body := pathStyle.Render(path) + "\n" + p.list.View()
 
 	return borderWithTitle(body, p.title, width, height, borderColor)
 }
