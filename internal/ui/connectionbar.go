@@ -111,7 +111,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 			switch msg.String() {
 			case "left":
 				c.protocol = c.protocol.Prev()
-			case "right", " ":
+			case "right", "space":
 				c.protocol = c.protocol.Next()
 			}
 			return c.showDefaultPort(), nil

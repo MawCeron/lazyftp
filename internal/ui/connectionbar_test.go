@@ -68,6 +68,18 @@ func TestProtocolCyclesAndPortPlaceholderFollows(t *testing.T) {
 	}
 }
 
+// Key.String() prints the space bar as "space", not literal " " -- a case
+// that matched on " " silently stopped working when this migrated to v2.
+func TestSpaceAlsoCyclesProtocol(t *testing.T) {
+	bar := NewConnectionBar()
+	start := bar.protocol
+
+	bar, _ = bar.Update(key(" "))
+	if bar.protocol == start {
+		t.Errorf("space did not cycle the protocol from %s", start)
+	}
+}
+
 // Cycling the protocol must not leak keystrokes into the text fields, and typing
 // must not reach them while the protocol is focused.
 func TestProtocolKeysDoNotReachTheInputs(t *testing.T) {
