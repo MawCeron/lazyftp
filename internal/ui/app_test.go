@@ -181,6 +181,60 @@ func TestStatusLineReflectsConnectionState(t *testing.T) {
 	}
 }
 
+func TestTooSmallViewBelowTheFloor(t *testing.T) {
+	a := NewApp(nil, false, nil)
+
+	a.width, a.height = minWidth-1, minHeight+5
+	if got := a.render(); !strings.Contains(got, "too small") {
+		t.Errorf("width below the floor: render() = %q, want the too-small message", got)
+	}
+
+	a.width, a.height = minWidth+5, minHeight-1
+	if got := a.render(); !strings.Contains(got, "too small") {
+		t.Errorf("height below the floor: render() = %q, want the too-small message", got)
+	}
+
+	a.width, a.height = minWidth, minHeight
+	if got := a.render(); strings.Contains(got, "too small") {
+		t.Errorf("at exactly the floor: render() = %q, want the normal layout", got)
+	}
+}
+
+// Below 80 columns, two file panels side by side are too cramped to be
+// useful: only the focused one should render, at full width.
+func TestNarrowWidthShowsOnlyTheFocusedPanel(t *testing.T) {
+	a := NewApp(nil, false, nil)
+	a.width, a.height = 70, 24
+	a.focus = focusLocal
+
+	out := a.render()
+	if !strings.Contains(out, "LOCAL") {
+		t.Error("narrow width with LOCAL focused: LOCAL panel missing from render()")
+	}
+	if strings.Contains(out, "REMOTE") {
+		t.Error("narrow width with LOCAL focused: REMOTE panel should not render")
+	}
+
+	a.focus = focusRemote
+	out = a.render()
+	if !strings.Contains(out, "REMOTE") {
+		t.Error("narrow width with REMOTE focused: REMOTE panel missing from render()")
+	}
+	if strings.Contains(out, "LOCAL") {
+		t.Error("narrow width with REMOTE focused: LOCAL panel should not render")
+	}
+}
+
+func TestStandardWidthShowsBothPanels(t *testing.T) {
+	a := NewApp(nil, false, nil)
+	a.width, a.height = 80, 24
+
+	out := a.render()
+	if !strings.Contains(out, "LOCAL") || !strings.Contains(out, "REMOTE") {
+		t.Errorf("80 columns should show both panels side by side; render() = %q", out)
+	}
+}
+
 // The connection form floats over the panels rather than replacing them: it
 // should only appear in the rendered frame while it holds focus.
 func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {

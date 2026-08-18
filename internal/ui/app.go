@@ -110,6 +110,33 @@ func (a App) Init() tea.Cmd {
 	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor)
 }
 
+const (
+	minWidth  = 60 // below this (or minHeight), show a "too small" message instead
+	minHeight = 20
+
+	standardBreakpoint = 80 // below this: single file panel, Tab-switched
+)
+
+// tooSmall guards the floor: below it nothing else is safe to lay out.
+func (a App) tooSmall() bool {
+	return a.width < minWidth || a.height < minHeight
+}
+
+// narrow is true below the standard 80-column floor, where two file panels
+// side by side would be too cramped to be useful. Below it, only the
+// focused panel renders, full width, switched with the same Tab that
+// already cycles focus.
+func (a App) narrow() bool {
+	return a.width < standardBreakpoint
+}
+
+func (a App) panelWidth() int {
+	if a.narrow() {
+		return a.width
+	}
+	return a.width / 2
+}
+
 func (a App) heights() (statusH, panelH, bottomH int) {
 	statusH = 1  // connection status line
 	bottomH = 10 // Processes + Log minimal fixed
@@ -136,7 +163,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width = msg.Width
 		a.height = msg.Height
 		_, panelH, _ := a.heights()
-		panelW := a.width / 2
+		panelW := a.panelWidth()
 		a.local = a.local.SetSize(panelW, panelH)
 		a.remote = a.remote.SetSize(panelW, panelH)
 		return a, nil
@@ -226,13 +253,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case LocalDirLoadedMsg:
 		a.local = a.local.WithFiles(msg.Files, msg.Path)
 		_, panelH, _ := a.heights()
-		a.local = a.local.SetSize(a.width/2, panelH)
+		a.local = a.local.SetSize(a.panelWidth(), panelH)
 		return a, nil
 
 	case RemoteDirLoadedMsg:
 		a.remote = a.remote.WithFiles(msg.Files, msg.Path)
 		_, panelH, _ := a.heights()
-		a.remote = a.remote.SetSize(a.width/2, panelH)
+		a.remote = a.remote.SetSize(a.panelWidth(), panelH)
 		return a, nil
 
 	case TransferDoneMsg:
@@ -264,18 +291,46 @@ func (a App) render() string {
 	if a.width == 0 {
 		return "Loading..."
 	}
+	if a.tooSmall() {
+		return a.tooSmallView()
+	}
 
 	_, panelH, bottomH := a.heights()
-	panelW := a.width / 2
+	panelW := a.panelWidth()
 
 	status := a.statusLine()
-	localView := a.local.View(panelW, panelH, a.focus == focusLocal)
-	remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote)
-	panels := lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
 
-	processesView := a.processes.View(panelW, bottomH)
-	logView := a.log.View(panelW, bottomH)
-	bottom := lipgloss.JoinHorizontal(lipgloss.Top, processesView, logView)
+	var panels string
+	if a.narrow() {
+		// Only the focused file panel renders, full width, switched with
+		// the same Tab that already cycles focus between Local and Remote.
+		if a.focus == focusRemote {
+			panels = a.remote.View(panelW, panelH, true)
+		} else {
+			panels = a.local.View(panelW, panelH, a.focus == focusLocal)
+		}
+	} else {
+		localView := a.local.View(panelW, panelH, a.focus == focusLocal)
+		remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote)
+		panels = lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
+	}
+
+	var bottom string
+	if a.narrow() {
+		// Side by side, Processes and Log would each get under 30 columns:
+		// stack them instead, splitting the shared height budget.
+		stackedH := bottomH / 2
+		if stackedH < 4 {
+			stackedH = 4
+		}
+		processesView := a.processes.View(panelW, stackedH)
+		logView := a.log.View(panelW, stackedH)
+		bottom = lipgloss.JoinVertical(lipgloss.Left, processesView, logView)
+	} else {
+		processesView := a.processes.View(panelW, bottomH)
+		logView := a.log.View(panelW, bottomH)
+		bottom = lipgloss.JoinHorizontal(lipgloss.Top, processesView, logView)
+	}
 
 	hints := a.hintsView()
 
@@ -285,6 +340,16 @@ func (a App) render() string {
 		return base
 	}
 	return a.withConnectionOverlay(base)
+}
+
+func (a App) tooSmallView() string {
+	msg := fmt.Sprintf("terminal too small — need at least %dx%d", minWidth, minHeight)
+	return lipgloss.NewStyle().
+		Width(a.width).
+		Height(a.height).
+		Align(lipgloss.Center, lipgloss.Center).
+		Foreground(colorMuted).
+		Render(msg)
 }
 
 // withConnectionOverlay floats the connection form centered over base using
