@@ -24,12 +24,10 @@ func borderWithTitleBg(content, title string, width, height int, borderColor, bg
 		content = strings.Join(lines, "\n")
 	}
 
-	titleStr := lipgloss.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(colorAccent).
-		MarginBottom(1).
-		Render(title)
-
+		MarginBottom(1)
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
@@ -37,8 +35,14 @@ func borderWithTitleBg(content, title string, width, height int, borderColor, bg
 		Height(height-2).
 		Padding(0, 1)
 	if bg != nil {
+		// titleStyle's own background needs setting too: its render is a
+		// separately pre-styled substring, and box's Background() applying
+		// to the overall block doesn't retroactively color runs that already
+		// carry their own (backgroundless) style.
+		titleStyle = titleStyle.Background(bg)
 		box = box.Background(bg).BorderBackground(bg)
 	}
+	titleStr := titleStyle.Render(title)
 
 	return box.Render(titleStr + "\n" + content)
 }
