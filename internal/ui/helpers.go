@@ -9,6 +9,14 @@ import (
 )
 
 func borderWithTitle(content, title string, width, height int, borderColor color.Color) string {
+	return borderWithTitleBg(content, title, width, height, borderColor, nil)
+}
+
+// borderWithTitleBg is borderWithTitle with an explicit box background, for
+// the rare panel (the connection overlay) that needs to read as an elevated
+// surface over whatever is behind it. bg == nil leaves the background unset,
+// same as borderWithTitle.
+func borderWithTitleBg(content, title string, width, height int, borderColor, bg color.Color) string {
 	lines := strings.Split(content, "\n")
 	maxLines := height - 4
 	if maxLines > 0 && len(lines) > maxLines {
@@ -22,13 +30,17 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 		MarginBottom(1).
 		Render(title)
 
-	return lipgloss.NewStyle().
+	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(borderColor).
 		Width(width-2).
 		Height(height-2).
-		Padding(0, 1).
-		Render(titleStr + "\n" + content)
+		Padding(0, 1)
+	if bg != nil {
+		box = box.Background(bg).BorderBackground(bg)
+	}
+
+	return box.Render(titleStr + "\n" + content)
 }
 
 // truncateHead keeps the trailing portion of s that fits within width cells,

@@ -176,7 +176,7 @@ func (c ConnectionBar) View(maxWidth int) string {
 	// Exactly as tall as the content needs: this is a fixed-size dialog, not
 	// a panel truncating to fit whatever space is left.
 	height := lipgloss.Height(body) + 4
-	return borderWithTitle(body, "Connection", width, height, colorAccent)
+	return borderWithTitleBg(body, "Connection", width, height, colorAccent, colorOverlayBg)
 }
 
 type ConnectMsg struct {

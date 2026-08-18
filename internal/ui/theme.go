@@ -19,6 +19,7 @@ var (
 	colorError     color.Color = lipgloss.Color("196")
 	colorDirectory color.Color = lipgloss.Color("75")
 	colorMarked    color.Color = lipgloss.Color("214")
+	colorOverlayBg color.Color = lipgloss.Color("236") // modal/popup background, distinct from the base terminal background
 )
 
 // SetTheme resolves every token against the terminal's actual background.
@@ -33,4 +34,5 @@ func SetTheme(isDark bool) {
 	colorError = ld(lipgloss.Color("160"), lipgloss.Color("196"))
 	colorDirectory = ld(lipgloss.Color("26"), lipgloss.Color("75"))
 	colorMarked = ld(lipgloss.Color("130"), lipgloss.Color("214"))
+	colorOverlayBg = ld(lipgloss.Color("253"), lipgloss.Color("236"))
 }
