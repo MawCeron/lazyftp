@@ -3,7 +3,9 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
@@ -149,6 +151,50 @@ func TestDirectTransferKeysRequireMarkedFiles(t *testing.T) {
 	a = model.(App)
 	if n := len(a.log.entries); n == 0 || a.log.entries[n-1].Level != LogError {
 		t.Fatalf("D with nothing marked in REMOTE did not log an error")
+	}
+}
+
+func TestStatusLineReflectsConnectionState(t *testing.T) {
+	a := NewApp(nil, false, nil)
+	a.width = 80
+
+	if got := a.statusLine(); !strings.Contains(got, "Not connected") {
+		t.Errorf("idle statusLine() = %q, want it to mention not being connected", got)
+	}
+
+	a.connecting = true
+	a.connectStart = time.Now()
+	if got := a.statusLine(); !strings.Contains(got, "Connecting") {
+		t.Errorf("connecting statusLine() = %q, want it to mention connecting", got)
+	}
+
+	a.connecting = false
+	a.connected = true
+	a.connUser = "admin"
+	a.connAddr = "ftp.example.com:21"
+	a.connProtocol = client.FTP
+	got := a.statusLine()
+	for _, want := range []string{"admin", "ftp.example.com:21", "FTP"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("connected statusLine() = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+// The connection form floats over the panels rather than replacing them: it
+// should only appear in the rendered frame while it holds focus.
+func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {
+	a := NewApp(nil, false, nil)
+	a.width, a.height = 80, 24
+
+	a.focus = focusConnectionBar
+	if got := a.render(); !strings.Contains(got, "Connection") {
+		t.Error("render() with the connection bar focused does not show the overlay")
+	}
+
+	a.focus = focusLocal
+	if got := a.render(); strings.Contains(got, "Connection") {
+		t.Error("render() with local focused still shows the connection overlay")
 	}
 }
 

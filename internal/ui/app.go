@@ -42,6 +42,10 @@ type App struct {
 	log       LogPanel
 
 	connected    bool
+	connUser     string
+	connAddr     string
+	connProtocol client.Protocol
+
 	connecting   bool
 	connectSeq   int
 	connectStart time.Time
@@ -52,9 +56,11 @@ type App struct {
 
 // seq identifies the attempt, so an abandoned one's result can be dropped.
 type connectedMsg struct {
-	seq    int
-	client client.Client
-	addr   string
+	seq      int
+	client   client.Client
+	addr     string
+	user     string
+	protocol client.Protocol
 }
 
 type connectFailedMsg struct {
@@ -104,15 +110,15 @@ func (a App) Init() tea.Cmd {
 	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor)
 }
 
-func (a App) heights() (connH, panelH, bottomH int) {
-	connH = 5    // ConnectionBar field
+func (a App) heights() (statusH, panelH, bottomH int) {
+	statusH = 1  // connection status line
 	bottomH = 10 // Processes + Log minimal fixed
 	hintsH := 1
-	panelH = a.height - connH - bottomH - hintsH
+	panelH = a.height - statusH - bottomH - hintsH
 	if panelH < 8 {
 		panelH = 8
 	}
-	bottomH = a.height - connH - panelH - hintsH
+	bottomH = a.height - statusH - panelH - hintsH
 	if bottomH < 8 {
 		bottomH = 8
 	}
@@ -262,7 +268,7 @@ func (a App) render() string {
 	_, panelH, bottomH := a.heights()
 	panelW := a.width / 2
 
-	top := a.connBar.View(a.width, a.focus == focusConnectionBar)
+	status := a.statusLine()
 	localView := a.local.View(panelW, panelH, a.focus == focusLocal)
 	remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote)
 	panels := lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
@@ -273,7 +279,53 @@ func (a App) render() string {
 
 	hints := a.hintsView()
 
-	return lipgloss.JoinVertical(lipgloss.Left, top, panels, bottom, hints)
+	base := lipgloss.JoinVertical(lipgloss.Left, status, panels, bottom, hints)
+
+	if a.focus != focusConnectionBar {
+		return base
+	}
+	return a.withConnectionOverlay(base)
+}
+
+// withConnectionOverlay floats the connection form centered over base using
+// lipgloss's layer compositor, so the panels stay visible around it.
+func (a App) withConnectionOverlay(base string) string {
+	overlay := a.connBar.View(a.width)
+	ow, oh := lipgloss.Width(overlay), lipgloss.Height(overlay)
+
+	x, y := (a.width-ow)/2, (a.height-oh)/2
+	if x < 0 {
+		x = 0
+	}
+	if y < 0 {
+		y = 0
+	}
+
+	bg := lipgloss.NewLayer(base)
+	fg := lipgloss.NewLayer(overlay).X(x).Y(y).Z(1)
+	return lipgloss.NewCompositor(bg, fg).Render()
+}
+
+// statusLine replaces the old permanently-visible connection form with a
+// single line: the connection state when idle or connecting, or who/where
+// once connected.
+func (a App) statusLine() string {
+	style := lipgloss.NewStyle().Width(a.width)
+
+	switch {
+	case a.connecting:
+		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
+		return style.Foreground(colorMuted).
+			Render(fmt.Sprintf("%s Connecting… %s", a.spinner.View(), elapsed))
+
+	case a.connected:
+		dot := lipgloss.NewStyle().Foreground(colorSuccess).Render("●")
+		who := fmt.Sprintf("%s@%s (%s)", a.connUser, a.connAddr, a.connProtocol)
+		return style.Render(dot + " " + who)
+
+	default:
+		return style.Foreground(colorMuted).Render("○ Not connected — Ctrl+L to connect")
+	}
 }
 
 func (a App) hintsView() string {
@@ -286,13 +338,12 @@ func (a App) hintsView() string {
 		return keyStyle.Render(key) + ": " + descStyle.Render(desc)
 	}
 
+	// The status line already shows the spinner and elapsed time.
 	if a.connecting {
-		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
 		return lipgloss.NewStyle().
 			Foreground(colorMuted).
 			Width(a.width).
-			Render(fmt.Sprintf("%s connecting… %s   %s", a.spinner.View(), elapsed,
-				hint("Esc", "abandon")))
+			Render(hint("Esc", "abandon"))
 	}
 
 	var hints []string
@@ -355,7 +406,7 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
 			return connectFailedMsg{seq: seq, err: err}
 		}
-		return connectedMsg{seq: seq, client: c, addr: addr}
+		return connectedMsg{seq: seq, client: c, addr: addr, user: msg.User, protocol: msg.Protocol}
 	}
 
 	// The spinner keeps the update loop turning, which advances the elapsed time
@@ -374,6 +425,9 @@ func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
 	a.client = msg.client
 	a.manager = transfer.NewManager(msg.client, a.program)
 	a.connected = true
+	a.connUser = msg.user
+	a.connAddr = msg.addr
+	a.connProtocol = msg.protocol
 	a.focus = focusLocal
 	a.log = a.log.Add("Connected to "+msg.addr, LogSuccess)
 

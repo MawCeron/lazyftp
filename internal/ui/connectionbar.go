@@ -29,20 +29,24 @@ type ConnectionBar struct {
 
 func NewConnectionBar() ConnectionBar {
 	host := textinput.New()
+	host.Prompt = ""
 	host.Placeholder = "Host"
-	host.SetWidth(20)
+	host.SetWidth(24)
 
 	user := textinput.New()
+	user.Prompt = ""
 	user.Placeholder = "User"
-	user.SetWidth(15)
+	user.SetWidth(24)
 
 	pass := textinput.New()
+	pass.Prompt = ""
 	pass.Placeholder = "Pass"
 	pass.EchoMode = textinput.EchoPassword
-	pass.SetWidth(15)
+	pass.SetWidth(24)
 
 	port := textinput.New()
-	port.SetWidth(5)
+	port.Prompt = ""
+	port.SetWidth(6)
 
 	bar := ConnectionBar{
 		inputs: [fieldCount]textinput.Model{
@@ -127,30 +131,45 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 	return c, cmd
 }
 
-func (c ConnectionBar) View(width int, active bool) string {
-	borderColor := colorMuted
-	if active {
-		borderColor = colorAccent
+// View renders the connection form as a self-contained floating dialog, no
+// wider than maxWidth. It is always shown focused: the app only renders it
+// at all while it holds focus.
+func (c ConnectionBar) View(maxWidth int) string {
+	width := 40
+	if width > maxWidth-2 {
+		width = maxWidth - 2
+	}
+	if width < 20 {
+		width = 20
 	}
 
+	labelStyle := lipgloss.NewStyle().Foreground(colorMuted).Width(9)
+	arrowStyle := lipgloss.NewStyle().Foreground(colorMuted)
+
 	protocol := c.protocol.String()
+	arrows := arrowStyle.Render("◂ ") + protocol + arrowStyle.Render(" ▸")
 	if c.focused == fieldProtocol {
-		protocol = lipgloss.NewStyle().
-			Foreground(colorAccent).
-			Bold(true).
-			Render(protocol)
+		protocol = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(protocol)
+		arrows = arrowStyle.Render("◂ ") + protocol + arrowStyle.Render(" ▸")
+	}
+
+	row := func(label string, ti textinput.Model) string {
+		return labelStyle.Render(label) + ti.View()
 	}
 
 	fields := []string{
-		"Proto: " + protocol,
-		"Host: " + c.inputs[fieldHost].View(),
-		"User: " + c.inputs[fieldUser].View(),
-		"Pass: " + c.inputs[fieldPass].View(),
-		"Port: " + c.inputs[fieldPort].View(),
+		labelStyle.Render("Protocol") + arrows,
+		"",
+		row("Host", c.inputs[fieldHost]),
+		row("Port", c.inputs[fieldPort]),
+		row("User", c.inputs[fieldUser]),
+		row("Pass", c.inputs[fieldPass]),
 	}
 
-	body := strings.Join(fields, "  ")
-	return borderWithTitle(body, "Connection", width, 3, borderColor)
+	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
+	body := strings.Join(fields, "\n") + "\n\n" + hint
+
+	return borderWithTitle(body, "Connection", width, 14, colorAccent)
 }
 
 type ConnectMsg struct {
