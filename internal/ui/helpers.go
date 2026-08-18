@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image/color"
 	"strings"
 
@@ -54,4 +55,19 @@ func truncateHead(s string, width int) string {
 	}
 
 	return ellipsis + string(runes[start:])
+}
+
+// formatSize renders a byte count with binary units, one decimal place past
+// the first: "512 B", "45.2 MB", "1.3 GB".
+func formatSize(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for m := n / unit; m >= unit; m /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(n)/float64(div), "KMGTPE"[exp])
 }
