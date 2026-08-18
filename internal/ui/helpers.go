@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func borderWithTitle(content, title string, width, height int, borderColor lipgloss.Color) string {
+func borderWithTitle(content, title string, width, height int, borderColor lipgloss.TerminalColor) string {
 	lines := strings.Split(content, "\n")
 	maxLines := height - 4
 	if maxLines > 0 && len(lines) > maxLines {
@@ -16,7 +16,7 @@ func borderWithTitle(content, title string, width, height int, borderColor lipgl
 
 	titleStr := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("39")).
+		Foreground(colorAccent).
 		MarginBottom(1).
 		Render(title)
 
