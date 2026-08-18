@@ -106,6 +106,25 @@ func TestACurrentAttemptStillConnects(t *testing.T) {
 	}
 }
 
+// U/D transfer whichever side has marked files, regardless of focus. With
+// nothing marked there's no file to infer, so they must not silently no-op.
+func TestDirectTransferKeysRequireMarkedFiles(t *testing.T) {
+	a := NewApp(nil, false, nil)
+	a.focus = focusLocal
+
+	model, _ := a.Update(tea.KeyPressMsg{Code: 'U', Text: "U"})
+	a = model.(App)
+	if n := len(a.log.entries); n == 0 || a.log.entries[n-1].Level != LogError {
+		t.Fatalf("U with nothing marked in LOCAL did not log an error")
+	}
+
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'D', Text: "D"})
+	a = model.(App)
+	if n := len(a.log.entries); n == 0 || a.log.entries[n-1].Level != LogError {
+		t.Fatalf("D with nothing marked in REMOTE did not log an error")
+	}
+}
+
 // Rendering reaches lipgloss and the bubbles list through several derived
 // widths and heights, any one of which can go negative before the others do.
 // Sweeping the sizes covers the arithmetic without having to find each one.

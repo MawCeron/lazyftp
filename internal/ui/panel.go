@@ -238,21 +238,27 @@ func (p Panel) View(width, height int, active bool) string {
 	return borderWithTitle(body, p.title, width, height, borderColor)
 }
 
+// selectedFiles is the marked files, or the file under the cursor if none
+// are marked.
 func (p Panel) selectedFiles() []model.FileInfo {
-	if len(p.marked) == 0 {
-		item, ok := p.list.SelectedItem().(fileItem)
-		if ok {
-			return []model.FileInfo{item.file}
-		}
-		return nil
+	if marked := p.markedFiles(); len(marked) > 0 {
+		return marked
 	}
-	var selected []model.FileInfo
+	item, ok := p.list.SelectedItem().(fileItem)
+	if ok {
+		return []model.FileInfo{item.file}
+	}
+	return nil
+}
+
+func (p Panel) markedFiles() []model.FileInfo {
+	var marked []model.FileInfo
 	for i := range p.marked {
 		if i < len(p.files) {
-			selected = append(selected, p.files[i])
+			marked = append(marked, p.files[i])
 		}
 	}
-	return selected
+	return marked
 }
 
 type NavigateMsg struct {

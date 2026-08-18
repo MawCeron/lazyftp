@@ -147,6 +147,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					a.client.Disconnect()
 				}
 				return a, tea.Quit
+
+			case "U":
+				return a.handleDirectTransfer("LOCAL", a.local.markedFiles())
+
+			case "D":
+				return a.handleDirectTransfer("REMOTE", a.remote.markedFiles())
 			}
 		}
 
@@ -296,6 +302,7 @@ func (a App) hintsView() string {
 			hint("-", "go up"),
 			hint("x", "mark"),
 			hint("t", "transfer"),
+			hint("U/D", "upload/download marked"),
 			hint("Tab", "switch panel"),
 			hint("Ctrl+L", "connection"),
 			hint("q", "quit"),
@@ -382,6 +389,16 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 	}
 
 	return a, loadRemoteDir(a.client, msg.Path)
+}
+
+// handleDirectTransfer is U/D: transfer marked files in a given direction
+// regardless of which panel currently has focus.
+func (a App) handleDirectTransfer(sourcePanel string, files []model.FileInfo) (App, tea.Cmd) {
+	if len(files) == 0 {
+		a.log = a.log.Add("No files marked in "+sourcePanel, LogError)
+		return a, nil
+	}
+	return a.handleTransfer(TransferMsg{SourcePanel: sourcePanel, Files: files})
 }
 
 func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
