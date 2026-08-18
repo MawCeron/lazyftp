@@ -19,12 +19,15 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	verbose := flag.Bool("verbose", false, "log the FTP control dialogue to the Log panel")
 	logFile := flag.String("log-file", "", "also write the log to this file, appending to it")
+	noNerdFonts := flag.Bool("no-nerd-fonts", false, "use plain Unicode symbols instead of Nerd Font icons")
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println("lazyftp", version)
 		return
 	}
+
+	ui.SetNerdFonts(!*noNerdFonts)
 
 	// A typed nil would satisfy the io.Writer interface and be written to.
 	var logWriter io.Writer
