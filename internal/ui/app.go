@@ -411,39 +411,49 @@ func (a App) withOverlay(base, overlay string) string {
 
 // statusLine replaces the old permanently-visible connection form with a
 // single line: the connection state when idle or connecting, or who/where
-// once connected.
+// once connected. It renders as a solid bar -- every span sets its own
+// background explicitly, because a nested style's Render() resets to the
+// terminal default at its own boundary, which would otherwise leave gaps
+// of unstyled background wherever a foreground-only span sits.
 func (a App) statusLine() string {
-	style := lipgloss.NewStyle().Width(a.width)
+	bar := lipgloss.NewStyle().Background(colorBarBg)
+	muted := bar.Foreground(colorMuted)
 
 	switch {
 	case a.connecting:
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
-		return style.Foreground(colorMuted).
-			Render(fmt.Sprintf("%s Connecting… %s", a.spinner.View(), elapsed))
+		text := muted.Render(fmt.Sprintf("%s Connecting… %s", a.spinner.View(), elapsed))
+		return bar.Width(a.width).Render(text)
 
 	case a.connected:
-		dot := lipgloss.NewStyle().Foreground(colorSuccess).Render("●")
-		who := fmt.Sprintf("%s@%s (%s)", a.connUser, a.connAddr, a.connProtocol)
-		return style.Render(dot + " " + who)
+		dot := bar.Foreground(colorSuccess).Render("●")
+		who := bar.Foreground(colorPrimary).Render(fmt.Sprintf(" %s@%s (%s)", a.connUser, a.connAddr, a.connProtocol))
+		return bar.Width(a.width).Render(dot + who)
 
 	default:
-		return style.Foreground(colorMuted).Render("○ Not connected — Ctrl+L to connect")
+		text := muted.Render("○ Not connected — Ctrl+L to connect")
+		return bar.Width(a.width).Render(text)
 	}
 }
 
 // hintsView renders the same bindings keys.go declares for the help screen,
-// trimmed to what's actionable from here -- see footerKeyMap.ShortHelp.
+// trimmed to what's actionable from here -- see footerKeyMap.ShortHelp. It's
+// a solid bar like statusLine, for the same reason: every span sets its own
+// background so nested Render() calls can't leave unstyled gaps in it.
 // SetWidth makes bubbles/help truncate gracefully with an ellipsis instead
 // of wrapping or overflowing if a context's list still doesn't fit.
 func (a App) hintsView() string {
+	bar := lipgloss.NewStyle().Background(colorBarBg)
+
 	hm := help.New()
-	hm.Styles.ShortKey = lipgloss.NewStyle().Bold(true).Foreground(colorEmphasis)
-	hm.Styles.ShortDesc = lipgloss.NewStyle().Foreground(colorMuted)
-	hm.Styles.ShortSeparator = lipgloss.NewStyle().Foreground(colorMuted)
+	hm.Styles.ShortKey = bar.Bold(true).Foreground(colorEmphasis)
+	hm.Styles.ShortDesc = bar.Foreground(colorMuted)
+	hm.Styles.ShortSeparator = bar.Foreground(colorMuted)
+	hm.Styles.Ellipsis = bar.Foreground(colorMuted)
 	hm.SetWidth(a.width)
 
 	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen}
-	return lipgloss.NewStyle().Width(a.width).Render(hm.View(km))
+	return bar.Width(a.width).Render(hm.View(km))
 }
 
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
