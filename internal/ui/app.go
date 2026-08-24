@@ -24,6 +24,7 @@ type focus int
 const (
 	focusLocal focus = iota
 	focusRemote
+	focusLog
 	focusConnectionBar
 )
 
@@ -170,6 +171,21 @@ func (a App) heights() (statusH, panelH, bottomH int) {
 	return
 }
 
+// bottomPanelHeight is how tall Processes and Log each render: split when
+// stacked in narrow mode, shared in full when side by side. LogPanel needs
+// this figure kept in sync via SetSize -- unlike Processes, it persists a
+// viewport whose height math (AtBottom, in particular) goes stale otherwise.
+func (a App) bottomPanelHeight(bottomH int) int {
+	if !a.narrow() {
+		return bottomH
+	}
+	h := bottomH / 2
+	if h < 4 {
+		h = 4
+	}
+	return h
+}
+
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -180,10 +196,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		_, panelH, _ := a.heights()
+		_, panelH, bottomH := a.heights()
 		panelW := a.panelWidth()
 		a.local = a.local.SetSize(panelW, panelH)
 		a.remote = a.remote.SetSize(panelW, panelH)
+		a.log = a.log.SetSize(panelW, a.bottomPanelHeight(bottomH))
 		return a, nil
 
 	case tea.BackgroundColorMsg:
@@ -243,9 +260,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		case key.Matches(msg, keySwitch):
 			if a.focus != focusConnectionBar && !jumping {
-				if a.focus == focusLocal {
+				switch a.focus {
+				case focusLocal:
 					a.focus = focusRemote
-				} else {
+				case focusRemote:
+					a.focus = focusLog
+				case focusLog:
 					a.focus = focusLocal
 				}
 				return a, nil
@@ -318,6 +338,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.local, cmd = a.local.Update(msg)
 	case focusRemote:
 		a.remote, cmd = a.remote.Update(msg)
+	case focusLog:
+		a.log, cmd = a.log.UpdateFocused(msg)
 	}
 
 	return a, cmd
@@ -372,20 +394,19 @@ func (a App) render() string {
 		panels = lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
 	}
 
+	logActive := a.focus == focusLog
+
 	var bottom string
 	if a.narrow() {
 		// Side by side, Processes and Log would each get under 30 columns:
 		// stack them instead, splitting the shared height budget.
-		stackedH := bottomH / 2
-		if stackedH < 4 {
-			stackedH = 4
-		}
+		stackedH := a.bottomPanelHeight(bottomH)
 		processesView := a.processes.View(panelW, stackedH)
-		logView := a.log.View(panelW, stackedH)
+		logView := a.log.View(panelW, stackedH, logActive)
 		bottom = lipgloss.JoinVertical(lipgloss.Left, processesView, logView)
 	} else {
 		processesView := a.processes.View(panelW, bottomH)
-		logView := a.log.View(panelW, bottomH)
+		logView := a.log.View(panelW, bottomH, logActive)
 		bottom = lipgloss.JoinHorizontal(lipgloss.Top, processesView, logView)
 	}
 

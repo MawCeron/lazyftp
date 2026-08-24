@@ -325,6 +325,46 @@ func TestStandardWidthShowsBothPanels(t *testing.T) {
 	}
 }
 
+// #32: the Log panel joins the same Tab cycle as the file panels.
+func TestTabCyclesThroughLocalRemoteAndLog(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev")
+	a.focus = focusLocal
+
+	want := []focus{focusRemote, focusLog, focusLocal}
+	for _, w := range want {
+		model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+		a = model.(App)
+		if a.focus != w {
+			t.Fatalf("after Tab, focus = %v, want %v", a.focus, w)
+		}
+	}
+}
+
+// Scrolling keys must reach the Log panel's viewport only while it has
+// focus, the same isolation Local/Remote already get from each other.
+func TestLogScrollKeysOnlyReachTheViewportWhenFocused(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev")
+	a.width, a.height = 100, 30
+	a.log = a.log.SetSize(20, 6) // small: guarantees scrolling kicks in
+	for i := range 20 {
+		a.log = a.log.Add(fmt.Sprintf("entry %d", i), LogInfo)
+	}
+
+	a.focus = focusLocal
+	model, _ := a.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
+	a = model.(App)
+	if !a.log.viewport.AtBottom() {
+		t.Fatal("Log's viewport scrolled from a key press while Local had focus")
+	}
+
+	a.focus = focusLog
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
+	a = model.(App)
+	if a.log.viewport.AtBottom() {
+		t.Error("k did not scroll the Log viewport while it had focus")
+	}
+}
+
 // The connection form floats over the panels rather than replacing them: it
 // should only appear in the rendered frame while it holds focus.
 func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {

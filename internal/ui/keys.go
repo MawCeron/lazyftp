@@ -1,6 +1,18 @@
 package ui
 
-import "charm.land/bubbles/v2/key"
+import (
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+)
+
+// logScrollKeys reads the viewport package's own default keymap rather than
+// declaring separate copies here: LogPanel's viewport never overrides
+// KeyMap, so this is the exact set it actually responds to, not a
+// hand-maintained guess that could drift from it.
+func logScrollKeys() (up, down, pageUp, pageDown key.Binding) {
+	km := viewport.DefaultKeyMap()
+	return km.Up, km.Down, km.PageUp, km.PageDown
+}
 
 // Every binding lives here, once, so the footer hints and the full help
 // screen (opened with ?) render from the exact same source instead of two
@@ -67,6 +79,9 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 		return []key.Binding{keyJumpGo, keyJumpCancel}
 	case k.focus == focusConnectionBar:
 		return []key.Binding{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection}
+	case k.focus == focusLog:
+		up, down, pageUp, pageDown := logScrollKeys()
+		return []key.Binding{up, down, pageUp, pageDown}
 	default:
 		return []key.Binding{keyOpen, keyUp, keyMark, keyTransfer, keyHelp}
 	}
@@ -76,12 +91,14 @@ func (footerKeyMap) FullHelp() [][]key.Binding { return nil }
 
 // helpGroups is the complete reference the help screen renders, grouped by
 // context; helpGroupTitles names each group in the same order.
-var helpGroupTitles = []string{"Global", "File panels", "Connection dialog"}
+var helpGroupTitles = []string{"Global", "File panels", "Log panel", "Connection dialog"}
 
 func helpGroups() [][]key.Binding {
+	up, down, pageUp, pageDown := logScrollKeys()
 	return [][]key.Binding{
 		{keyQuit, keyHelp, keyConnect, keySwitch, keyUpload, keyDownload},
 		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump},
+		{up, down, pageUp, pageDown},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
 	}
 }

@@ -2,8 +2,11 @@ package ui
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestLogWritesEveryEntryToTheFile(t *testing.T) {
@@ -78,5 +81,43 @@ func TestLogWithoutAFileDoesNotPanic(t *testing.T) {
 
 	if len(log.entries) != 1 {
 		t.Errorf("the panel holds %d entries, want 1", len(log.entries))
+	}
+}
+
+// #32: retained entries are reachable through the viewport, and a new one
+// pulls the view along only if it was already caught up -- consistent with
+// #2, which is exactly this same "don't yank the view" rule for the tail.
+func TestLogFollowsNewEntriesWhileAtBottom(t *testing.T) {
+	log := NewLogPanel(nil).SetSize(40, 6) // small: guarantees scrolling kicks in
+
+	for i := range 20 {
+		log = log.Add(fmt.Sprintf("entry %d", i), LogInfo)
+	}
+
+	if !log.viewport.AtBottom() {
+		t.Fatal("expected the viewport to stay at the bottom while entries keep arriving")
+	}
+	if !strings.Contains(log.viewport.View(), "entry 19") {
+		t.Error("view does not show the latest entry")
+	}
+}
+
+func TestLogStopsFollowingOnceScrolledUp(t *testing.T) {
+	log := NewLogPanel(nil).SetSize(40, 6)
+	for i := range 20 {
+		log = log.Add(fmt.Sprintf("entry %d", i), LogInfo)
+	}
+
+	log, _ = log.UpdateFocused(tea.KeyPressMsg{Code: 'k', Text: "k"}) // scroll up
+	if log.viewport.AtBottom() {
+		t.Fatal("expected the viewport to have scrolled away from the bottom")
+	}
+
+	log = log.Add("entry 20", LogInfo)
+	if log.viewport.AtBottom() {
+		t.Error("a new entry pulled the scrolled-up view back to the bottom")
+	}
+	if strings.Contains(log.viewport.View(), "entry 20") {
+		t.Error("the new entry is visible even though the view is scrolled up, away from it")
 	}
 }

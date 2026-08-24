@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -28,14 +29,15 @@ type LogEntry struct {
 }
 
 type LogPanel struct {
-	entries []LogEntry
-	maxSize int
-	file    io.Writer
+	entries  []LogEntry
+	maxSize  int
+	file     io.Writer
+	viewport viewport.Model
 }
 
 // The panel drops old entries; the file keeps the whole session.
 func NewLogPanel(file io.Writer) LogPanel {
-	return LogPanel{maxSize: 100, file: file}
+	return LogPanel{maxSize: 100, file: file, viewport: viewport.New()}
 }
 
 var levelNames = map[LogLevel]string{
@@ -62,7 +64,44 @@ func (l LogPanel) Add(msg string, level LogLevel) LogPanel {
 			entry.Time.Format(time.RFC3339), levelNames[level], msg)
 	}
 
+	// Only follows the new entry down if the view was already at the
+	// bottom -- scrolled up reading history, a new line arriving shouldn't
+	// yank the view out from under you.
+	atBottom := l.viewport.AtBottom()
+	l.viewport.SetContent(l.renderEntries())
+	if atBottom {
+		l.viewport.GotoBottom()
+	}
+
 	return l
+}
+
+// SetSize persists the viewport's dimensions -- unlike Panel's list, a
+// viewport doesn't own the space it's given until told to, and View()
+// itself only returns a string, with no way to hand size changes back for
+// AtBottom's math in Add to stay accurate.
+func (l LogPanel) SetSize(width, height int) LogPanel {
+	innerWidth := borderInteriorWidth(width)
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
+	contentHeight := height - 2
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+	l.viewport.SetWidth(innerWidth)
+	l.viewport.SetHeight(contentHeight)
+	l.viewport.SetContent(l.renderEntries())
+	return l
+}
+
+// UpdateFocused scrolls the viewport. Only called while the Log panel has
+// focus -- unlike Update below, which always runs so new entries keep
+// arriving regardless of what's focused.
+func (l LogPanel) UpdateFocused(msg tea.Msg) (LogPanel, tea.Cmd) {
+	var cmd tea.Cmd
+	l.viewport, cmd = l.viewport.Update(msg)
+	return l, cmd
 }
 
 func (l LogPanel) Update(msg tea.Msg) (LogPanel, tea.Cmd) {
@@ -73,33 +112,24 @@ func (l LogPanel) Update(msg tea.Msg) (LogPanel, tea.Cmd) {
 	return l, nil
 }
 
-func (l LogPanel) View(width, height int) string {
+func (l LogPanel) View(width, height int, active bool) string {
 	borderColor := colorMuted
-	innerWidth := borderInteriorWidth(width)
-
-	maxVisible := height - 1
-	if maxVisible < 1 {
-		maxVisible = 1
+	if active {
+		borderColor = colorAccent
 	}
+	return borderWithTitle(l.viewport.View(), "Log", width, height, borderColor)
+}
 
-	var rows []string
-	start := 0
-	if len(l.entries) > maxVisible {
-		start = len(l.entries) - maxVisible
-	}
-
-	for _, e := range l.entries[start:] {
-		rows = append(rows, renderLogEntry(e, innerWidth))
-	}
-
+func (l LogPanel) renderEntries() string {
 	if len(l.entries) == 0 {
-		rows = append(rows, lipgloss.NewStyle().
-			Foreground(colorMuted).
-			Render("  (no logs)"))
+		return lipgloss.NewStyle().Foreground(colorMuted).Render("  (no logs)")
 	}
-
-	body := strings.Join(rows, "\n")
-	return borderWithTitle(body, "Log", width, height, borderColor)
+	innerWidth := l.viewport.Width()
+	rows := make([]string, len(l.entries))
+	for i, e := range l.entries {
+		rows[i] = renderLogEntry(e, innerWidth)
+	}
+	return strings.Join(rows, "\n")
 }
 
 func renderLogEntry(e LogEntry, width int) string {
