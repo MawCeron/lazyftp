@@ -292,8 +292,11 @@ func TestJumpRelativePathResolvesAgainstTheCurrentDir(t *testing.T) {
 // an error and never sends back a *DirLoadedMsg, so the panel is left where
 // it was for free, without this code needing to know what "invalid" means.
 
+// Remote, not Local: local paths follow the host's own separator rules
+// (filepath.Clean turns "/tmp" into "\tmp" on Windows), and this test only
+// cares that Esc leaves the path untouched, not what that path looks like.
 func TestJumpEscCancelsWithoutNavigating(t *testing.T) {
-	p := NewPanel("Local", true).WithFiles(nil, "/tmp")
+	p := NewPanel("Remote", false).WithFiles(nil, "/tmp")
 	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
 	p = typeInto(p, "/etc")
 
