@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -465,25 +464,62 @@ func centerPadding(width, contentWidth int) (left, right int) {
 // hintsView anchors the app's identity at the left edge, then fills the rest
 // of the bar with the same bindings keys.go declares for the help screen,
 // trimmed to what's actionable from here -- see footerKeyMap.ShortHelp.
-// Leading with the pills means whatever bubbles/help doesn't use of its
-// width budget (it drops a whole hint rather than show one partially) falls
-// off the right edge as ordinary trailing space, not a gap stranded between
-// two fixed pieces of content.
+// Leading with the pills means whatever renderHints doesn't use of its width
+// budget (it drops a whole hint rather than show one partially) falls off
+// the right edge as ordinary trailing space, not a gap stranded between two
+// fixed pieces of content.
 func (a App) hintsView() string {
-	bar := lipgloss.NewStyle().Background(colorBarBg)
-
 	identity := pill(colorAccent, "lazyftp") + pill(colorMuted, a.version)
 	identityWidth := lipgloss.Width(identity)
 
-	hm := help.New()
-	hm.Styles.ShortKey = bar.Bold(true).Foreground(colorEmphasis)
-	hm.Styles.ShortDesc = bar.Foreground(colorMuted)
-	hm.Styles.ShortSeparator = bar.Foreground(colorMuted)
-	hm.Styles.Ellipsis = bar.Foreground(colorMuted)
-	hm.SetWidth(a.width - identityWidth)
-
 	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen}
-	return composeBar(colorBarBg, a.width, identity+hm.View(km), "")
+	hints := renderHints(km.ShortHelp(), a.width-identityWidth)
+
+	return composeBar(colorBarBg, a.width, identity+hints, "")
+}
+
+// renderHints lays out bindings as "key desc" pairs, hand-composed instead
+// of through bubbles/help's ShortHelpView: that helper joins a rendered key
+// and a rendered desc with a literal, unstyled space, which showed the
+// terminal's own background right through the middle of every hint on a
+// colored bar. Drops whichever trailing bindings don't fit width, with an
+// ellipsis if there's room for one.
+func renderHints(bindings []key.Binding, width int) string {
+	bar := lipgloss.NewStyle().Background(colorBarBg)
+	keyStyle := bar.Bold(true).Foreground(colorEmphasis)
+	descStyle := bar.Foreground(colorMuted)
+	sep := bar.Foreground(colorMuted).Render(" • ")
+	sepWidth := lipgloss.Width(sep)
+
+	var b strings.Builder
+	used := 0
+	for i, kb := range bindings {
+		h := kb.Help()
+		item := keyStyle.Render(h.Key) + bar.Render(" ") + descStyle.Render(h.Desc)
+		itemWidth := lipgloss.Width(item)
+
+		need := itemWidth
+		if i > 0 {
+			need += sepWidth
+		}
+		if used+need > width {
+			if used+sepWidth+1 <= width {
+				if i > 0 {
+					b.WriteString(sep)
+				}
+				b.WriteString(descStyle.Render("…"))
+			}
+			break
+		}
+
+		if i > 0 {
+			b.WriteString(sep)
+			used += sepWidth
+		}
+		b.WriteString(item)
+		used += itemWidth
+	}
+	return b.String()
 }
 
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
