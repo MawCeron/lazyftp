@@ -1,6 +1,21 @@
 package ui
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+// The bug this guards against: Height(N) on the box is N's own total row
+// count including the border, not the content area underneath it -- get
+// that wrong and every panel renders one row short of what it was given.
+func TestBorderWithTitleRendersExactlyTheRequestedHeight(t *testing.T) {
+	for _, height := range []int{6, 8, 15, 24} {
+		out := borderWithTitle("a\nb\nc", "Title", 30, height, colorAccent)
+		if got := len(strings.Split(out, "\n")); got != height {
+			t.Errorf("borderWithTitle(height=%d) rendered %d lines, want %d", height, got, height)
+		}
+	}
+}
 
 func TestFormatSize(t *testing.T) {
 	cases := []struct {

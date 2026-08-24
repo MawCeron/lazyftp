@@ -39,12 +39,18 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 		titleStyle.Render(label) +
 		borderStyle.Render(strings.Repeat(border.Top, fill)+border.TopRight)
 
+	// height-1, not height-2: Height(N) is the box's own total row count
+	// (content plus whichever borders are enabled), the same way Width(N)
+	// above is the total line width rather than the content width. With
+	// BorderTop disabled, the box's only counted border is the bottom one,
+	// so its total is content+1 -- and the top row drawn separately above
+	// accounts for the other row of height.
 	box := lipgloss.NewStyle().
 		Border(border).
 		BorderTop(false).
 		BorderForeground(borderColor).
 		Width(boxWidth).
-		Height(height-2).
+		Height(height-1).
 		Padding(0, 1).
 		Render(content)
 
