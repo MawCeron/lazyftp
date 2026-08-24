@@ -25,9 +25,13 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(colorAccent)
 
-	avail := width - 2 // top row width, corners excluded
+	// Matches the box's own Width(boxWidth) below: Lipgloss renders every
+	// line of a bordered, padded block at that total width, corners
+	// included, so the hand-built top row has to target the same number to
+	// close flush with the corners instead of overshooting them.
+	boxWidth := width - 2
 	label := " " + title + " "
-	fill := avail - 1 - runewidth.StringWidth(label)
+	fill := boxWidth - 3 - runewidth.StringWidth(label) // 2 corners + the leading dash
 	if fill < 0 {
 		fill = 0
 	}
@@ -39,7 +43,7 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 		Border(border).
 		BorderTop(false).
 		BorderForeground(borderColor).
-		Width(width-2).
+		Width(boxWidth).
 		Height(height-2).
 		Padding(0, 1).
 		Render(content)
