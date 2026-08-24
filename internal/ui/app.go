@@ -413,60 +413,77 @@ func (a App) withOverlay(base, overlay string) string {
 }
 
 // statusLine is a segmented bar, lualine/airline-style: a colored pill for
-// the connection state, plain detail text next to it, and a pill on the far
-// right for the marked-file count -- visible nowhere else short of opening
-// Processes or counting checkmarks by eye -- whenever there is one.
+// the connection state, detail text centered in the plain space next to it,
+// and a pill on the far right for the marked-file count -- visible nowhere
+// else short of opening Processes or counting checkmarks by eye -- whenever
+// there is one.
 func (a App) statusLine() string {
 	bar := lipgloss.NewStyle().Background(colorBarBg)
-	detail := bar.Foreground(colorMuted)
+	detailStyle := bar.Foreground(colorMuted)
 
-	var left string
+	var leftPill, detail string
 	switch {
 	case a.connecting:
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
-		left = pill(colorAccent, a.spinner.View()+" CONNECTING") +
-			bar.Render(" ") + detail.Render(elapsed.String())
+		leftPill = pill(colorAccent, a.spinner.View()+" CONNECTING")
+		detail = detailStyle.Render(elapsed.String())
 
 	case a.connected:
 		who := fmt.Sprintf("%s@%s", a.connUser, a.connAddr)
-		left = pill(colorSuccess, a.connProtocol.String()) +
-			bar.Render(" ") + detail.Foreground(colorPrimary).Render(who)
+		leftPill = pill(colorSuccess, a.connProtocol.String())
+		detail = detailStyle.Foreground(colorPrimary).Render(who)
 
 	default:
-		left = pill(colorMuted, "OFFLINE") +
-			bar.Render(" ") + detail.Render("Ctrl+L to connect")
+		leftPill = pill(colorMuted, "OFFLINE")
+		detail = detailStyle.Render("Ctrl+L to connect")
 	}
 
-	var right string
+	var rightPill string
 	if marked := len(a.local.markedFiles()) + len(a.remote.markedFiles()); marked > 0 {
-		right = pill(colorMarked, fmt.Sprintf("%d MARKED", marked))
+		rightPill = pill(colorMarked, fmt.Sprintf("%d MARKED", marked))
 	}
 
-	return composeBar(colorBarBg, a.width, left, right)
+	plainWidth := a.width - lipgloss.Width(leftPill) - lipgloss.Width(rightPill)
+	leftPad, rightPad := centerPadding(plainWidth, lipgloss.Width(detail))
+	plain := bar.Render(strings.Repeat(" ", leftPad)) + detail + bar.Render(strings.Repeat(" ", rightPad))
+
+	return leftPill + plain + rightPill
 }
 
-// hintsView renders the same bindings keys.go declares for the help screen,
-// trimmed to what's actionable from here -- see footerKeyMap.ShortHelp. Two
-// pills anchor the right edge with the app's identity; unlike the per-key
-// hints, that doesn't change with focus, so it isn't worth its own pass
-// through footerKeyMap. SetWidth gives the hints only the width left after
-// the pills take their share, so they truncate gracefully with an ellipsis
-// instead of colliding with the pills or overflowing.
+// centerPadding splits the slack in a span of the given width around
+// content contentWidth cells wide, clamped to zero if the content doesn't
+// fit at all.
+func centerPadding(width, contentWidth int) (left, right int) {
+	slack := width - contentWidth
+	if slack < 0 {
+		return 0, 0
+	}
+	left = slack / 2
+	return left, slack - left
+}
+
+// hintsView anchors the app's identity at the left edge, then fills the rest
+// of the bar with the same bindings keys.go declares for the help screen,
+// trimmed to what's actionable from here -- see footerKeyMap.ShortHelp.
+// Leading with the pills means whatever bubbles/help doesn't use of its
+// width budget (it drops a whole hint rather than show one partially) falls
+// off the right edge as ordinary trailing space, not a gap stranded between
+// two fixed pieces of content.
 func (a App) hintsView() string {
 	bar := lipgloss.NewStyle().Background(colorBarBg)
 
-	right := pill(colorAccent, "lazyftp") + pill(colorMuted, a.version)
-	rightWidth := lipgloss.Width(right)
+	identity := pill(colorAccent, "lazyftp") + pill(colorMuted, a.version)
+	identityWidth := lipgloss.Width(identity)
 
 	hm := help.New()
 	hm.Styles.ShortKey = bar.Bold(true).Foreground(colorEmphasis)
 	hm.Styles.ShortDesc = bar.Foreground(colorMuted)
 	hm.Styles.ShortSeparator = bar.Foreground(colorMuted)
 	hm.Styles.Ellipsis = bar.Foreground(colorMuted)
-	hm.SetWidth(a.width - rightWidth)
+	hm.SetWidth(a.width - identityWidth)
 
 	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen}
-	return composeBar(colorBarBg, a.width, hm.View(km), right)
+	return composeBar(colorBarBg, a.width, identity+hm.View(km), "")
 }
 
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {

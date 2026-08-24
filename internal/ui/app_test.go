@@ -197,15 +197,44 @@ func TestStatusLineShowsMarkedCountOnlyWhenSomethingIsMarked(t *testing.T) {
 	}
 }
 
+func TestCenterPadding(t *testing.T) {
+	cases := []struct {
+		width, content int
+		wantL, wantR   int
+	}{
+		{width: 20, content: 10, wantL: 5, wantR: 5},
+		{width: 21, content: 10, wantL: 5, wantR: 6}, // odd slack leans right
+		{width: 5, content: 10, wantL: 0, wantR: 0},  // doesn't fit: no negative padding
+	}
+	for _, c := range cases {
+		l, r := centerPadding(c.width, c.content)
+		if l != c.wantL || r != c.wantR {
+			t.Errorf("centerPadding(%d, %d) = (%d, %d), want (%d, %d)", c.width, c.content, l, r, c.wantL, c.wantR)
+		}
+	}
+}
+
 func TestFooterAnchorsAppIdentityRegardlessOfFocus(t *testing.T) {
 	a := NewApp(nil, false, nil, "1.2.3")
 	a.width = 100
+
+	firstHint := map[focus]string{
+		focusLocal:         "l/enter",
+		focusRemote:        "l/enter",
+		focusConnectionBar: "tab",
+	}
 
 	for _, focus := range []focus{focusLocal, focusRemote, focusConnectionBar} {
 		a.focus = focus
 		got := a.hintsView()
 		if !strings.Contains(got, "lazyftp") || !strings.Contains(got, "1.2.3") {
 			t.Errorf("focus %d: hintsView() = %q, want both identity pills", focus, got)
+		}
+		if strings.Index(got, "lazyftp") > strings.Index(got, "1.2.3") {
+			t.Errorf("focus %d: hintsView() = %q, want lazyftp before the version", focus, got)
+		}
+		if strings.Index(got, "1.2.3") > strings.Index(got, firstHint[focus]) {
+			t.Errorf("focus %d: hintsView() = %q, want the identity pills before the key hints", focus, got)
 		}
 	}
 }
