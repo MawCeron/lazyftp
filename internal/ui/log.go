@@ -75,7 +75,7 @@ func (l LogPanel) Update(msg tea.Msg) (LogPanel, tea.Cmd) {
 
 func (l LogPanel) View(width, height int) string {
 	borderColor := colorMuted
-	innerWidth := width - 4
+	innerWidth := borderInteriorWidth(width)
 
 	maxVisible := height - 1
 	if maxVisible < 1 {

@@ -58,7 +58,7 @@ func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 
 func (p ProcessesPanel) View(width, height int) string {
 	borderColor := colorMuted
-	innerWidth := width - 4
+	innerWidth := borderInteriorWidth(width)
 
 	visibleHeight := (height - 2) / 2 // Each transfer takes 2 lines, and the border reserves 2
 	if visibleHeight < 1 {

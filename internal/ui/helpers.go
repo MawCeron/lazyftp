@@ -47,6 +47,13 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 	return top + "\n" + box
 }
 
+// borderInteriorWidth returns how many cells of a borderWithTitle box at the
+// given outer width are actually usable for content, once its border and
+// padding (1 cell each side, both) are subtracted.
+func borderInteriorWidth(width int) int {
+	return width - 6
+}
+
 // truncateHead keeps the trailing portion of s that fits within width cells,
 // prefixing "…" when s had to be cut. Used for paths, where the leaf at the
 // end matters more than the root.
