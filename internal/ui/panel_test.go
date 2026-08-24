@@ -35,6 +35,48 @@ func TestFileDelegateShowsCursorAndMarkTogether(t *testing.T) {
 	}
 }
 
+// #52: the acceptance criteria requires this be distinguishable without
+// relying on color alone, so the glyph itself (not just the color) has to
+// show up in the render.
+func TestFileDelegateMarksEntriesUniqueToOneSide(t *testing.T) {
+	items := []list.Item{
+		fileItem{file: model.FileInfo{Name: "only-here.txt"}},
+		fileItem{file: model.FileInfo{Name: "on-both.txt"}},
+	}
+	delegate := fileDelegate{
+		marked:     map[string]bool{},
+		uniqueOnly: map[string]bool{"only-here.txt": true},
+	}
+	l := list.New(items, delegate, 80, 10)
+
+	render := func(i int) string {
+		var buf bytes.Buffer
+		delegate.Render(&buf, l, i, items[i])
+		return buf.String()
+	}
+
+	if out := render(0); !strings.Contains(out, iconUnique()) {
+		t.Errorf("unique entry: Render() = %q, want the unique indicator", out)
+	}
+	if out := render(1); strings.Contains(out, iconUnique()) {
+		t.Errorf("shared entry: Render() = %q, want no unique indicator", out)
+	}
+}
+
+// nil (the --highlight-diff flag is off) must drop the indicator column
+// rather than reserve a permanently blank one nobody asked for.
+func TestFileDelegateOmitsUniqueColumnWhenFlagIsOff(t *testing.T) {
+	items := []list.Item{fileItem{file: model.FileInfo{Name: "report.txt"}}}
+	delegate := fileDelegate{marked: map[string]bool{}, uniqueOnly: nil}
+	l := list.New(items, delegate, 80, 10)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, items[0])
+	if out := buf.String(); strings.Contains(out, iconUnique()) {
+		t.Errorf("Render() with uniqueOnly=nil = %q, want no unique indicator ever", out)
+	}
+}
+
 // The bug this guards against: bubbles/list binds h/l to PrevPage/NextPage by
 // default, and unhandled keys fall through to the list -- so h/l silently
 // paginated instead of navigating.
@@ -91,6 +133,37 @@ func TestMarkFollowsTheFileNotItsPosition(t *testing.T) {
 	marked := p.markedFiles()
 	if len(marked) != 1 || marked[0].Name != "b.txt" {
 		t.Fatalf("markedFiles() after reordering = %v, want just b.txt", marked)
+	}
+}
+
+// #52: comparison is by name only, and directories and files are treated
+// the same way -- a directory unique to one side is just as much "unique"
+// as a file is.
+func TestUniqueNames(t *testing.T) {
+	local := []model.FileInfo{
+		{Name: "shared.txt"},
+		{Name: "local-only.txt"},
+		{Name: "assets", Type: model.FileTypeDir},
+	}
+	remote := []model.FileInfo{
+		{Name: "shared.txt"},
+		{Name: "remote-only.txt"},
+	}
+
+	localOnly := uniqueNames(local, remote)
+	want := map[string]bool{"local-only.txt": true, "assets": true}
+	if len(localOnly) != len(want) {
+		t.Fatalf("uniqueNames(local, remote) = %v, want %v", localOnly, want)
+	}
+	for name := range want {
+		if !localOnly[name] {
+			t.Errorf("uniqueNames(local, remote) missing %q", name)
+		}
+	}
+
+	remoteOnly := uniqueNames(remote, local)
+	if len(remoteOnly) != 1 || !remoteOnly["remote-only.txt"] {
+		t.Errorf("uniqueNames(remote, local) = %v, want just remote-only.txt", remoteOnly)
 	}
 }
 

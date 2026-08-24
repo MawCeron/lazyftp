@@ -33,7 +33,7 @@ func (s *stubClient) Download(remote, local string, p func(int64)) error {
 var _ client.Client = (*stubClient)(nil)
 
 func connecting() App {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.connecting = true
 	a.connectSeq = 1
 	return a
@@ -43,7 +43,7 @@ func connecting() App {
 // connection bar, where "q" is deliberately left to reach the text field.
 func TestCtrlCQuitsFromEveryFocusState(t *testing.T) {
 	for _, focus := range []focus{focusConnectionBar, focusLocal, focusRemote} {
-		a := NewApp(nil, false, nil, "dev")
+		a := NewApp(nil, false, nil, "dev", false)
 		a.focus = focus
 		a.connected = true
 		stub := &stubClient{}
@@ -139,7 +139,7 @@ func TestACurrentAttemptStillConnects(t *testing.T) {
 // U/D transfer whichever side has marked files, regardless of focus. With
 // nothing marked there's no file to infer, so they must not silently no-op.
 func TestDirectTransferKeysRequireMarkedFiles(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.focus = focusLocal
 
 	model, _ := a.Update(tea.KeyPressMsg{Code: 'U', Text: "U"})
@@ -159,7 +159,7 @@ func TestDirectTransferKeysRequireMarkedFiles(t *testing.T) {
 // bindings must not steal a keystroke a typed path would otherwise contain.
 // "q" is the sharpest case -- it's also quit.
 func TestGlobalKeysDoNotReachThroughAnOpenJumpInput(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.focus = focusLocal
 
 	model, _ := a.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
@@ -187,7 +187,7 @@ func TestGlobalKeysDoNotReachThroughAnOpenJumpInput(t *testing.T) {
 }
 
 func TestStatusLineReflectsConnectionState(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width = 80
 
 	if got := a.statusLine(); !strings.Contains(got, "OFFLINE") {
@@ -214,7 +214,7 @@ func TestStatusLineReflectsConnectionState(t *testing.T) {
 }
 
 func TestStatusLineShowsMarkedCountOnlyWhenSomethingIsMarked(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width = 80
 
 	if got := a.statusLine(); strings.Contains(got, "MARKED") {
@@ -247,7 +247,7 @@ func TestCenterPadding(t *testing.T) {
 }
 
 func TestFooterAnchorsAppIdentityRegardlessOfFocus(t *testing.T) {
-	a := NewApp(nil, false, nil, "1.2.3")
+	a := NewApp(nil, false, nil, "1.2.3", false)
 	a.width = 100
 
 	firstHint := map[focus]string{
@@ -272,7 +272,7 @@ func TestFooterAnchorsAppIdentityRegardlessOfFocus(t *testing.T) {
 }
 
 func TestTooSmallViewBelowTheFloor(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 
 	a.width, a.height = minWidth-1, minHeight+5
 	if got := a.render(); !strings.Contains(got, "too small") {
@@ -293,7 +293,7 @@ func TestTooSmallViewBelowTheFloor(t *testing.T) {
 // Below 80 columns, two file panels side by side are too cramped to be
 // useful: only the focused one should render, at full width.
 func TestNarrowWidthShowsOnlyTheFocusedPanel(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width, a.height = 70, 24
 	a.focus = focusLocal
 
@@ -316,7 +316,7 @@ func TestNarrowWidthShowsOnlyTheFocusedPanel(t *testing.T) {
 }
 
 func TestStandardWidthShowsBothPanels(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width, a.height = 80, 24
 	a.focus = focusLocal // panels render blank behind the connection overlay
 
@@ -326,13 +326,36 @@ func TestStandardWidthShowsBothPanels(t *testing.T) {
 	}
 }
 
+// #52 is opt-in: with --highlight-diff off (NewApp's default), a name
+// unique to one side must not render any differently than it always has.
+func TestHighlightDiffOnlyActivatesWithTheFlag(t *testing.T) {
+	newApp := func(highlightDiff bool) App {
+		a := NewApp(nil, false, nil, "dev", highlightDiff)
+		a.width, a.height = 100, 30
+		a.focus = focusLocal
+		a.local = a.local.WithFiles([]model.FileInfo{{Name: "only-local.txt"}}, "/a")
+		a.remote = a.remote.WithFiles([]model.FileInfo{{Name: "only-remote.txt"}}, "/b")
+		return a
+	}
+
+	off := newApp(false)
+	if out := off.render(); strings.Contains(out, iconUnique()) {
+		t.Errorf("--highlight-diff off: render() = %q, want no unique indicator", out)
+	}
+
+	on := newApp(true)
+	if out := on.render(); !strings.Contains(out, iconUnique()) {
+		t.Errorf("--highlight-diff on: render() = %q, want a unique indicator", out)
+	}
+}
+
 // Tab alone used to be its own reverse when there were only two panels
 // total. Once Log (and now Processes) needed a place in the cycle too, a
 // single Tab-only cycle stopped being reversible with itself -- so Tab
 // stays within whichever group has focus, and Shift+Tab is what moves
 // between the Local/Remote group and the Log/Processes group.
 func TestTabStaysWithinItsGroup(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.focus = focusLocal
 
 	want := []focus{focusRemote, focusLocal}
@@ -356,7 +379,7 @@ func TestTabStaysWithinItsGroup(t *testing.T) {
 }
 
 func TestShiftTabSwitchesGroups(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.focus = focusLocal
 
 	model, _ := a.Update(shiftTab)
@@ -390,7 +413,7 @@ func TestShiftTabSwitchesGroups(t *testing.T) {
 // Scrolling keys must reach the Processes panel's viewport only while it
 // has focus, mirroring the same isolation Log already gets.
 func TestProcessesScrollKeysOnlyReachTheViewportWhenFocused(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width, a.height = 100, 30
 	a.processes = a.processes.SetSize(20, 6) // small: guarantees scrolling kicks in
 	for i := range 20 {
@@ -418,7 +441,7 @@ func TestProcessesScrollKeysOnlyReachTheViewportWhenFocused(t *testing.T) {
 // Scrolling keys must reach the Log panel's viewport only while it has
 // focus, the same isolation Local/Remote already get from each other.
 func TestLogScrollKeysOnlyReachTheViewportWhenFocused(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width, a.height = 100, 30
 	a.log = a.log.SetSize(20, 6) // small: guarantees scrolling kicks in
 	for i := range 20 {
@@ -443,7 +466,7 @@ func TestLogScrollKeysOnlyReachTheViewportWhenFocused(t *testing.T) {
 // The connection form floats over the panels rather than replacing them: it
 // should only appear in the rendered frame while it holds focus.
 func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width, a.height = 80, 24
 
 	a.focus = focusConnectionBar
@@ -461,7 +484,7 @@ func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {
 // visible under: showing them was cutting their text off mid-word wherever
 // the floating dialog happened to overlap a panel.
 func TestConnectionOverlayBlanksThePanels(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev")
+	a := NewApp(nil, false, nil, "dev", false)
 	a.width, a.height = 80, 24
 	a.focus = focusConnectionBar
 
@@ -483,7 +506,7 @@ func TestRenderingSurvivesAnyTerminalSize(t *testing.T) {
 	for w := 0; w <= 24; w++ {
 		for h := 0; h <= 24; h++ {
 			t.Run(fmt.Sprintf("%dx%d", w, h), func(t *testing.T) {
-				a := NewApp(nil, false, nil, "dev")
+				a := NewApp(nil, false, nil, "dev", false)
 				a.local = a.local.WithFiles(files, "/a/deep/enough/path/to/be/truncated")
 				a.remote = a.remote.WithFiles(files, "/another/path")
 

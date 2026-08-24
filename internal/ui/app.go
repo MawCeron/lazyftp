@@ -57,7 +57,8 @@ type App struct {
 	verbose      bool
 	protoLog     *shared.LineBuffer
 
-	version string
+	version       string
+	highlightDiff bool
 }
 
 // seq identifies the attempt, so an abandoned one's result can be dropped.
@@ -84,18 +85,19 @@ func startDir() string {
 	return "/"
 }
 
-func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer, version string) App {
+func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer, version string, highlightDiff bool) App {
 	app := App{
-		focus:     focusConnectionBar,
-		connBar:   NewConnectionBar(),
-		local:     NewPanel("Local", true),
-		remote:    NewPanel("Remote", false),
-		processes: NewProcessesPanel(),
-		log:       NewLogPanel(logFile),
-		spinner:   spinner.New(spinner.WithSpinner(spinner.Dot)),
-		program:   p,
-		verbose:   verbose,
-		version:   version,
+		focus:         focusConnectionBar,
+		connBar:       NewConnectionBar(),
+		local:         NewPanel("Local", true),
+		remote:        NewPanel("Remote", false),
+		processes:     NewProcessesPanel(),
+		log:           NewLogPanel(logFile),
+		spinner:       spinner.New(spinner.WithSpinner(spinner.Dot)),
+		program:       p,
+		verbose:       verbose,
+		version:       version,
+		highlightDiff: highlightDiff,
 	}
 	app.local.path = startDir()
 	return app
@@ -400,18 +402,27 @@ func (a App) render() string {
 		return a.withOverlay(base, a.connBar.View(a.width))
 	}
 
+	// nil unless --highlight-diff is on: Panel.View treats nil as "the flag
+	// is off" and drops the indicator column entirely rather than reserving
+	// a permanently blank one nobody asked for.
+	var localOnly, remoteOnly map[string]bool
+	if a.highlightDiff {
+		localOnly = uniqueNames(a.local.files, a.remote.files)
+		remoteOnly = uniqueNames(a.remote.files, a.local.files)
+	}
+
 	var panels string
 	if a.narrow() {
 		// Only the focused file panel renders, full width, switched with
 		// the same Tab that already cycles focus between Local and Remote.
 		if a.focus == focusRemote {
-			panels = a.remote.View(panelW, panelH, true)
+			panels = a.remote.View(panelW, panelH, true, remoteOnly)
 		} else {
-			panels = a.local.View(panelW, panelH, a.focus == focusLocal)
+			panels = a.local.View(panelW, panelH, a.focus == focusLocal, localOnly)
 		}
 	} else {
-		localView := a.local.View(panelW, panelH, a.focus == focusLocal)
-		remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote)
+		localView := a.local.View(panelW, panelH, a.focus == focusLocal, localOnly)
+		remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote, remoteOnly)
 		panels = lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
 	}
 

@@ -43,6 +43,13 @@ type fileDelegate struct {
 	// filtering, #31), at which point the same index would point at a
 	// different file.
 	marked map[string]bool
+
+	// uniqueOnly names this panel's entries missing from the other panel
+	// (--highlight-diff). nil means the flag is off, distinct from a
+	// non-nil empty map (flag on, nothing differs) -- nil also drops the
+	// indicator column entirely rather than reserving a permanently blank
+	// one nobody asked for.
+	uniqueOnly map[string]bool
 }
 
 func (d fileDelegate) Height() int                             { return 1 }
@@ -57,6 +64,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 
 	cursorStyle := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	markedStyle := lipgloss.NewStyle().Foreground(colorMarked).Bold(true)
+	uniqueStyle := lipgloss.NewStyle().Foreground(colorDiffOnly).Bold(true)
 	dirStyle := lipgloss.NewStyle().Foreground(colorDirectory)
 	normalStyle := lipgloss.NewStyle().Foreground(colorPrimary)
 	sizeMetaStyle := lipgloss.NewStyle().Foreground(colorPrimary)
@@ -64,14 +72,17 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 
 	isSelected := index == m.Index()
 	isMarked := d.marked[fi.file.Name]
+	showUniqueCol := d.uniqueOnly != nil
+	isUnique := d.uniqueOnly[fi.file.Name]
 
 	name := fi.file.Name
 	if fi.file.IsDir() {
 		name = name + "/"
 	}
 
-	// Cursor and mark each own a column so neither displaces the other:
-	// a marked, selected file shows both the cursor and the mark at once.
+	// Cursor, mark and (when --highlight-diff is on) unique-to-this-side
+	// each own a column so none displaces another: a marked, selected,
+	// unique file shows all three markers at once.
 	cursorChar := " "
 	if isSelected {
 		cursorChar = cursorStyle.Render(">")
@@ -80,7 +91,15 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	if isMarked {
 		markChar = markedStyle.Render(iconMark())
 	}
-	prefix := cursorChar + markChar + " "
+	prefix := cursorChar + markChar
+	if showUniqueCol {
+		uniqueChar := " "
+		if isUnique {
+			uniqueChar = uniqueStyle.Render(iconUnique())
+		}
+		prefix += uniqueChar
+	}
+	prefix += " "
 
 	// nameStyle carries the row's state; sizeStyle/dateStyle match it when
 	// the row is marked or selected, so the whole row highlights as one
@@ -98,6 +117,9 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	case isSelected:
 		nameStyle = lipgloss.NewStyle().Reverse(true)
 		sizeStyle, dateStyle = nameStyle, nameStyle
+	case isUnique:
+		nameStyle = uniqueStyle
+		sizeStyle, dateStyle = sizeMetaStyle, dateMetaStyle
 	case fi.file.IsDir():
 		nameStyle = dirStyle
 		sizeStyle, dateStyle = sizeMetaStyle, dateMetaStyle
@@ -112,16 +134,20 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	}
 	dateStr := fi.file.ModTime.Format("2006-01-02 15:04")
 
-	// prefix is 3 display cells (cursor + mark + gap); widthSlack is an
-	// empirical safety margin. A real terminal wrapped rows at the reported
-	// width with all three columns shown, meaning m.Width() reads wider
-	// than what's actually safe to fill.
+	// prefix is 3 display cells (cursor + mark + gap), 4 with the unique
+	// column; widthSlack is an empirical safety margin. A real terminal
+	// wrapped rows at the reported width with all three columns shown,
+	// meaning m.Width() reads wider than what's actually safe to fill.
 	// ponytail: widthSlack papers over an unpinned discrepancy between
 	// list.Model.Width() and the real usable width instead of tracking it
 	// down live; raise it further (or find the exact cause) if wrapping
 	// recurs at a specific width/terminal.
 	const widthSlack = 3
-	avail := m.Width() - 3 - widthSlack
+	prefixWidth := 3
+	if showUniqueCol {
+		prefixWidth = 4
+	}
+	avail := m.Width() - prefixWidth - widthSlack
 	showDate := avail >= minNameWidth+1+sizeColWidth+1+dateColWidth
 	showSize := showDate || avail >= minNameWidth+1+sizeColWidth
 
@@ -376,11 +402,14 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	return p, cmd
 }
 
-func (p Panel) View(width, height int, active bool) string {
+// uniqueOnly is nil when --highlight-diff is off, in which case View skips
+// the indicator column entirely. See Panel.View.
+func (p Panel) View(width, height int, active bool, uniqueOnly map[string]bool) string {
 	borderColor := colorMuted
 	if active {
 		borderColor = colorAccent
 	}
+	p.list.SetDelegate(fileDelegate{marked: p.marked, uniqueOnly: uniqueOnly})
 
 	pathStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	sortStyle := lipgloss.NewStyle().Foreground(colorMuted)
@@ -443,6 +472,25 @@ func (p Panel) markedFiles() []model.FileInfo {
 		}
 	}
 	return marked
+}
+
+// uniqueNames returns the names in files that don't appear in other, by
+// name only -- comparing size or modification time isn't reliable over
+// plain FTP (#52). Directories and files are compared the same way, since
+// FileInfo.Name doesn't carry the distinction.
+func uniqueNames(files, other []model.FileInfo) map[string]bool {
+	otherNames := make(map[string]bool, len(other))
+	for _, f := range other {
+		otherNames[f.Name] = true
+	}
+
+	unique := make(map[string]bool)
+	for _, f := range files {
+		if !otherNames[f.Name] {
+			unique[f.Name] = true
+		}
+	}
+	return unique
 }
 
 type NavigateMsg struct {

@@ -20,6 +20,7 @@ func main() {
 	verbose := flag.Bool("verbose", false, "log the FTP control dialogue to the Log panel")
 	logFile := flag.String("log-file", "", "also write the log to this file, appending to it")
 	noNerdFonts := flag.Bool("no-nerd-fonts", false, "use plain Unicode symbols instead of Nerd Font icons")
+	highlightDiff := flag.Bool("highlight-diff", false, "mark files present on only one side, comparing Local and Remote by name")
 	flag.Parse()
 
 	if *showVersion {
@@ -52,7 +53,7 @@ func main() {
 	}
 
 	var p *tea.Program
-	app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter, version)
+	app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter, version, *highlightDiff)
 	p = tea.NewProgram(app)
 
 	if _, err := p.Run(); err != nil {
