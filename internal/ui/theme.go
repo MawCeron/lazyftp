@@ -20,6 +20,7 @@ var (
 	colorDirectory color.Color = lipgloss.Color("75")
 	colorMarked    color.Color = lipgloss.Color("214")
 	colorBarBg     color.Color = lipgloss.Color("235") // status line / footer background
+	colorDiffOnly  color.Color = lipgloss.Color("226") // entries present on only one side (--highlight-diff)
 )
 
 // SetTheme resolves every token against the terminal's actual background.
@@ -35,4 +36,5 @@ func SetTheme(isDark bool) {
 	colorDirectory = ld(lipgloss.Color("26"), lipgloss.Color("75"))
 	colorMarked = ld(lipgloss.Color("130"), lipgloss.Color("214"))
 	colorBarBg = ld(lipgloss.Color("253"), lipgloss.Color("235"))
+	colorDiffOnly = ld(lipgloss.Color("136"), lipgloss.Color("226"))
 }

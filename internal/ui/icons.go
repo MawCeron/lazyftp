@@ -44,3 +44,10 @@ func iconDownload() string {
 	}
 	return "↓"
 }
+
+func iconUnique() string {
+	if nerdFonts {
+		return "" // nf-fa-exclamation
+	}
+	return "!"
+}
