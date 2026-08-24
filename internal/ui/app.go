@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -27,9 +28,10 @@ const (
 )
 
 type App struct {
-	width  int
-	height int
-	focus  focus
+	width    int
+	height   int
+	focus    focus
+	helpOpen bool
 
 	client  client.Client
 	manager *transfer.Manager
@@ -183,27 +185,41 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 
+		// The help screen is modal: while it's open, every key either closes
+		// it or is swallowed, same as the connection dialog owning the
+		// keyboard while it has focus.
+		if a.helpOpen {
+			if key.Matches(msg, keyEsc) || key.Matches(msg, keyHelp) {
+				a.helpOpen = false
+			}
+			return a, nil
+		}
+
 		if a.focus != focusConnectionBar {
-			switch msg.String() {
-			case "q", "Q":
+			switch {
+			case key.Matches(msg, keyQuit):
 				if a.client != nil {
 					a.client.Disconnect()
 				}
 				return a, tea.Quit
 
-			case "U":
+			case key.Matches(msg, keyHelp):
+				a.helpOpen = true
+				return a, nil
+
+			case key.Matches(msg, keyUpload):
 				return a.handleDirectTransfer("Local", a.local.markedFiles())
 
-			case "D":
+			case key.Matches(msg, keyDownload):
 				return a.handleDirectTransfer("Remote", a.remote.markedFiles())
 			}
 		}
 
-		switch msg.String() {
-		case "ctrl+l":
+		switch {
+		case key.Matches(msg, keyConnect):
 			a.focus = focusConnectionBar
 			return a, nil
-		case "tab":
+		case key.Matches(msg, keySwitch):
 			if a.focus != focusConnectionBar {
 				if a.focus == focusLocal {
 					a.focus = focusRemote
@@ -212,7 +228,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return a, nil
 			}
-		case "esc":
+		case key.Matches(msg, keyEsc):
 			if a.connecting {
 				// Neither client takes a context, so the attempt is let go of
 				// rather than cancelled: it ends on its own timeout.

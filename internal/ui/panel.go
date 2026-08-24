@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -237,9 +238,9 @@ func (p Panel) SetSize(width, height int) Panel {
 func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
+		switch {
 
-		case "enter", "l":
+		case key.Matches(msg, keyOpen):
 			item, ok := p.list.SelectedItem().(fileItem)
 			if ok && item.file.IsDir() {
 				panel, child := p.title, p.childPath(item.file.Name)
@@ -251,19 +252,19 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			// to the list, which binds it to pagination.
 			return p, nil
 
-		case "-", "backspace", "h":
+		case key.Matches(msg, keyUp):
 			panel, parent := p.title, p.parentPath()
 			return p, func() tea.Msg {
 				return NavigateMsg{Panel: panel, Path: parent}
 			}
 
-		case "r":
+		case key.Matches(msg, keyRefresh):
 			panel, path := p.title, p.path
 			return p, func() tea.Msg {
 				return NavigateMsg{Panel: panel, Path: path}
 			}
 
-		case "space":
+		case key.Matches(msg, keyMark):
 			idx := p.list.Index()
 			p.marked[idx] = !p.marked[idx]
 			if !p.marked[idx] {
@@ -272,7 +273,7 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			p.list.SetDelegate(fileDelegate{marked: p.marked})
 			return p, nil
 
-		case "t":
+		case key.Matches(msg, keyTransfer):
 			files := p.selectedFiles()
 			if len(files) == 0 {
 				return p, nil

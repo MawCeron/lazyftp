@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -86,13 +87,13 @@ func (c ConnectionBar) blur() ConnectionBar {
 func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "tab":
+		switch {
+		case key.Matches(msg, keyNextField):
 			c = c.blur()
 			c.focused = (c.focused + 1) % fieldCount
 			return c.focus(), nil
 
-		case "shift+tab":
+		case key.Matches(msg, keyPrevField):
 			c = c.blur()
 			if c.focused == 0 {
 				c.focused = fieldCount - 1
@@ -101,7 +102,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 			}
 			return c.focus(), nil
 
-		case "enter":
+		case key.Matches(msg, keySubmit):
 			return c, func() tea.Msg {
 				return ConnectMsg{
 					Protocol: c.protocol,
@@ -114,10 +115,10 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 		}
 
 		if c.focused == fieldProtocol {
-			switch msg.String() {
-			case "left":
+			switch {
+			case key.Matches(msg, keyProtocolPrev):
 				c.protocol = c.protocol.Prev()
-			case "right", "space":
+			case key.Matches(msg, keyProtocolNext):
 				c.protocol = c.protocol.Next()
 			}
 			return c.showDefaultPort(), nil
