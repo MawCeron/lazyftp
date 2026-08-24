@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
+	"github.com/MawCeron/lazyftp/internal/shared"
 )
 
 // stubClient stands in for a server. Only Disconnect is observed: abandoning an
@@ -325,7 +326,9 @@ func TestStandardWidthShowsBothPanels(t *testing.T) {
 	}
 }
 
-// #32: the Log panel joins the same Tab cycle as the file panels.
+// #32: the Log panel joins the same Tab cycle as the file panels. Focus
+// itself is unaffected by Processes becoming focusable below -- reaching it
+// is wired up separately.
 func TestTabCyclesThroughLocalRemoteAndLog(t *testing.T) {
 	a := NewApp(nil, false, nil, "dev")
 	a.focus = focusLocal
@@ -337,6 +340,34 @@ func TestTabCyclesThroughLocalRemoteAndLog(t *testing.T) {
 		if a.focus != w {
 			t.Fatalf("after Tab, focus = %v, want %v", a.focus, w)
 		}
+	}
+}
+
+// Scrolling keys must reach the Processes panel's viewport only while it
+// has focus, mirroring the same isolation Log already gets.
+func TestProcessesScrollKeysOnlyReachTheViewportWhenFocused(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev")
+	a.width, a.height = 100, 30
+	a.processes = a.processes.SetSize(20, 6) // small: guarantees scrolling kicks in
+	for i := range 20 {
+		a.processes = a.processes.AddTransfer(shared.Transfer{
+			Filename: fmt.Sprintf("file-%02d.txt", i),
+			Total:    100,
+		})
+	}
+
+	a.focus = focusRemote
+	model, _ := a.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
+	a = model.(App)
+	if !a.processes.viewport.AtBottom() {
+		t.Fatal("Processes' viewport scrolled from a key press while Remote had focus")
+	}
+
+	a.focus = focusProcesses
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
+	a = model.(App)
+	if a.processes.viewport.AtBottom() {
+		t.Error("k did not scroll the Processes viewport while it had focus")
 	}
 }
 

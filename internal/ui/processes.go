@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -12,15 +13,16 @@ import (
 
 type ProcessesPanel struct {
 	transfers []shared.Transfer
+	viewport  viewport.Model
 }
 
 func NewProcessesPanel() ProcessesPanel {
-	return ProcessesPanel{}
+	return ProcessesPanel{viewport: viewport.New()}
 }
 
 func (p ProcessesPanel) AddTransfer(t shared.Transfer) ProcessesPanel {
 	p.transfers = append(p.transfers, t)
-	return p
+	return p.refreshViewport()
 }
 
 func (p ProcessesPanel) UpdateTransfer(filename string, current int64) ProcessesPanel {
@@ -32,7 +34,7 @@ func (p ProcessesPanel) UpdateTransfer(filename string, current int64) Processes
 			}
 		}
 	}
-	return p
+	return p.refreshViewport()
 }
 
 func (p ProcessesPanel) MarkError(filename string) ProcessesPanel {
@@ -41,7 +43,45 @@ func (p ProcessesPanel) MarkError(filename string) ProcessesPanel {
 			p.transfers[i].Status = shared.StatusError
 		}
 	}
+	return p.refreshViewport()
+}
+
+// refreshViewport re-renders the transfer list into the viewport, following
+// the newest entry down only if the view was already caught up -- the same
+// rule LogPanel's Add uses, so reading an in-progress transfer's history
+// isn't yanked away by the next progress tick.
+func (p ProcessesPanel) refreshViewport() ProcessesPanel {
+	atBottom := p.viewport.AtBottom()
+	p.viewport.SetContent(p.renderTransfers())
+	if atBottom {
+		p.viewport.GotoBottom()
+	}
 	return p
+}
+
+// SetSize persists the viewport's dimensions; see LogPanel.SetSize for why
+// that has to be explicit rather than computed fresh in View.
+func (p ProcessesPanel) SetSize(width, height int) ProcessesPanel {
+	innerWidth := borderInteriorWidth(width)
+	if innerWidth < 1 {
+		innerWidth = 1
+	}
+	contentHeight := height - 2
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+	p.viewport.SetWidth(innerWidth)
+	p.viewport.SetHeight(contentHeight)
+	p.viewport.SetContent(p.renderTransfers())
+	return p
+}
+
+// UpdateFocused scrolls the viewport. Only called while Processes has focus;
+// Update below always runs so progress keeps arriving regardless of focus.
+func (p ProcessesPanel) UpdateFocused(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
+	var cmd tea.Cmd
+	p.viewport, cmd = p.viewport.Update(msg)
+	return p, cmd
 }
 
 func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
@@ -56,32 +96,24 @@ func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 	return p, nil
 }
 
-func (p ProcessesPanel) View(width, height int) string {
+func (p ProcessesPanel) View(width, height int, active bool) string {
 	borderColor := colorMuted
-	innerWidth := borderInteriorWidth(width)
-
-	visibleHeight := (height - 2) / 2 // Each transfer takes 2 lines, and the border reserves 2
-	if visibleHeight < 1 {
-		visibleHeight = 1
+	if active {
+		borderColor = colorAccent
 	}
+	return borderWithTitle(p.viewport.View(), "Processes", width, height, borderColor)
+}
 
-	var rows []string
-	start := 0
-	if len(p.transfers) > visibleHeight {
-		start = len(p.transfers) - visibleHeight
-	}
-	for _, t := range p.transfers[start:] {
-		rows = append(rows, renderTransfer(t, innerWidth))
-	}
-
+func (p ProcessesPanel) renderTransfers() string {
 	if len(p.transfers) == 0 {
-		rows = append(rows, lipgloss.NewStyle().
-			Foreground(colorMuted).
-			Render("  (no transfers)"))
+		return lipgloss.NewStyle().Foreground(colorMuted).Render("  (no transfers)")
 	}
-
-	body := strings.Join(rows, "\n")
-	return borderWithTitle(body, "Processes", width, height, borderColor)
+	innerWidth := p.viewport.Width()
+	rows := make([]string, len(p.transfers))
+	for i, t := range p.transfers {
+		rows[i] = renderTransfer(t, innerWidth)
+	}
+	return strings.Join(rows, "\n")
 }
 
 func renderTransfer(t shared.Transfer, width int) string {

@@ -25,6 +25,7 @@ const (
 	focusLocal focus = iota
 	focusRemote
 	focusLog
+	focusProcesses
 	focusConnectionBar
 )
 
@@ -201,6 +202,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.local = a.local.SetSize(panelW, panelH)
 		a.remote = a.remote.SetSize(panelW, panelH)
 		a.log = a.log.SetSize(panelW, a.bottomPanelHeight(bottomH))
+		a.processes = a.processes.SetSize(panelW, a.bottomPanelHeight(bottomH))
 		return a, nil
 
 	case tea.BackgroundColorMsg:
@@ -340,6 +342,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.remote, cmd = a.remote.Update(msg)
 	case focusLog:
 		a.log, cmd = a.log.UpdateFocused(msg)
+	case focusProcesses:
+		a.processes, cmd = a.processes.UpdateFocused(msg)
 	}
 
 	return a, cmd
@@ -395,17 +399,18 @@ func (a App) render() string {
 	}
 
 	logActive := a.focus == focusLog
+	processesActive := a.focus == focusProcesses
 
 	var bottom string
 	if a.narrow() {
 		// Side by side, Processes and Log would each get under 30 columns:
 		// stack them instead, splitting the shared height budget.
 		stackedH := a.bottomPanelHeight(bottomH)
-		processesView := a.processes.View(panelW, stackedH)
+		processesView := a.processes.View(panelW, stackedH, processesActive)
 		logView := a.log.View(panelW, stackedH, logActive)
 		bottom = lipgloss.JoinVertical(lipgloss.Left, processesView, logView)
 	} else {
-		processesView := a.processes.View(panelW, bottomH)
+		processesView := a.processes.View(panelW, bottomH, processesActive)
 		logView := a.log.View(panelW, bottomH, logActive)
 		bottom = lipgloss.JoinHorizontal(lipgloss.Top, processesView, logView)
 	}
