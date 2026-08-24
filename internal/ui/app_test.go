@@ -154,6 +154,37 @@ func TestDirectTransferKeysRequireMarkedFiles(t *testing.T) {
 	}
 }
 
+// The jump-to-path input is modal like the connection dialog: global
+// bindings must not steal a keystroke a typed path would otherwise contain.
+// "q" is the sharpest case -- it's also quit.
+func TestGlobalKeysDoNotReachThroughAnOpenJumpInput(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev")
+	a.focus = focusLocal
+
+	model, _ := a.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	a = model.(App)
+	if !a.local.jumping {
+		t.Fatal(": did not open the jump input")
+	}
+
+	model, cmd := a.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+	a = model.(App)
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("q quit the app while the jump input was open")
+		}
+	}
+	if got := a.local.jumpInput.Value(); got != "q" {
+		t.Errorf("jumpInput.Value() = %q, want \"q\" (typed, not treated as quit)", got)
+	}
+
+	model, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	a = model.(App)
+	if a.local.jumping {
+		t.Error("jump input still open after Esc")
+	}
+}
+
 func TestStatusLineReflectsConnectionState(t *testing.T) {
 	a := NewApp(nil, false, nil, "dev")
 	a.width = 80

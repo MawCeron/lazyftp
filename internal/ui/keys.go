@@ -22,6 +22,14 @@ var (
 	keyRefresh  = key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh"))
 	keySortNext = key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sort"))
 	keySortFlip = key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "reverse sort"))
+	keyJump     = key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "jump to path"))
+
+	// esc/enter while a panel's jump-to-path input is focused; separate
+	// display copies of the shared keyEsc/keySubmit below so the footer and
+	// help text read as "cancel"/"go" instead of the connection dialog's
+	// "close"/"connect".
+	keyJumpGo     = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "go"))
+	keyJumpCancel = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel"))
 
 	// Connection dialog.
 	keyNextField    = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next field"))
@@ -46,6 +54,7 @@ type footerKeyMap struct {
 	focus      focus
 	connecting bool
 	helpOpen   bool
+	jumping    bool
 }
 
 func (k footerKeyMap) ShortHelp() []key.Binding {
@@ -54,6 +63,8 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 		return []key.Binding{keyCancelConnecting}
 	case k.helpOpen:
 		return []key.Binding{keyCancelHelp}
+	case k.jumping:
+		return []key.Binding{keyJumpGo, keyJumpCancel}
 	case k.focus == focusConnectionBar:
 		return []key.Binding{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection}
 	default:
@@ -70,7 +81,7 @@ var helpGroupTitles = []string{"Global", "File panels", "Connection dialog"}
 func helpGroups() [][]key.Binding {
 	return [][]key.Binding{
 		{keyQuit, keyHelp, keyConnect, keySwitch, keyUpload, keyDownload},
-		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip},
+		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
 	}
 }

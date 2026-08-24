@@ -135,6 +135,19 @@ func (a App) narrow() bool {
 	return a.width < standardBreakpoint
 }
 
+// focusedPanelJumping reports whether the currently focused file panel has
+// its jump-to-path input open.
+func (a App) focusedPanelJumping() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.jumping
+	case focusRemote:
+		return a.remote.jumping
+	default:
+		return false
+	}
+}
+
 func (a App) panelWidth() int {
 	if a.narrow() {
 		return a.width
@@ -198,7 +211,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
-		if a.focus != focusConnectionBar {
+		// A panel's own jump-to-path input is modal in the same way: while
+		// it's focused, global bindings must not steal keystrokes a typed
+		// path would otherwise contain (a bare "q" is a perfectly normal
+		// path character).
+		jumping := a.focusedPanelJumping()
+
+		if a.focus != focusConnectionBar && !jumping {
 			switch {
 			case key.Matches(msg, keyQuit):
 				if a.client != nil {
@@ -223,7 +242,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.focus = focusConnectionBar
 			return a, nil
 		case key.Matches(msg, keySwitch):
-			if a.focus != focusConnectionBar {
+			if a.focus != focusConnectionBar && !jumping {
 				if a.focus == focusLocal {
 					a.focus = focusRemote
 				} else {
@@ -242,8 +261,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if a.focus == focusConnectionBar {
 				a.focus = focusLocal
+				return a, nil
 			}
-			return a, nil
+			if !jumping {
+				return a, nil
+			}
+			// jumping: fall through so the panel's own Update closes it.
 		}
 
 	case ConnectMsg:
@@ -473,7 +496,7 @@ func (a App) hintsView() string {
 	gap := lipgloss.NewStyle().Background(colorBarBg).Render("  ")
 	leadWidth := lipgloss.Width(identity) + lipgloss.Width(gap)
 
-	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen}
+	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen, jumping: a.focusedPanelJumping()}
 	hints := renderHints(km.ShortHelp(), a.width-leadWidth)
 
 	return composeBar(colorBarBg, a.width, identity+gap+hints, "")

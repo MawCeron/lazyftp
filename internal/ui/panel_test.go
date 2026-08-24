@@ -164,6 +164,106 @@ func TestRefreshReloadsTheCurrentPath(t *testing.T) {
 	}
 }
 
+func typeInto(p Panel, s string) Panel {
+	for _, r := range s {
+		p, _ = p.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+	}
+	return p
+}
+
+func TestJumpKeyOpensThePathInput(t *testing.T) {
+	p := NewPanel("Local", true).WithFiles(nil, "/tmp")
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	if !p.jumping {
+		t.Fatal(": did not open the jump input")
+	}
+}
+
+func TestJumpEnterNavigatesToAnAbsolutePath(t *testing.T) {
+	p := NewPanel("Remote", false).WithFiles(nil, "/srv")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	p = typeInto(p, "/var/www")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.jumping {
+		t.Error("jump input still open after Enter")
+	}
+	if cmd == nil {
+		t.Fatal("Enter did not return a command")
+	}
+	msg, ok := cmd().(NavigateMsg)
+	if !ok {
+		t.Fatalf("Enter returned %T, want NavigateMsg", cmd())
+	}
+	if msg.Panel != "Remote" || msg.Path != "/var/www" {
+		t.Errorf("navigated to %+v, want {Remote /var/www}", msg)
+	}
+}
+
+func TestJumpRelativePathResolvesAgainstTheCurrentDir(t *testing.T) {
+	p := NewPanel("Remote", false).WithFiles(nil, "/srv/www")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	p = typeInto(p, "sub")
+
+	_, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg := cmd().(NavigateMsg)
+	if msg.Path != "/srv/www/sub" {
+		t.Errorf("relative jump landed on %q, want /srv/www/sub", msg.Path)
+	}
+}
+
+// Invalid destinations aren't rejected here: they're not special-cased at
+// all. Enter always fires a NavigateMsg, which routes through the same
+// loadLocalDir/loadRemoteDir path as ordinary navigation -- a bad path logs
+// an error and never sends back a *DirLoadedMsg, so the panel is left where
+// it was for free, without this code needing to know what "invalid" means.
+
+func TestJumpEscCancelsWithoutNavigating(t *testing.T) {
+	p := NewPanel("Local", true).WithFiles(nil, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	p = typeInto(p, "/etc")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if p.jumping {
+		t.Error("jump input still open after Esc")
+	}
+	if cmd != nil {
+		t.Error("Esc returned a command, want nil: cancelling must not navigate")
+	}
+	if p.path != "/tmp" {
+		t.Errorf("path changed to %q after Esc, want it unchanged at /tmp", p.path)
+	}
+}
+
+func TestJumpEmptyInputCancelsWithoutNavigating(t *testing.T) {
+	p := NewPanel("Local", true).WithFiles(nil, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.jumping {
+		t.Error("jump input still open after Enter on empty input")
+	}
+	if cmd != nil {
+		t.Error("Enter on empty input returned a command, want nil")
+	}
+}
+
+// The jump input must own every keystroke, including letters that are
+// otherwise bound: a path containing "t" or "r" must not trigger transfer
+// or refresh while it's being typed.
+func TestJumpInputSwallowsOtherwiseBoundKeys(t *testing.T) {
+	p := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
+
+	if got := p.jumpInput.Value(); got != "tr" {
+		t.Errorf("jumpInput.Value() = %q, want \"tr\" (both keys typed, not acted on)", got)
+	}
+}
+
 func TestFileDelegateColumnsDegradeWithWidth(t *testing.T) {
 	modTime := time.Date(2026, 8, 15, 14, 30, 0, 0, time.UTC)
 	file := fileItem{file: model.FileInfo{Name: "report.txt", Size: 2048, ModTime: modTime}}

@@ -9,6 +9,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/model"
@@ -158,6 +159,9 @@ type Panel struct {
 	files    []model.FileInfo
 	sortBy   sortColumn
 	sortDesc bool
+
+	jumping   bool
+	jumpInput textinput.Model
 }
 
 // Local paths follow the host's rules; remote paths are always POSIX.
@@ -183,6 +187,21 @@ func (p Panel) parentPath() string {
 	return path.Dir(p.path)
 }
 
+// resolveJumpPath treats input as absolute if it's rooted by the panel's own
+// convention (a leading "/" for remote's always-POSIX paths, filepath.IsAbs
+// for local's host rules), otherwise resolves it against the current
+// directory -- the same way a relative path works in a shell.
+func (p Panel) resolveJumpPath(input string) string {
+	isAbs := strings.HasPrefix(input, "/")
+	if p.local {
+		isAbs = filepath.IsAbs(input)
+	}
+	if isAbs {
+		return p.cleanPath(input)
+	}
+	return p.childPath(input)
+}
+
 func NewPanel(title string, local bool) Panel {
 	delegate := fileDelegate{marked: make(map[string]bool)}
 	l := list.New([]list.Item{}, delegate, 0, 0)
@@ -193,13 +212,17 @@ func NewPanel(title string, local bool) Panel {
 	l.DisableQuitKeybindings()
 	l.Styles.NoItems = lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2)
 
+	jump := textinput.New()
+	jump.Prompt = ""
+
 	return Panel{
-		title:  title,
-		path:   "/",
-		local:  local,
-		list:   l,
-		marked: make(map[string]bool),
-		files:  []model.FileInfo{},
+		title:     title,
+		path:      "/",
+		local:     local,
+		list:      l,
+		marked:    make(map[string]bool),
+		files:     []model.FileInfo{},
+		jumpInput: jump,
 	}
 }
 
@@ -253,13 +276,42 @@ func (p Panel) SetSize(width, height int) Panel {
 		listHeight = 1
 	}
 	p.list.SetSize(listWidth, listHeight)
+	// listWidth minus 2 for the ": " prompt drawn beside it in View.
+	p.jumpInput.SetWidth(max(listWidth-2, 1))
 	return p
 }
 
 func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		if p.jumping {
+			switch {
+			case key.Matches(msg, keyJumpGo):
+				p.jumping = false
+				target := strings.TrimSpace(p.jumpInput.Value())
+				if target == "" {
+					return p, nil
+				}
+				panel, dest := p.title, p.resolveJumpPath(target)
+				return p, func() tea.Msg {
+					return NavigateMsg{Panel: panel, Path: dest}
+				}
+			case key.Matches(msg, keyJumpCancel):
+				p.jumping = false
+				return p, nil
+			}
+			var cmd tea.Cmd
+			p.jumpInput, cmd = p.jumpInput.Update(msg)
+			return p, cmd
+		}
+
 		switch {
+
+		case key.Matches(msg, keyJump):
+			p.jumping = true
+			p.jumpInput.SetValue("")
+			p.jumpInput.Focus()
+			return p, nil
 
 		case key.Matches(msg, keyOpen):
 			item, ok := p.list.SelectedItem().(fileItem)
@@ -337,27 +389,33 @@ func (p Panel) View(width, height int, active bool) string {
 		innerWidth = 1
 	}
 
-	// The active sort column and direction ride the path line instead of a
-	// dedicated header row, which would cost every panel a line of files to
-	// show one word and an arrow.
-	arrow := "▲"
-	if p.sortDesc {
-		arrow = "▼"
-	}
-	indicator := p.sortBy.String() + " " + arrow
-	indicatorWidth := runewidth.StringWidth(indicator)
+	var pathLine string
+	if p.jumping {
+		prompt := lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(":")
+		pathLine = prompt + " " + p.jumpInput.View()
+	} else {
+		// The active sort column and direction ride the path line instead of
+		// a dedicated header row, which would cost every panel a line of
+		// files to show one word and an arrow.
+		arrow := "▲"
+		if p.sortDesc {
+			arrow = "▼"
+		}
+		indicator := p.sortBy.String() + " " + arrow
+		indicatorWidth := runewidth.StringWidth(indicator)
 
-	pathWidth := innerWidth - indicatorWidth - 1 // 1-cell gap before the indicator
-	if pathWidth < 1 {
-		pathWidth = 1
-	}
-	path := truncateHead(p.path, pathWidth)
+		pathWidth := innerWidth - indicatorWidth - 1 // 1-cell gap before the indicator
+		if pathWidth < 1 {
+			pathWidth = 1
+		}
+		path := truncateHead(p.path, pathWidth)
 
-	gap := innerWidth - runewidth.StringWidth(path) - indicatorWidth
-	if gap < 1 {
-		gap = 1
+		gap := innerWidth - runewidth.StringWidth(path) - indicatorWidth
+		if gap < 1 {
+			gap = 1
+		}
+		pathLine = pathStyle.Render(path) + strings.Repeat(" ", gap) + sortStyle.Render(indicator)
 	}
-	pathLine := pathStyle.Render(path) + strings.Repeat(" ", gap) + sortStyle.Render(indicator)
 
 	body := pathLine + "\n" + p.list.View()
 
