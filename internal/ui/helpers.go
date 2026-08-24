@@ -58,6 +58,13 @@ func borderInteriorWidth(width int) int {
 	return width - 6
 }
 
+// borderOuterWidth is borderInteriorWidth's inverse: the outer width a
+// borderWithTitle box needs so that contentWidth cells of content fit
+// without wrapping.
+func borderOuterWidth(contentWidth int) int {
+	return contentWidth + 6
+}
+
 // truncateHead keeps the trailing portion of s that fits within width cells,
 // prefixing "…" when s had to be cut. Used for paths, where the leaf at the
 // end matters more than the root.

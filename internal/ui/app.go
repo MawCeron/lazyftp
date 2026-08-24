@@ -317,12 +317,18 @@ func (a App) render() string {
 	status := a.statusLine()
 	hints := a.hintsView()
 
-	// The connection form is a fixed-size dialog, not a mode any panel
-	// needs to stay visible under: blanking them avoids the dialog cutting
-	// their text off mid-word wherever it happens to overlap.
-	if a.focus == focusConnectionBar {
+	// The connection dialog and the help screen are both fixed-size overlays,
+	// not a mode any panel needs to stay visible under: blanking them avoids
+	// the overlay cutting their text off mid-word wherever it overlaps.
+	if a.focus == focusConnectionBar || a.helpOpen {
 		base := lipgloss.JoinVertical(lipgloss.Left, status, blankArea(a.width, panelH), blankArea(a.width, bottomH), hints)
-		return a.withConnectionOverlay(base)
+		if a.helpOpen {
+			// Capped to the blank canvas itself (panelH+bottomH), not the
+			// full height: the status line above it and the hints below
+			// are not part of that canvas and must stay clear.
+			return a.withOverlay(base, helpScreenView(a.width, panelH+bottomH))
+		}
+		return a.withOverlay(base, a.connBar.View(a.width))
 	}
 
 	var panels string
@@ -384,10 +390,9 @@ func (a App) tooSmallView() string {
 		Render(msg)
 }
 
-// withConnectionOverlay floats the connection form centered over base using
-// lipgloss's layer compositor, so the panels stay visible around it.
-func (a App) withConnectionOverlay(base string) string {
-	overlay := a.connBar.View(a.width)
+// withOverlay floats content centered over base using lipgloss's layer
+// compositor.
+func (a App) withOverlay(base, overlay string) string {
 	ow, oh := lipgloss.Width(overlay), lipgloss.Height(overlay)
 
 	x, y := (a.width-ow)/2, (a.height-oh)/2
