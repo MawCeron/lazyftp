@@ -51,3 +51,10 @@ func iconUnique() string {
 	}
 	return "!"
 }
+
+func iconSizeDiffers() string {
+	if nerdFonts {
+		return "" // nf-fa-exchange
+	}
+	return "M"
+}

@@ -11,16 +11,17 @@ import (
 // queries that asynchronously via tea.BackgroundColorMsg, so a static
 // default avoids an unstyled first frame.
 var (
-	colorAccent    color.Color = lipgloss.Color("39")  // focus, cursor
-	colorMuted     color.Color = lipgloss.Color("240") // secondary text, inactive border, separators
-	colorPrimary   color.Color = lipgloss.Color("252") // default text
-	colorEmphasis  color.Color = lipgloss.Color("255") // footer key hints
-	colorSuccess   color.Color = lipgloss.Color("40")
-	colorError     color.Color = lipgloss.Color("196")
-	colorDirectory color.Color = lipgloss.Color("75")
-	colorMarked    color.Color = lipgloss.Color("214")
-	colorBarBg     color.Color = lipgloss.Color("235") // status line / footer background
-	colorDiffOnly  color.Color = lipgloss.Color("226") // entries present on only one side (--highlight-diff)
+	colorAccent      color.Color = lipgloss.Color("39")  // focus, cursor
+	colorMuted       color.Color = lipgloss.Color("240") // secondary text, inactive border, separators
+	colorPrimary     color.Color = lipgloss.Color("252") // default text
+	colorEmphasis    color.Color = lipgloss.Color("255") // footer key hints
+	colorSuccess     color.Color = lipgloss.Color("40")
+	colorError       color.Color = lipgloss.Color("196")
+	colorDirectory   color.Color = lipgloss.Color("75")
+	colorMarked      color.Color = lipgloss.Color("214")
+	colorBarBg       color.Color = lipgloss.Color("235") // status line / footer background
+	colorDiffOnly    color.Color = lipgloss.Color("226") // entries present on only one side (--highlight-diff)
+	colorSizeDiffers color.Color = lipgloss.Color("213") // same name, different size (--highlight-diff)
 )
 
 // SetTheme resolves every token against the terminal's actual background.
@@ -37,4 +38,5 @@ func SetTheme(isDark bool) {
 	colorMarked = ld(lipgloss.Color("130"), lipgloss.Color("214"))
 	colorBarBg = ld(lipgloss.Color("253"), lipgloss.Color("235"))
 	colorDiffOnly = ld(lipgloss.Color("136"), lipgloss.Color("226"))
+	colorSizeDiffers = ld(lipgloss.Color("127"), lipgloss.Color("213"))
 }
