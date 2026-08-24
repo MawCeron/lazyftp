@@ -18,7 +18,7 @@ import (
 // slot, so selecting a marked file hid its checkmark.
 func TestFileDelegateShowsCursorAndMarkTogether(t *testing.T) {
 	items := []list.Item{fileItem{file: model.FileInfo{Name: "report.txt"}}}
-	marked := map[int]bool{0: true}
+	marked := map[string]bool{"report.txt": true}
 	delegate := fileDelegate{marked: marked}
 	l := list.New(items, delegate, 80, 10)
 	l.Select(0)
@@ -64,13 +64,33 @@ func TestSpaceTogglesMark(t *testing.T) {
 	p := NewPanel("Local", true).WithFiles(files, "/tmp")
 
 	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
-	if !p.marked[0] {
+	if !p.marked["a.txt"] {
 		t.Fatal("space did not mark the file under the cursor")
 	}
 
 	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
-	if p.marked[0] {
+	if p.marked["a.txt"] {
 		t.Fatal("space did not unmark an already-marked file")
+	}
+}
+
+// Marks are keyed by filename, not list position: #30 (sort) and #31
+// (filter) both reorder or subset what a given index points at, and a
+// position-keyed mark would silently follow the wrong file.
+func TestMarkFollowsTheFileNotItsPosition(t *testing.T) {
+	files := []model.FileInfo{{Name: "a.txt"}, {Name: "b.txt"}, {Name: "c.txt"}}
+	p := NewPanel("Local", true).WithFiles(files, "/tmp")
+
+	p.list.Select(1) // b.txt
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+
+	// Simulates what a future sort does: reorder p.files and the list's
+	// items without going through WithFiles (which would reset marks).
+	p.files = []model.FileInfo{{Name: "c.txt"}, {Name: "b.txt"}, {Name: "a.txt"}}
+
+	marked := p.markedFiles()
+	if len(marked) != 1 || marked[0].Name != "b.txt" {
+		t.Fatalf("markedFiles() after reordering = %v, want just b.txt", marked)
 	}
 }
 
@@ -94,7 +114,7 @@ func TestFileDelegateColumnsDegradeWithWidth(t *testing.T) {
 	modTime := time.Date(2026, 8, 15, 14, 30, 0, 0, time.UTC)
 	file := fileItem{file: model.FileInfo{Name: "report.txt", Size: 2048, ModTime: modTime}}
 	items := []list.Item{file}
-	delegate := fileDelegate{marked: map[int]bool{}}
+	delegate := fileDelegate{marked: map[string]bool{}}
 
 	render := func(width int) string {
 		l := list.New(items, delegate, width, 10)
@@ -119,7 +139,7 @@ func TestFileDelegateColumnsDegradeWithWidth(t *testing.T) {
 func TestFileDelegateShowsNoSizeForDirectories(t *testing.T) {
 	dir := fileItem{file: model.FileInfo{Name: "docs", Type: model.FileTypeDir}}
 	items := []list.Item{dir}
-	delegate := fileDelegate{marked: map[int]bool{}}
+	delegate := fileDelegate{marked: map[string]bool{}}
 	l := list.New(items, delegate, 50, 10)
 
 	var buf bytes.Buffer

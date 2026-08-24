@@ -38,7 +38,11 @@ func (f fileItem) Description() string { return "" }
 func (f fileItem) FilterValue() string { return f.file.Name }
 
 type fileDelegate struct {
-	marked map[int]bool
+	// Keyed by name, not list index -- an index only means "this file"
+	// until the list is next reordered or filtered (sorting, #30; fuzzy
+	// filtering, #31), at which point the same index would point at a
+	// different file.
+	marked map[string]bool
 }
 
 func (d fileDelegate) Height() int                             { return 1 }
@@ -59,7 +63,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	dateMetaStyle := lipgloss.NewStyle().Foreground(colorMuted)
 
 	isSelected := index == m.Index()
-	isMarked := d.marked[index]
+	isMarked := d.marked[fi.file.Name]
 
 	name := fi.file.Name
 	if fi.file.IsDir() {
@@ -151,7 +155,7 @@ type Panel struct {
 	path   string
 	local  bool
 	list   list.Model
-	marked map[int]bool
+	marked map[string]bool
 	files  []model.FileInfo
 }
 
@@ -179,7 +183,7 @@ func (p Panel) parentPath() string {
 }
 
 func NewPanel(title string, local bool) Panel {
-	delegate := fileDelegate{marked: make(map[int]bool)}
+	delegate := fileDelegate{marked: make(map[string]bool)}
 	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
@@ -193,7 +197,7 @@ func NewPanel(title string, local bool) Panel {
 		path:   "/",
 		local:  local,
 		list:   l,
-		marked: make(map[int]bool),
+		marked: make(map[string]bool),
 		files:  []model.FileInfo{},
 	}
 }
@@ -215,7 +219,7 @@ func (p Panel) WithFiles(files []model.FileInfo, dir string) Panel {
 
 	p.files = files
 	p.path = dir
-	p.marked = make(map[int]bool)
+	p.marked = make(map[string]bool)
 	p.list.SetItems(items)
 	p.list.Select(0)
 	p.list.SetDelegate(fileDelegate{marked: p.marked})
@@ -265,10 +269,14 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			}
 
 		case key.Matches(msg, keyMark):
-			idx := p.list.Index()
-			p.marked[idx] = !p.marked[idx]
-			if !p.marked[idx] {
-				delete(p.marked, idx)
+			item, ok := p.list.SelectedItem().(fileItem)
+			if !ok {
+				return p, nil
+			}
+			name := item.file.Name
+			p.marked[name] = !p.marked[name]
+			if !p.marked[name] {
+				delete(p.marked, name)
 			}
 			p.list.SetDelegate(fileDelegate{marked: p.marked})
 			return p, nil
@@ -324,9 +332,9 @@ func (p Panel) selectedFiles() []model.FileInfo {
 
 func (p Panel) markedFiles() []model.FileInfo {
 	var marked []model.FileInfo
-	for i := range p.marked {
-		if i < len(p.files) {
-			marked = append(marked, p.files[i])
+	for _, f := range p.files {
+		if p.marked[f.Name] {
+			marked = append(marked, f)
 		}
 	}
 	return marked
