@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
@@ -430,53 +431,19 @@ func (a App) statusLine() string {
 	}
 }
 
+// hintsView renders the same bindings keys.go declares for the help screen,
+// trimmed to what's actionable from here -- see footerKeyMap.ShortHelp.
+// SetWidth makes bubbles/help truncate gracefully with an ellipsis instead
+// of wrapping or overflowing if a context's list still doesn't fit.
 func (a App) hintsView() string {
-	keyStyle := lipgloss.NewStyle().Bold(true).Foreground(colorEmphasis)
-	descStyle := lipgloss.NewStyle().Foreground(colorMuted)
-	sepStyle := lipgloss.NewStyle().Foreground(colorMuted)
-	sep := sepStyle.Render(" | ")
+	hm := help.New()
+	hm.Styles.ShortKey = lipgloss.NewStyle().Bold(true).Foreground(colorEmphasis)
+	hm.Styles.ShortDesc = lipgloss.NewStyle().Foreground(colorMuted)
+	hm.Styles.ShortSeparator = lipgloss.NewStyle().Foreground(colorMuted)
+	hm.SetWidth(a.width)
 
-	hint := func(key, desc string) string {
-		return keyStyle.Render(key) + ": " + descStyle.Render(desc)
-	}
-
-	// The status line already shows the spinner and elapsed time.
-	if a.connecting {
-		return lipgloss.NewStyle().
-			Foreground(colorMuted).
-			Width(a.width).
-			Render(hint("Esc", "abandon"))
-	}
-
-	var hints []string
-	switch a.focus {
-	case focusConnectionBar:
-		hints = []string{
-			hint("Tab", "next field"),
-			hint("Shift+Tab", "prev field"),
-			hint("←/→", "protocol"),
-			hint("Enter", "connect"),
-			hint("Esc", "close"),
-		}
-	case focusLocal, focusRemote:
-		hints = []string{
-			hint("hjkl", "navigate"),
-			hint("l/Enter", "open dir"),
-			hint("h/-", "go up"),
-			hint("Space", "mark"),
-			hint("t", "transfer"),
-			hint("U/D", "upload/download marked"),
-			hint("r", "refresh"),
-			hint("Tab", "switch panel"),
-			hint("Ctrl+L", "connection"),
-			hint("q", "quit"),
-		}
-	}
-
-	return lipgloss.NewStyle().
-		Foreground(colorMuted).
-		Width(a.width).
-		Render(strings.Join(hints, sep))
+	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen}
+	return lipgloss.NewStyle().Width(a.width).Render(hm.View(km))
 }
 
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
