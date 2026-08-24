@@ -9,27 +9,42 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+// borderWithTitle draws a rounded box with the title set into the top border
+// itself, tmux/lazygit-style, instead of on its own line above the content —
+// that line and the blank line separating it from the content were the two
+// rows this used to cost every panel before the content even started.
 func borderWithTitle(content, title string, width, height int, borderColor color.Color) string {
 	lines := strings.Split(content, "\n")
-	maxLines := height - 4
+	maxLines := height - 2
 	if maxLines > 0 && len(lines) > maxLines {
 		lines = lines[len(lines)-maxLines:] // takes the last maxLines lines
 		content = strings.Join(lines, "\n")
 	}
 
-	titleStr := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(colorAccent).
-		MarginBottom(1).
-		Render(title)
+	border := lipgloss.RoundedBorder()
+	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(colorAccent)
 
-	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+	avail := width - 2 // top row width, corners excluded
+	label := " " + title + " "
+	fill := avail - 1 - runewidth.StringWidth(label)
+	if fill < 0 {
+		fill = 0
+	}
+	top := borderStyle.Render(border.TopLeft+border.Top) +
+		titleStyle.Render(label) +
+		borderStyle.Render(strings.Repeat(border.Top, fill)+border.TopRight)
+
+	box := lipgloss.NewStyle().
+		Border(border).
+		BorderTop(false).
 		BorderForeground(borderColor).
 		Width(width-2).
 		Height(height-2).
 		Padding(0, 1).
-		Render(titleStr + "\n" + content)
+		Render(content)
+
+	return top + "\n" + box
 }
 
 // truncateHead keeps the trailing portion of s that fits within width cells,

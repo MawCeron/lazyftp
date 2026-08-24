@@ -226,7 +226,7 @@ func (p Panel) SetSize(width, height int) Panel {
 	if listWidth < 1 {
 		listWidth = 1
 	}
-	listHeight := height - 5
+	listHeight := height - 3
 	if listHeight < 1 {
 		listHeight = 1
 	}

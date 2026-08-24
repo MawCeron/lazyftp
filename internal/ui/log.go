@@ -77,7 +77,7 @@ func (l LogPanel) View(width, height int) string {
 	borderColor := colorMuted
 	innerWidth := width - 4
 
-	maxVisible := height - 3
+	maxVisible := height - 1
 	if maxVisible < 1 {
 		maxVisible = 1
 	}

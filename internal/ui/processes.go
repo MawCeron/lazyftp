@@ -60,7 +60,7 @@ func (p ProcessesPanel) View(width, height int) string {
 	borderColor := colorMuted
 	innerWidth := width - 4
 
-	visibleHeight := (height - 4) / 2 // Each transfer takes 2 lines, and the border reserves 4
+	visibleHeight := (height - 2) / 2 // Each transfer takes 2 lines, and the border reserves 2
 	if visibleHeight < 1 {
 		visibleHeight = 1
 	}
