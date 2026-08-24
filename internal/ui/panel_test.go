@@ -77,6 +77,39 @@ func TestFileDelegateOmitsUniqueColumnWhenFlagIsOff(t *testing.T) {
 	}
 }
 
+// #52 extension: same distinguishable-without-color-alone requirement, its
+// own glyph so it doesn't get read as "missing" (iconUnique's meaning).
+func TestFileDelegateMarksSizeDiffersDistinctFromUnique(t *testing.T) {
+	items := []list.Item{
+		fileItem{file: model.FileInfo{Name: "changed.txt"}},
+		fileItem{file: model.FileInfo{Name: "same.txt"}},
+	}
+	delegate := fileDelegate{
+		marked:      map[string]bool{},
+		uniqueOnly:  map[string]bool{},
+		sizeDiffers: map[string]bool{"changed.txt": true},
+	}
+	l := list.New(items, delegate, 80, 10)
+
+	render := func(i int) string {
+		var buf bytes.Buffer
+		delegate.Render(&buf, l, i, items[i])
+		return buf.String()
+	}
+
+	out := render(0)
+	if !strings.Contains(out, iconSizeDiffers()) {
+		t.Errorf("changed entry: Render() = %q, want the size-differs indicator", out)
+	}
+	if strings.Contains(out, iconUnique()) {
+		t.Errorf("changed entry: Render() = %q, want the unique indicator NOT to also show", out)
+	}
+
+	if out := render(1); strings.Contains(out, iconSizeDiffers()) {
+		t.Errorf("unchanged entry: Render() = %q, want no size-differs indicator", out)
+	}
+}
+
 // The bug this guards against: bubbles/list binds h/l to PrevPage/NextPage by
 // default, and unhandled keys fall through to the list -- so h/l silently
 // paginated instead of navigating.
@@ -164,6 +197,28 @@ func TestUniqueNames(t *testing.T) {
 	remoteOnly := uniqueNames(remote, local)
 	if len(remoteOnly) != 1 || !remoteOnly["remote-only.txt"] {
 		t.Errorf("uniqueNames(remote, local) = %v, want just remote-only.txt", remoteOnly)
+	}
+}
+
+// #52 extension: size is an exact byte count from both sides, unlike a
+// timestamp, so comparing it doesn't carry the reliability problem that
+// kept the original feature to presence-by-name only.
+func TestSizeDiffers(t *testing.T) {
+	local := []model.FileInfo{
+		{Name: "same.txt", Size: 100},
+		{Name: "changed.txt", Size: 200},
+		{Name: "local-only.txt", Size: 50},
+		{Name: "assets", Type: model.FileTypeDir, Size: 999}, // dirs excluded regardless of Size
+	}
+	remote := []model.FileInfo{
+		{Name: "same.txt", Size: 100},
+		{Name: "changed.txt", Size: 250},
+		{Name: "assets", Type: model.FileTypeDir, Size: 1},
+	}
+
+	got := sizeDiffers(local, remote)
+	if len(got) != 1 || !got["changed.txt"] {
+		t.Errorf("sizeDiffers(local, remote) = %v, want just changed.txt", got)
 	}
 }
 

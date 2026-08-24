@@ -402,13 +402,19 @@ func (a App) render() string {
 		return a.withOverlay(base, a.connBar.View(a.width))
 	}
 
-	// nil unless --highlight-diff is on: Panel.View treats nil as "the flag
-	// is off" and drops the indicator column entirely rather than reserving
-	// a permanently blank one nobody asked for.
-	var localOnly, remoteOnly map[string]bool
+	// Both fields nil unless --highlight-diff is on: Panel.View treats that
+	// as "the flag is off" and drops the indicator column entirely rather
+	// than reserving a permanently blank one nobody asked for.
+	var localDiff, remoteDiff diffMarks
 	if a.highlightDiff {
-		localOnly = uniqueNames(a.local.files, a.remote.files)
-		remoteOnly = uniqueNames(a.remote.files, a.local.files)
+		localDiff = diffMarks{
+			uniqueOnly:  uniqueNames(a.local.files, a.remote.files),
+			sizeDiffers: sizeDiffers(a.local.files, a.remote.files),
+		}
+		remoteDiff = diffMarks{
+			uniqueOnly:  uniqueNames(a.remote.files, a.local.files),
+			sizeDiffers: sizeDiffers(a.remote.files, a.local.files),
+		}
 	}
 
 	var panels string
@@ -416,13 +422,13 @@ func (a App) render() string {
 		// Only the focused file panel renders, full width, switched with
 		// the same Tab that already cycles focus between Local and Remote.
 		if a.focus == focusRemote {
-			panels = a.remote.View(panelW, panelH, true, remoteOnly)
+			panels = a.remote.View(panelW, panelH, true, remoteDiff)
 		} else {
-			panels = a.local.View(panelW, panelH, a.focus == focusLocal, localOnly)
+			panels = a.local.View(panelW, panelH, a.focus == focusLocal, localDiff)
 		}
 	} else {
-		localView := a.local.View(panelW, panelH, a.focus == focusLocal, localOnly)
-		remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote, remoteOnly)
+		localView := a.local.View(panelW, panelH, a.focus == focusLocal, localDiff)
+		remoteView := a.remote.View(panelW, panelH, a.focus == focusRemote, remoteDiff)
 		panels = lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
 	}
 

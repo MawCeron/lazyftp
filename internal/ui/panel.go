@@ -44,12 +44,17 @@ type fileDelegate struct {
 	// different file.
 	marked map[string]bool
 
-	// uniqueOnly names this panel's entries missing from the other panel
-	// (--highlight-diff). nil means the flag is off, distinct from a
+	// uniqueOnly names this panel's entries missing from the other panel;
+	// sizeDiffers names entries present on both sides whose size doesn't
+	// match (--highlight-diff). The two are mutually exclusive by
+	// construction -- sizeDiffers only ever considers names that exist on
+	// both sides -- so they share one indicator column instead of each
+	// costing their own. nil means the flag is off, distinct from a
 	// non-nil empty map (flag on, nothing differs) -- nil also drops the
-	// indicator column entirely rather than reserving a permanently blank
-	// one nobody asked for.
-	uniqueOnly map[string]bool
+	// column entirely rather than reserving a permanently blank one nobody
+	// asked for.
+	uniqueOnly  map[string]bool
+	sizeDiffers map[string]bool
 }
 
 func (d fileDelegate) Height() int                             { return 1 }
@@ -65,6 +70,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	cursorStyle := lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	markedStyle := lipgloss.NewStyle().Foreground(colorMarked).Bold(true)
 	uniqueStyle := lipgloss.NewStyle().Foreground(colorDiffOnly).Bold(true)
+	sizeDiffersStyle := lipgloss.NewStyle().Foreground(colorSizeDiffers).Bold(true)
 	dirStyle := lipgloss.NewStyle().Foreground(colorDirectory)
 	normalStyle := lipgloss.NewStyle().Foreground(colorPrimary)
 	sizeMetaStyle := lipgloss.NewStyle().Foreground(colorPrimary)
@@ -72,15 +78,16 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 
 	isSelected := index == m.Index()
 	isMarked := d.marked[fi.file.Name]
-	showUniqueCol := d.uniqueOnly != nil
+	showDiffCol := d.uniqueOnly != nil
 	isUnique := d.uniqueOnly[fi.file.Name]
+	sizeDiffers := d.sizeDiffers[fi.file.Name]
 
 	name := fi.file.Name
 	if fi.file.IsDir() {
 		name = name + "/"
 	}
 
-	// Cursor, mark and (when --highlight-diff is on) unique-to-this-side
+	// Cursor, mark and (when --highlight-diff is on) the diff indicator
 	// each own a column so none displaces another: a marked, selected,
 	// unique file shows all three markers at once.
 	cursorChar := " "
@@ -92,12 +99,15 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 		markChar = markedStyle.Render(iconMark())
 	}
 	prefix := cursorChar + markChar
-	if showUniqueCol {
-		uniqueChar := " "
-		if isUnique {
-			uniqueChar = uniqueStyle.Render(iconUnique())
+	if showDiffCol {
+		diffChar := " "
+		switch {
+		case isUnique:
+			diffChar = uniqueStyle.Render(iconUnique())
+		case sizeDiffers:
+			diffChar = sizeDiffersStyle.Render(iconSizeDiffers())
 		}
-		prefix += uniqueChar
+		prefix += diffChar
 	}
 	prefix += " "
 
@@ -120,6 +130,9 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	case isUnique:
 		nameStyle = uniqueStyle
 		sizeStyle, dateStyle = sizeMetaStyle, dateMetaStyle
+	case sizeDiffers:
+		nameStyle = sizeDiffersStyle
+		sizeStyle, dateStyle = sizeDiffersStyle, dateMetaStyle
 	case fi.file.IsDir():
 		nameStyle = dirStyle
 		sizeStyle, dateStyle = sizeMetaStyle, dateMetaStyle
@@ -134,7 +147,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	}
 	dateStr := fi.file.ModTime.Format("2006-01-02 15:04")
 
-	// prefix is 3 display cells (cursor + mark + gap), 4 with the unique
+	// prefix is 3 display cells (cursor + mark + gap), 4 with the diff
 	// column; widthSlack is an empirical safety margin. A real terminal
 	// wrapped rows at the reported width with all three columns shown,
 	// meaning m.Width() reads wider than what's actually safe to fill.
@@ -144,7 +157,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	// recurs at a specific width/terminal.
 	const widthSlack = 3
 	prefixWidth := 3
-	if showUniqueCol {
+	if showDiffCol {
 		prefixWidth = 4
 	}
 	avail := m.Width() - prefixWidth - widthSlack
@@ -402,14 +415,20 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	return p, cmd
 }
 
-// uniqueOnly is nil when --highlight-diff is off, in which case View skips
-// the indicator column entirely. See Panel.View.
-func (p Panel) View(width, height int, active bool, uniqueOnly map[string]bool) string {
+// diffMarks bundles the two --highlight-diff comparisons a panel can show
+// against the other side. Both fields nil means the flag is off, in which
+// case View skips the indicator column entirely -- see fileDelegate.
+type diffMarks struct {
+	uniqueOnly  map[string]bool
+	sizeDiffers map[string]bool
+}
+
+func (p Panel) View(width, height int, active bool, diff diffMarks) string {
 	borderColor := colorMuted
 	if active {
 		borderColor = colorAccent
 	}
-	p.list.SetDelegate(fileDelegate{marked: p.marked, uniqueOnly: uniqueOnly})
+	p.list.SetDelegate(fileDelegate{marked: p.marked, uniqueOnly: diff.uniqueOnly, sizeDiffers: diff.sizeDiffers})
 
 	pathStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	sortStyle := lipgloss.NewStyle().Foreground(colorMuted)
@@ -475,8 +494,7 @@ func (p Panel) markedFiles() []model.FileInfo {
 }
 
 // uniqueNames returns the names in files that don't appear in other, by
-// name only -- comparing size or modification time isn't reliable over
-// plain FTP (#52). Directories and files are compared the same way, since
+// name only (#52). Directories and files are compared the same way, since
 // FileInfo.Name doesn't carry the distinction.
 func uniqueNames(files, other []model.FileInfo) map[string]bool {
 	otherNames := make(map[string]bool, len(other))
@@ -491,6 +509,32 @@ func uniqueNames(files, other []model.FileInfo) map[string]bool {
 		}
 	}
 	return unique
+}
+
+// sizeDiffers returns the names present in both files and other whose size
+// doesn't match. Unlike a timestamp -- which depends on the server's
+// timezone and is sometimes only minute-precise -- size is an exact byte
+// count from both sides, so this doesn't carry the reliability problem that
+// kept #52 to presence-by-name only. Directories are skipped: their
+// reported size isn't meaningful to compare.
+func sizeDiffers(files, other []model.FileInfo) map[string]bool {
+	otherSizes := make(map[string]int64, len(other))
+	for _, f := range other {
+		if !f.IsDir() {
+			otherSizes[f.Name] = f.Size
+		}
+	}
+
+	differs := make(map[string]bool)
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		if size, ok := otherSizes[f.Name]; ok && size != f.Size {
+			differs[f.Name] = true
+		}
+	}
+	return differs
 }
 
 type NavigateMsg struct {

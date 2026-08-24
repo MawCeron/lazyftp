@@ -349,6 +349,29 @@ func TestHighlightDiffOnlyActivatesWithTheFlag(t *testing.T) {
 	}
 }
 
+// #52 extension: same name on both sides, different size, still gated by
+// the same flag.
+func TestHighlightDiffMarksSizeMismatch(t *testing.T) {
+	newApp := func(highlightDiff bool) App {
+		a := NewApp(nil, false, nil, "dev", highlightDiff)
+		a.width, a.height = 100, 30
+		a.focus = focusLocal
+		a.local = a.local.WithFiles([]model.FileInfo{{Name: "shared.txt", Size: 100}}, "/a")
+		a.remote = a.remote.WithFiles([]model.FileInfo{{Name: "shared.txt", Size: 200}}, "/b")
+		return a
+	}
+
+	off := newApp(false)
+	if out := off.render(); strings.Contains(out, iconSizeDiffers()) {
+		t.Errorf("--highlight-diff off: render() = %q, want no size-differs indicator", out)
+	}
+
+	on := newApp(true)
+	if out := on.render(); !strings.Contains(out, iconSizeDiffers()) {
+		t.Errorf("--highlight-diff on: render() = %q, want a size-differs indicator", out)
+	}
+}
+
 // Tab alone used to be its own reverse when there were only two panels
 // total. Once Log (and now Processes) needed a place in the cycle too, a
 // single Tab-only cycle stopped being reversible with itself -- so Tab
