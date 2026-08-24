@@ -7,7 +7,7 @@ import (
 	"github.com/MawCeron/lazyftp/internal/client"
 )
 
-func key(s string) tea.KeyPressMsg {
+func keyMsg(s string) tea.KeyPressMsg {
 	if s == " " {
 		return tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
 	}
@@ -90,7 +90,7 @@ func TestSpaceAlsoCyclesProtocol(t *testing.T) {
 	bar := NewConnectionBar()
 	start := bar.protocol
 
-	bar, _ = bar.Update(key(" "))
+	bar, _ = bar.Update(keyMsg(" "))
 	if bar.protocol == start {
 		t.Errorf("space did not cycle the protocol from %s", start)
 	}
@@ -100,7 +100,7 @@ func TestSpaceAlsoCyclesProtocol(t *testing.T) {
 // must not reach them while the protocol is focused.
 func TestProtocolKeysDoNotReachTheInputs(t *testing.T) {
 	bar := NewConnectionBar()
-	bar, _ = bar.Update(key("x"))
+	bar, _ = bar.Update(keyMsg("x"))
 	bar, _ = bar.Update(right)
 
 	for f, in := range bar.inputs {
@@ -110,7 +110,7 @@ func TestProtocolKeysDoNotReachTheInputs(t *testing.T) {
 	}
 
 	bar, _ = bar.Update(tab)
-	bar, _ = bar.Update(key("h"))
+	bar, _ = bar.Update(keyMsg("h"))
 	if got := bar.inputs[fieldHost].Value(); got != "h" {
 		t.Errorf("host holds %q after tabbing to it and typing, want \"h\"", got)
 	}
