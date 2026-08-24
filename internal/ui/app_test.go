@@ -228,6 +228,7 @@ func TestNarrowWidthShowsOnlyTheFocusedPanel(t *testing.T) {
 func TestStandardWidthShowsBothPanels(t *testing.T) {
 	a := NewApp(nil, false, nil)
 	a.width, a.height = 80, 24
+	a.focus = focusLocal // panels render blank behind the connection overlay
 
 	out := a.render()
 	if !strings.Contains(out, "Local") || !strings.Contains(out, "Remote") {
@@ -249,6 +250,20 @@ func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {
 	a.focus = focusLocal
 	if got := a.render(); strings.Contains(got, "Connection") {
 		t.Error("render() with local focused still shows the connection overlay")
+	}
+}
+
+// The connection dialog is a fixed-size form, not a mode the panels stay
+// visible under: showing them was cutting their text off mid-word wherever
+// the floating dialog happened to overlap a panel.
+func TestConnectionOverlayBlanksThePanels(t *testing.T) {
+	a := NewApp(nil, false, nil)
+	a.width, a.height = 80, 24
+	a.focus = focusConnectionBar
+
+	out := a.render()
+	if strings.Contains(out, "Local") || strings.Contains(out, "Remote") {
+		t.Errorf("connection overlay should blank the panels behind it; render() = %q", out)
 	}
 }
 

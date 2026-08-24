@@ -299,6 +299,15 @@ func (a App) render() string {
 	panelW := a.panelWidth()
 
 	status := a.statusLine()
+	hints := a.hintsView()
+
+	// The connection form is a fixed-size dialog, not a mode any panel
+	// needs to stay visible under: blanking them avoids the dialog cutting
+	// their text off mid-word wherever it happens to overlap.
+	if a.focus == focusConnectionBar {
+		base := lipgloss.JoinVertical(lipgloss.Left, status, blankArea(a.width, panelH), blankArea(a.width, bottomH), hints)
+		return a.withConnectionOverlay(base)
+	}
 
 	var panels string
 	if a.narrow() {
@@ -332,14 +341,21 @@ func (a App) render() string {
 		bottom = lipgloss.JoinHorizontal(lipgloss.Top, processesView, logView)
 	}
 
-	hints := a.hintsView()
+	return lipgloss.JoinVertical(lipgloss.Left, status, panels, bottom, hints)
+}
 
-	base := lipgloss.JoinVertical(lipgloss.Left, status, panels, bottom, hints)
-
-	if a.focus != focusConnectionBar {
-		return base
+// blankArea returns height blank lines, each width cells wide, so the
+// connection overlay has an empty canvas to sit on instead of the panels.
+func blankArea(width, height int) string {
+	if height <= 0 {
+		return ""
 	}
-	return a.withConnectionOverlay(base)
+	line := strings.Repeat(" ", width)
+	lines := make([]string, height)
+	for i := range lines {
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
 }
 
 func (a App) tooSmallView() string {
