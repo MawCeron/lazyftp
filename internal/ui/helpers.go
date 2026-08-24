@@ -9,6 +9,31 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+// pill renders text as a solid-colored block, the segmented status-bar style
+// (lualine, airline) instead of a single flat-colored line: each piece of
+// information gets its own color instead of blending into the bar.
+func pill(bg color.Color, text string) string {
+	return lipgloss.NewStyle().
+		Background(bg).
+		Foreground(colorEmphasis).
+		Bold(true).
+		Padding(0, 1).
+		Render(text)
+}
+
+// composeBar lays left flush against the start of a bar and right flush
+// against its end, filling the gap between them with the bar's own
+// background so the row reads as one continuous strip regardless of how
+// short either side is.
+func composeBar(barBg color.Color, width int, left, right string) string {
+	gap := width - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 0 {
+		gap = 0
+	}
+	fill := lipgloss.NewStyle().Background(barBg).Render(strings.Repeat(" ", gap))
+	return left + fill + right
+}
+
 // borderWithTitle draws a rounded box with the title set into the top border
 // itself, tmux/lazygit-style, instead of on its own line above the content —
 // that line and the blank line separating it from the content were the two

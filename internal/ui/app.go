@@ -55,6 +55,8 @@ type App struct {
 	spinner      spinner.Model
 	verbose      bool
 	protoLog     *shared.LineBuffer
+
+	version string
 }
 
 // seq identifies the attempt, so an abandoned one's result can be dropped.
@@ -81,7 +83,7 @@ func startDir() string {
 	return "/"
 }
 
-func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer) App {
+func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer, version string) App {
 	app := App{
 		focus:     focusConnectionBar,
 		connBar:   NewConnectionBar(),
@@ -92,6 +94,7 @@ func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer) App {
 		spinner:   spinner.New(spinner.WithSpinner(spinner.Dot)),
 		program:   p,
 		verbose:   verbose,
+		version:   version,
 	}
 	app.local.path = startDir()
 	return app
@@ -409,51 +412,61 @@ func (a App) withOverlay(base, overlay string) string {
 	return lipgloss.NewCompositor(bg, fg).Render()
 }
 
-// statusLine replaces the old permanently-visible connection form with a
-// single line: the connection state when idle or connecting, or who/where
-// once connected. It renders as a solid bar -- every span sets its own
-// background explicitly, because a nested style's Render() resets to the
-// terminal default at its own boundary, which would otherwise leave gaps
-// of unstyled background wherever a foreground-only span sits.
+// statusLine is a segmented bar, lualine/airline-style: a colored pill for
+// the connection state, plain detail text next to it, and a pill on the far
+// right for the marked-file count -- visible nowhere else short of opening
+// Processes or counting checkmarks by eye -- whenever there is one.
 func (a App) statusLine() string {
 	bar := lipgloss.NewStyle().Background(colorBarBg)
-	muted := bar.Foreground(colorMuted)
+	detail := bar.Foreground(colorMuted)
 
+	var left string
 	switch {
 	case a.connecting:
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
-		text := muted.Render(fmt.Sprintf("%s Connecting… %s", a.spinner.View(), elapsed))
-		return bar.Width(a.width).Render(text)
+		left = pill(colorAccent, a.spinner.View()+" CONNECTING") +
+			bar.Render(" ") + detail.Render(elapsed.String())
 
 	case a.connected:
-		dot := bar.Foreground(colorSuccess).Render("●")
-		who := bar.Foreground(colorPrimary).Render(fmt.Sprintf(" %s@%s (%s)", a.connUser, a.connAddr, a.connProtocol))
-		return bar.Width(a.width).Render(dot + who)
+		who := fmt.Sprintf("%s@%s", a.connUser, a.connAddr)
+		left = pill(colorSuccess, a.connProtocol.String()) +
+			bar.Render(" ") + detail.Foreground(colorPrimary).Render(who)
 
 	default:
-		text := muted.Render("○ Not connected — Ctrl+L to connect")
-		return bar.Width(a.width).Render(text)
+		left = pill(colorMuted, "OFFLINE") +
+			bar.Render(" ") + detail.Render("Ctrl+L to connect")
 	}
+
+	var right string
+	if marked := len(a.local.markedFiles()) + len(a.remote.markedFiles()); marked > 0 {
+		right = pill(colorMarked, fmt.Sprintf("%d MARKED", marked))
+	}
+
+	return composeBar(colorBarBg, a.width, left, right)
 }
 
 // hintsView renders the same bindings keys.go declares for the help screen,
-// trimmed to what's actionable from here -- see footerKeyMap.ShortHelp. It's
-// a solid bar like statusLine, for the same reason: every span sets its own
-// background so nested Render() calls can't leave unstyled gaps in it.
-// SetWidth makes bubbles/help truncate gracefully with an ellipsis instead
-// of wrapping or overflowing if a context's list still doesn't fit.
+// trimmed to what's actionable from here -- see footerKeyMap.ShortHelp. Two
+// pills anchor the right edge with the app's identity; unlike the per-key
+// hints, that doesn't change with focus, so it isn't worth its own pass
+// through footerKeyMap. SetWidth gives the hints only the width left after
+// the pills take their share, so they truncate gracefully with an ellipsis
+// instead of colliding with the pills or overflowing.
 func (a App) hintsView() string {
 	bar := lipgloss.NewStyle().Background(colorBarBg)
+
+	right := pill(colorAccent, "lazyftp") + pill(colorMuted, a.version)
+	rightWidth := lipgloss.Width(right)
 
 	hm := help.New()
 	hm.Styles.ShortKey = bar.Bold(true).Foreground(colorEmphasis)
 	hm.Styles.ShortDesc = bar.Foreground(colorMuted)
 	hm.Styles.ShortSeparator = bar.Foreground(colorMuted)
 	hm.Styles.Ellipsis = bar.Foreground(colorMuted)
-	hm.SetWidth(a.width)
+	hm.SetWidth(a.width - rightWidth)
 
 	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen}
-	return bar.Width(a.width).Render(hm.View(km))
+	return composeBar(colorBarBg, a.width, hm.View(km), right)
 }
 
 func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {

@@ -32,7 +32,7 @@ func (s *stubClient) Download(remote, local string, p func(int64)) error {
 var _ client.Client = (*stubClient)(nil)
 
 func connecting() App {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 	a.connecting = true
 	a.connectSeq = 1
 	return a
@@ -42,7 +42,7 @@ func connecting() App {
 // connection bar, where "q" is deliberately left to reach the text field.
 func TestCtrlCQuitsFromEveryFocusState(t *testing.T) {
 	for _, focus := range []focus{focusConnectionBar, focusLocal, focusRemote} {
-		a := NewApp(nil, false, nil)
+		a := NewApp(nil, false, nil, "dev")
 		a.focus = focus
 		a.connected = true
 		stub := &stubClient{}
@@ -138,7 +138,7 @@ func TestACurrentAttemptStillConnects(t *testing.T) {
 // U/D transfer whichever side has marked files, regardless of focus. With
 // nothing marked there's no file to infer, so they must not silently no-op.
 func TestDirectTransferKeysRequireMarkedFiles(t *testing.T) {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 	a.focus = focusLocal
 
 	model, _ := a.Update(tea.KeyPressMsg{Code: 'U', Text: "U"})
@@ -155,16 +155,16 @@ func TestDirectTransferKeysRequireMarkedFiles(t *testing.T) {
 }
 
 func TestStatusLineReflectsConnectionState(t *testing.T) {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 	a.width = 80
 
-	if got := a.statusLine(); !strings.Contains(got, "Not connected") {
+	if got := a.statusLine(); !strings.Contains(got, "OFFLINE") {
 		t.Errorf("idle statusLine() = %q, want it to mention not being connected", got)
 	}
 
 	a.connecting = true
 	a.connectStart = time.Now()
-	if got := a.statusLine(); !strings.Contains(got, "Connecting") {
+	if got := a.statusLine(); !strings.Contains(got, "CONNECTING") {
 		t.Errorf("connecting statusLine() = %q, want it to mention connecting", got)
 	}
 
@@ -181,8 +181,37 @@ func TestStatusLineReflectsConnectionState(t *testing.T) {
 	}
 }
 
+func TestStatusLineShowsMarkedCountOnlyWhenSomethingIsMarked(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev")
+	a.width = 80
+
+	if got := a.statusLine(); strings.Contains(got, "MARKED") {
+		t.Errorf("nothing marked: statusLine() = %q, want no marked-count pill", got)
+	}
+
+	a.local = a.local.WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/tmp")
+	a.local, _ = a.local.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+
+	if got := a.statusLine(); !strings.Contains(got, "1 MARKED") {
+		t.Errorf("one file marked: statusLine() = %q, want a 1 MARKED pill", got)
+	}
+}
+
+func TestFooterAnchorsAppIdentityRegardlessOfFocus(t *testing.T) {
+	a := NewApp(nil, false, nil, "1.2.3")
+	a.width = 100
+
+	for _, focus := range []focus{focusLocal, focusRemote, focusConnectionBar} {
+		a.focus = focus
+		got := a.hintsView()
+		if !strings.Contains(got, "lazyftp") || !strings.Contains(got, "1.2.3") {
+			t.Errorf("focus %d: hintsView() = %q, want both identity pills", focus, got)
+		}
+	}
+}
+
 func TestTooSmallViewBelowTheFloor(t *testing.T) {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 
 	a.width, a.height = minWidth-1, minHeight+5
 	if got := a.render(); !strings.Contains(got, "too small") {
@@ -203,7 +232,7 @@ func TestTooSmallViewBelowTheFloor(t *testing.T) {
 // Below 80 columns, two file panels side by side are too cramped to be
 // useful: only the focused one should render, at full width.
 func TestNarrowWidthShowsOnlyTheFocusedPanel(t *testing.T) {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 	a.width, a.height = 70, 24
 	a.focus = focusLocal
 
@@ -226,7 +255,7 @@ func TestNarrowWidthShowsOnlyTheFocusedPanel(t *testing.T) {
 }
 
 func TestStandardWidthShowsBothPanels(t *testing.T) {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 	a.width, a.height = 80, 24
 	a.focus = focusLocal // panels render blank behind the connection overlay
 
@@ -239,7 +268,7 @@ func TestStandardWidthShowsBothPanels(t *testing.T) {
 // The connection form floats over the panels rather than replacing them: it
 // should only appear in the rendered frame while it holds focus.
 func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 	a.width, a.height = 80, 24
 
 	a.focus = focusConnectionBar
@@ -257,7 +286,7 @@ func TestConnectionOverlayOnlyAppearsWhenFocused(t *testing.T) {
 // visible under: showing them was cutting their text off mid-word wherever
 // the floating dialog happened to overlap a panel.
 func TestConnectionOverlayBlanksThePanels(t *testing.T) {
-	a := NewApp(nil, false, nil)
+	a := NewApp(nil, false, nil, "dev")
 	a.width, a.height = 80, 24
 	a.focus = focusConnectionBar
 
@@ -279,7 +308,7 @@ func TestRenderingSurvivesAnyTerminalSize(t *testing.T) {
 	for w := 0; w <= 24; w++ {
 		for h := 0; h <= 24; h++ {
 			t.Run(fmt.Sprintf("%dx%d", w, h), func(t *testing.T) {
-				a := NewApp(nil, false, nil)
+				a := NewApp(nil, false, nil, "dev")
 				a.local = a.local.WithFiles(files, "/a/deep/enough/path/to/be/truncated")
 				a.remote = a.remote.WithFiles(files, "/another/path")
 
