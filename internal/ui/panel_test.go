@@ -94,6 +94,60 @@ func TestMarkFollowsTheFileNotItsPosition(t *testing.T) {
 	}
 }
 
+func TestSortKeyCyclesColumnAndResetsDirection(t *testing.T) {
+	p := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/tmp")
+	p.sortDesc = true // s should reset this even mid-cycle
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	if p.sortBy != sortBySize || p.sortDesc {
+		t.Errorf("after s: sortBy=%v sortDesc=%v, want Size ascending", p.sortBy, p.sortDesc)
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	if p.sortBy != sortByDate {
+		t.Errorf("after ss: sortBy=%v, want Date", p.sortBy)
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 's', Text: "s"})
+	if p.sortBy != sortByName {
+		t.Errorf("after sss: sortBy=%v, want Name (wrapped)", p.sortBy)
+	}
+}
+
+func TestSortFlipReversesWithoutChangingColumn(t *testing.T) {
+	p := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/tmp")
+	p.sortBy = sortBySize
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'S', Text: "S"})
+	if p.sortBy != sortBySize || !p.sortDesc {
+		t.Errorf("after S: sortBy=%v sortDesc=%v, want Size descending", p.sortBy, p.sortDesc)
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'S', Text: "S"})
+	if p.sortBy != sortBySize || p.sortDesc {
+		t.Errorf("after SS: sortBy=%v sortDesc=%v, want Size ascending again", p.sortBy, p.sortDesc)
+	}
+}
+
+// Re-sorting is triggered by the user looking at a specific file -- jumping
+// the cursor back to the top on every keystroke would lose their place.
+func TestSortKeepsCursorOnTheSameFile(t *testing.T) {
+	files := []model.FileInfo{
+		{Name: "b.txt", Size: 200},
+		{Name: "a.txt", Size: 300},
+		{Name: "c.txt", Size: 100},
+	}
+	p := NewPanel("Local", true).WithFiles(files, "/tmp")
+
+	p.list.Select(1)                                       // b.txt, in the initial name-sorted order
+	p, _ = p.Update(tea.KeyPressMsg{Code: 's', Text: "s"}) // switch to size ascending
+
+	item, ok := p.list.SelectedItem().(fileItem)
+	if !ok || item.file.Name != "b.txt" {
+		t.Errorf("selected item after resort = %+v, want cursor to stay on b.txt", item)
+	}
+}
+
 func TestRefreshReloadsTheCurrentPath(t *testing.T) {
 	p := NewPanel("Remote", false).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/srv")
 

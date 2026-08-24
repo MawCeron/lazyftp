@@ -20,6 +20,8 @@ var (
 	keyMark     = key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "mark"))
 	keyTransfer = key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "transfer"))
 	keyRefresh  = key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh"))
+	keySortNext = key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sort"))
+	keySortFlip = key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "reverse sort"))
 
 	// Connection dialog.
 	keyNextField    = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next field"))
@@ -68,7 +70,7 @@ var helpGroupTitles = []string{"Global", "File panels", "Connection dialog"}
 func helpGroups() [][]key.Binding {
 	return [][]key.Binding{
 		{keyQuit, keyHelp, keyConnect, keySwitch, keyUpload, keyDownload},
-		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh},
+		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
 	}
 }

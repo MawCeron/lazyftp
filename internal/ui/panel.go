@@ -5,7 +5,6 @@ import (
 	"io"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -151,12 +150,14 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 }
 
 type Panel struct {
-	title  string
-	path   string
-	local  bool
-	list   list.Model
-	marked map[string]bool
-	files  []model.FileInfo
+	title    string
+	path     string
+	local    bool
+	list     list.Model
+	marked   map[string]bool
+	files    []model.FileInfo
+	sortBy   sortColumn
+	sortDesc bool
 }
 
 // Local paths follow the host's rules; remote paths are always POSIX.
@@ -203,26 +204,42 @@ func NewPanel(title string, local bool) Panel {
 }
 
 func (p Panel) WithFiles(files []model.FileInfo, dir string) Panel {
-	dir = p.cleanPath(dir)
-
-	sort.Slice(files, func(i, j int) bool {
-		if files[i].IsDir() != files[j].IsDir() {
-			return files[i].IsDir()
-		}
-		return strings.ToLower(files[i].Name) < strings.ToLower(files[j].Name)
-	})
-
-	items := make([]list.Item, len(files))
-	for i, f := range files {
-		items[i] = fileItem{file: f}
-	}
-
 	p.files = files
-	p.path = dir
+	p.path = p.cleanPath(dir)
 	p.marked = make(map[string]bool)
-	p.list.SetItems(items)
+	p = p.applySort()
 	p.list.Select(0)
 	p.list.SetDelegate(fileDelegate{marked: p.marked})
+	return p
+}
+
+// applySort re-sorts p.files by the panel's current sort settings and
+// rebuilds the list's items to match, in place. It does not touch the
+// cursor -- callers decide what that means for them (WithFiles resets it
+// to the top for a new directory; resort below keeps it on the same file).
+func (p Panel) applySort() Panel {
+	sortFiles(p.files, p.sortBy, p.sortDesc)
+	items := make([]list.Item, len(p.files))
+	for i, f := range p.files {
+		items[i] = fileItem{file: f}
+	}
+	p.list.SetItems(items)
+	return p
+}
+
+// resort re-applies the current sort after sortBy/sortDesc changed, keeping
+// the cursor on the same file instead of snapping back to the top.
+func (p Panel) resort() Panel {
+	item, hadSelection := p.list.SelectedItem().(fileItem)
+	p = p.applySort()
+	if hadSelection {
+		for i, f := range p.files {
+			if f.Name == item.file.Name {
+				p.list.Select(i)
+				break
+			}
+		}
+	}
 	return p
 }
 
@@ -290,6 +307,15 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			return p, func() tea.Msg {
 				return TransferMsg{SourcePanel: panel, Files: files}
 			}
+
+		case key.Matches(msg, keySortNext):
+			p.sortBy = p.sortBy.next()
+			p.sortDesc = false
+			return p.resort(), nil
+
+		case key.Matches(msg, keySortFlip):
+			p.sortDesc = !p.sortDesc
+			return p.resort(), nil
 		}
 	}
 
@@ -305,14 +331,35 @@ func (p Panel) View(width, height int, active bool) string {
 	}
 
 	pathStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	sortStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	innerWidth := borderInteriorWidth(width)
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
 
-	path := truncateHead(p.path, innerWidth)
+	// The active sort column and direction ride the path line instead of a
+	// dedicated header row, which would cost every panel a line of files to
+	// show one word and an arrow.
+	arrow := "▲"
+	if p.sortDesc {
+		arrow = "▼"
+	}
+	indicator := p.sortBy.String() + " " + arrow
+	indicatorWidth := runewidth.StringWidth(indicator)
 
-	body := pathStyle.Render(path) + "\n" + p.list.View()
+	pathWidth := innerWidth - indicatorWidth - 1 // 1-cell gap before the indicator
+	if pathWidth < 1 {
+		pathWidth = 1
+	}
+	path := truncateHead(p.path, pathWidth)
+
+	gap := innerWidth - runewidth.StringWidth(path) - indicatorWidth
+	if gap < 1 {
+		gap = 1
+	}
+	pathLine := pathStyle.Render(path) + strings.Repeat(" ", gap) + sortStyle.Render(indicator)
+
+	body := pathLine + "\n" + p.list.View()
 
 	return borderWithTitle(body, p.title, width, height, borderColor)
 }
