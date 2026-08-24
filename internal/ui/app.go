@@ -260,14 +260,31 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keyConnect):
 			a.focus = focusConnectionBar
 			return a, nil
+		// Tab stays within whichever group has focus -- Local/Remote or
+		// Log/Processes; Shift+Tab is what moves between the two groups.
+		// Tab alone used to be reversible on its own when there were only
+		// two panels total; once Log joined the cycle that stopped being
+		// true, which is what this group split restores.
 		case key.Matches(msg, keySwitch):
 			if a.focus != focusConnectionBar && !jumping {
 				switch a.focus {
 				case focusLocal:
 					a.focus = focusRemote
 				case focusRemote:
-					a.focus = focusLog
+					a.focus = focusLocal
 				case focusLog:
+					a.focus = focusProcesses
+				case focusProcesses:
+					a.focus = focusLog
+				}
+				return a, nil
+			}
+		case key.Matches(msg, keySwitchZone):
+			if a.focus != focusConnectionBar && !jumping {
+				switch a.focus {
+				case focusLocal, focusRemote:
+					a.focus = focusProcesses
+				default:
 					a.focus = focusLocal
 				}
 				return a, nil

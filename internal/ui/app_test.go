@@ -326,20 +326,64 @@ func TestStandardWidthShowsBothPanels(t *testing.T) {
 	}
 }
 
-// #32: the Log panel joins the same Tab cycle as the file panels. Focus
-// itself is unaffected by Processes becoming focusable below -- reaching it
-// is wired up separately.
-func TestTabCyclesThroughLocalRemoteAndLog(t *testing.T) {
+// Tab alone used to be its own reverse when there were only two panels
+// total. Once Log (and now Processes) needed a place in the cycle too, a
+// single Tab-only cycle stopped being reversible with itself -- so Tab
+// stays within whichever group has focus, and Shift+Tab is what moves
+// between the Local/Remote group and the Log/Processes group.
+func TestTabStaysWithinItsGroup(t *testing.T) {
 	a := NewApp(nil, false, nil, "dev")
 	a.focus = focusLocal
 
-	want := []focus{focusRemote, focusLog, focusLocal}
+	want := []focus{focusRemote, focusLocal}
 	for _, w := range want {
 		model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 		a = model.(App)
 		if a.focus != w {
 			t.Fatalf("after Tab, focus = %v, want %v", a.focus, w)
 		}
+	}
+
+	a.focus = focusLog
+	want = []focus{focusProcesses, focusLog}
+	for _, w := range want {
+		model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+		a = model.(App)
+		if a.focus != w {
+			t.Fatalf("after Tab, focus = %v, want %v", a.focus, w)
+		}
+	}
+}
+
+func TestShiftTabSwitchesGroups(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev")
+	a.focus = focusLocal
+
+	model, _ := a.Update(shiftTab)
+	a = model.(App)
+	if a.focus != focusProcesses {
+		t.Fatalf("Shift+Tab from Local: focus = %v, want focusProcesses", a.focus)
+	}
+
+	a.focus = focusRemote
+	model, _ = a.Update(shiftTab)
+	a = model.(App)
+	if a.focus != focusProcesses {
+		t.Fatalf("Shift+Tab from Remote: focus = %v, want focusProcesses", a.focus)
+	}
+
+	a.focus = focusLog
+	model, _ = a.Update(shiftTab)
+	a = model.(App)
+	if a.focus != focusLocal {
+		t.Fatalf("Shift+Tab from Log: focus = %v, want focusLocal", a.focus)
+	}
+
+	a.focus = focusProcesses
+	model, _ = a.Update(shiftTab)
+	a = model.(App)
+	if a.focus != focusLocal {
+		t.Fatalf("Shift+Tab from Processes: focus = %v, want focusLocal", a.focus)
 	}
 }
 

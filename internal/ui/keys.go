@@ -19,12 +19,13 @@ func scrollKeys() (up, down, pageUp, pageDown key.Binding) {
 // hand-maintained copies that can drift apart.
 var (
 	// Global — available whenever a text field doesn't own the keyboard.
-	keyQuit     = key.NewBinding(key.WithKeys("q", "Q"), key.WithHelp("q", "quit"))
-	keyHelp     = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help"))
-	keyConnect  = key.NewBinding(key.WithKeys("ctrl+l"), key.WithHelp("ctrl+l", "connection"))
-	keySwitch   = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch panel"))
-	keyUpload   = key.NewBinding(key.WithKeys("U"), key.WithHelp("U", "upload marked"))
-	keyDownload = key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "download marked"))
+	keyQuit       = key.NewBinding(key.WithKeys("q", "Q"), key.WithHelp("q", "quit"))
+	keyHelp       = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help"))
+	keyConnect    = key.NewBinding(key.WithKeys("ctrl+l"), key.WithHelp("ctrl+l", "connection"))
+	keySwitch     = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch panel"))
+	keySwitchZone = key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "switch group"))
+	keyUpload     = key.NewBinding(key.WithKeys("U"), key.WithHelp("U", "upload marked"))
+	keyDownload   = key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "download marked"))
 
 	// File panels (Local, Remote).
 	keyOpen     = key.NewBinding(key.WithKeys("enter", "l"), key.WithHelp("l/enter", "open dir"))
@@ -96,7 +97,7 @@ var helpGroupTitles = []string{"Global", "File panels", "Log & Processes", "Conn
 func helpGroups() [][]key.Binding {
 	up, down, pageUp, pageDown := scrollKeys()
 	return [][]key.Binding{
-		{keyQuit, keyHelp, keyConnect, keySwitch, keyUpload, keyDownload},
+		{keyQuit, keyHelp, keyConnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
 		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump},
 		{up, down, pageUp, pageDown},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
