@@ -82,8 +82,8 @@ func NewApp(p func() *tea.Program, verbose bool, logFile io.Writer) App {
 	app := App{
 		focus:     focusConnectionBar,
 		connBar:   NewConnectionBar(),
-		local:     NewPanel("LOCAL", true),
-		remote:    NewPanel("REMOTE", false),
+		local:     NewPanel("Local", true),
+		remote:    NewPanel("Remote", false),
 		processes: NewProcessesPanel(),
 		log:       NewLogPanel(logFile),
 		spinner:   spinner.New(spinner.WithSpinner(spinner.Dot)),
@@ -192,10 +192,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, tea.Quit
 
 			case "U":
-				return a.handleDirectTransfer("LOCAL", a.local.markedFiles())
+				return a.handleDirectTransfer("Local", a.local.markedFiles())
 
 			case "D":
-				return a.handleDirectTransfer("REMOTE", a.remote.markedFiles())
+				return a.handleDirectTransfer("Remote", a.remote.markedFiles())
 			}
 		}
 
@@ -510,7 +510,7 @@ func (a App) handleConnectFailed(msg connectFailedMsg) (App, tea.Cmd) {
 }
 
 func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
-	if msg.Panel == "LOCAL" {
+	if msg.Panel == "Local" {
 		return a, loadLocalDir(msg.Path)
 	}
 
@@ -539,7 +539,7 @@ func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
 
 	var jobs []transfer.Job
 
-	if msg.SourcePanel == "LOCAL" {
+	if msg.SourcePanel == "Local" {
 		for _, f := range msg.Files {
 			jobs = append(jobs, transfer.Job{
 				File:       f,

@@ -44,7 +44,7 @@ func TestHAndLDoNotTriggerListPagination(t *testing.T) {
 		files[i] = model.FileInfo{Name: fmt.Sprintf("file-%02d.txt", i)}
 	}
 
-	p := NewPanel("LOCAL", true).WithFiles(files, "/tmp")
+	p := NewPanel("Local", true).WithFiles(files, "/tmp")
 	p = p.SetSize(40, 10) // short enough to force multiple pages
 	before := p.list.Paginator.Page
 
@@ -61,7 +61,7 @@ func TestHAndLDoNotTriggerListPagination(t *testing.T) {
 
 func TestSpaceTogglesMark(t *testing.T) {
 	files := []model.FileInfo{{Name: "a.txt"}, {Name: "b.txt"}}
-	p := NewPanel("LOCAL", true).WithFiles(files, "/tmp")
+	p := NewPanel("Local", true).WithFiles(files, "/tmp")
 
 	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	if !p.marked[0] {
@@ -75,7 +75,7 @@ func TestSpaceTogglesMark(t *testing.T) {
 }
 
 func TestRefreshReloadsTheCurrentPath(t *testing.T) {
-	p := NewPanel("REMOTE", false).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/srv")
+	p := NewPanel("Remote", false).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/srv")
 
 	_, cmd := p.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
 	if cmd == nil {
@@ -85,8 +85,8 @@ func TestRefreshReloadsTheCurrentPath(t *testing.T) {
 	if !ok {
 		t.Fatalf("r returned %T, want NavigateMsg", cmd())
 	}
-	if msg.Panel != "REMOTE" || msg.Path != "/srv" {
-		t.Errorf("r navigated to %+v, want {REMOTE /srv} (the current path)", msg)
+	if msg.Panel != "Remote" || msg.Path != "/srv" {
+		t.Errorf("r navigated to %+v, want {Remote /srv} (the current path)", msg)
 	}
 }
 

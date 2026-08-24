@@ -208,20 +208,20 @@ func TestNarrowWidthShowsOnlyTheFocusedPanel(t *testing.T) {
 	a.focus = focusLocal
 
 	out := a.render()
-	if !strings.Contains(out, "LOCAL") {
-		t.Error("narrow width with LOCAL focused: LOCAL panel missing from render()")
+	if !strings.Contains(out, "Local") {
+		t.Error("narrow width with Local focused: Local panel missing from render()")
 	}
-	if strings.Contains(out, "REMOTE") {
-		t.Error("narrow width with LOCAL focused: REMOTE panel should not render")
+	if strings.Contains(out, "Remote") {
+		t.Error("narrow width with Local focused: Remote panel should not render")
 	}
 
 	a.focus = focusRemote
 	out = a.render()
-	if !strings.Contains(out, "REMOTE") {
-		t.Error("narrow width with REMOTE focused: REMOTE panel missing from render()")
+	if !strings.Contains(out, "Remote") {
+		t.Error("narrow width with Remote focused: Remote panel missing from render()")
 	}
-	if strings.Contains(out, "LOCAL") {
-		t.Error("narrow width with REMOTE focused: LOCAL panel should not render")
+	if strings.Contains(out, "Local") {
+		t.Error("narrow width with Remote focused: Local panel should not render")
 	}
 }
 
@@ -230,7 +230,7 @@ func TestStandardWidthShowsBothPanels(t *testing.T) {
 	a.width, a.height = 80, 24
 
 	out := a.render()
-	if !strings.Contains(out, "LOCAL") || !strings.Contains(out, "REMOTE") {
+	if !strings.Contains(out, "Local") || !strings.Contains(out, "Remote") {
 		t.Errorf("80 columns should show both panels side by side; render() = %q", out)
 	}
 }
