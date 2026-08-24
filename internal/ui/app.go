@@ -470,12 +470,13 @@ func centerPadding(width, contentWidth int) (left, right int) {
 // fixed pieces of content.
 func (a App) hintsView() string {
 	identity := pill(colorAccent, "lazyftp") + pill(colorMuted, a.version)
-	identityWidth := lipgloss.Width(identity)
+	gap := lipgloss.NewStyle().Background(colorBarBg).Render("  ")
+	leadWidth := lipgloss.Width(identity) + lipgloss.Width(gap)
 
 	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen}
-	hints := renderHints(km.ShortHelp(), a.width-identityWidth)
+	hints := renderHints(km.ShortHelp(), a.width-leadWidth)
 
-	return composeBar(colorBarBg, a.width, identity+hints, "")
+	return composeBar(colorBarBg, a.width, identity+gap+hints, "")
 }
 
 // renderHints lays out bindings as "key desc" pairs, hand-composed instead
