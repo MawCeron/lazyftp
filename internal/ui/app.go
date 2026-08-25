@@ -59,6 +59,8 @@ type App struct {
 
 	version       string
 	highlightDiff bool
+
+	themeResolved bool
 }
 
 // seq identifies the attempt, so an abandoned one's result can be dropped.
@@ -116,7 +118,23 @@ func (a App) drainProtoLog() App {
 }
 
 func (a App) Init() tea.Cmd {
-	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor)
+	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor, themeFallbackTimeout())
+}
+
+// themeFallbackTimeout guards tea.RequestBackgroundColor: bubbletea sends the
+// OSC 11 query fire-and-forget, with no timeout of its own, so a terminal or
+// multiplexer that never answers (common enough over tmux/SSH) would
+// otherwise leave the theme silently stuck on its dark static default
+// forever. If BackgroundColorMsg hasn't resolved it within this window, fall
+// back to dark explicitly instead of relying on that coincidence.
+const themeFallbackDelay = 300 * time.Millisecond
+
+type themeFallbackMsg struct{}
+
+func themeFallbackTimeout() tea.Cmd {
+	return tea.Tick(themeFallbackDelay, func(time.Time) tea.Msg {
+		return themeFallbackMsg{}
+	})
 }
 
 const (
@@ -208,7 +226,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tea.BackgroundColorMsg:
+		a.themeResolved = true
 		SetTheme(msg.IsDark())
+		return a, nil
+
+	case themeFallbackMsg:
+		if !a.themeResolved {
+			a.themeResolved = true
+			SetTheme(true)
+		}
 		return a, nil
 
 	case tea.KeyPressMsg:
