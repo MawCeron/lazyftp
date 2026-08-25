@@ -97,7 +97,7 @@ func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 }
 
 func (p ProcessesPanel) View(width, height int, active bool) string {
-	borderColor := colorMuted
+	borderColor := colorBorder
 	if active {
 		borderColor = colorAccent
 	}

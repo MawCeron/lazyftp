@@ -424,7 +424,7 @@ type diffMarks struct {
 }
 
 func (p Panel) View(width, height int, active bool, diff diffMarks) string {
-	borderColor := colorMuted
+	borderColor := colorBorder
 	if active {
 		borderColor = colorAccent
 	}

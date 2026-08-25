@@ -147,7 +147,7 @@ func (c ConnectionBar) View(maxWidth int) string {
 	}
 
 	labelStyle := lipgloss.NewStyle().Foreground(colorEmphasis).Bold(true).Width(10)
-	arrowStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	arrowStyle := lipgloss.NewStyle().Foreground(colorBorder)
 
 	protocol := c.protocol.String()
 	if c.focused == fieldProtocol {
