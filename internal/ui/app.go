@@ -118,7 +118,7 @@ func (a App) drainProtoLog() App {
 }
 
 func (a App) Init() tea.Cmd {
-	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor, themeFallbackTimeout())
+	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor, themeFallbackTimeout(), themePollTick())
 }
 
 // themeFallbackTimeout guards tea.RequestBackgroundColor: bubbletea sends the
@@ -134,6 +134,25 @@ type themeFallbackMsg struct{}
 func themeFallbackTimeout() tea.Cmd {
 	return tea.Tick(themeFallbackDelay, func(time.Time) tea.Msg {
 		return themeFallbackMsg{}
+	})
+}
+
+// themePollTick drives live theme switching: no terminal we can rely on
+// pushes a notification when the user flips their light/dark setting mid
+// session (the one extension that would, DECSET 2031, has no public
+// bubbletea API to enable and is barely implemented in the wild), so this
+// re-asks on a short interval instead, self-rescheduling the same way the
+// connecting spinner does. 200ms reads as instant and costs a few bytes each
+// way -- less traffic than the spinner already generates at 100ms while
+// connecting, just held open for the life of the session instead of one
+// transient state.
+const themePollInterval = 200 * time.Millisecond
+
+type themePollMsg struct{}
+
+func themePollTick() tea.Cmd {
+	return tea.Tick(themePollInterval, func(time.Time) tea.Msg {
+		return themePollMsg{}
 	})
 }
 
@@ -265,6 +284,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			SetTheme(true)
 		}
 		return a, nil
+
+	case themePollMsg:
+		return a, tea.Batch(tea.RequestBackgroundColor, themePollTick())
 
 	case tea.KeyPressMsg:
 		// Ctrl+C must always quit cleanly, from every focus state -- unlike
