@@ -68,19 +68,21 @@ func TestCtrlCQuitsFromEveryFocusState(t *testing.T) {
 	}
 }
 
-// The Protocol selector takes no free text -- left/right only -- so it has
-// nothing to lose by also responding to q/Q, unlike Host/Port/User/Pass.
+// Protocol (left/right only) and Port (digits only) take no free text, so
+// both have nothing to lose by also responding to q/Q, unlike Host/User/Pass.
 func TestQuitsFromConnectionBarWhenNotTypingText(t *testing.T) {
-	a := NewApp(nil, false, nil, "dev", false)
-	a.focus = focusConnectionBar
-	a.connBar.focused = fieldProtocol
+	for _, field := range []connField{fieldProtocol, fieldPort} {
+		a := NewApp(nil, false, nil, "dev", false)
+		a.focus = focusConnectionBar
+		a.connBar.focused = field
 
-	_, cmd := a.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
-	if cmd == nil {
-		t.Fatal("q on the Protocol field returned no command")
-	}
-	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Error("q on the Protocol field did not quit")
+		_, cmd := a.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+		if cmd == nil {
+			t.Fatalf("field %d: q returned no command", field)
+		}
+		if _, ok := cmd().(tea.QuitMsg); !ok {
+			t.Errorf("field %d: q did not quit", field)
+		}
 	}
 }
 
