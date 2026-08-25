@@ -3,6 +3,7 @@ package transfer
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 
 	tea "charm.land/bubbletea/v2"
@@ -83,7 +84,7 @@ func (m *Manager) runDir(job Job) {
 	}
 
 	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
-	remoteDirPath := filepath.Join(job.RemotePath, job.File.Name)
+	remoteDirPath := path.Join(job.RemotePath, job.File.Name)
 
 	if err := m.client.Mkdir(remoteDirPath); err != nil {
 		p.Send(shared.LogMsg{
@@ -172,7 +173,7 @@ func (m *Manager) run(job Job) {
 		localFile := filepath.Join(job.LocalPath, filename)
 		err = m.client.Upload(localFile, job.RemotePath, progress)
 	case Download:
-		remoteFile := filepath.Join(job.RemotePath, filename)
+		remoteFile := path.Join(job.RemotePath, filename)
 		err = m.client.Download(remoteFile, job.LocalPath, progress)
 	}
 
