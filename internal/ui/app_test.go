@@ -3,6 +3,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"image/color"
 	"strings"
 	"testing"
 	"time"
@@ -514,6 +515,59 @@ func TestConnectionOverlayBlanksThePanels(t *testing.T) {
 	out := a.render()
 	if strings.Contains(out, "Local") || strings.Contains(out, "Remote") {
 		t.Errorf("connection overlay should blank the panels behind it; render() = %q", out)
+	}
+}
+
+// tea.RequestBackgroundColor has no timeout of its own -- a terminal that
+// never answers the OSC 11 query would otherwise leave the theme stuck
+// unresolved forever. themeFallbackMsg is App's own timeout for that case.
+func TestThemeFallbackAssumesDarkWhenTerminalNeverResponds(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	if a.themeResolved {
+		t.Fatal("themeResolved should start false")
+	}
+
+	model, _ := a.Update(themeFallbackMsg{})
+	a = model.(App)
+
+	if !a.themeResolved {
+		t.Error("themeFallbackMsg should mark the theme resolved")
+	}
+}
+
+// A real reply can still arrive after the fallback already fired; it should
+// still take effect rather than being ignored as "already resolved".
+func TestABackgroundColorMsgStillAppliesAfterTheFallbackFired(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+
+	model, _ := a.Update(themeFallbackMsg{})
+	a = model.(App)
+	SetTheme(true)
+	darkPrimary := colorPrimary
+
+	model, _ = a.Update(tea.BackgroundColorMsg{Color: color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}})
+	_ = model.(App)
+
+	if colorPrimary == darkPrimary {
+		t.Error("a late BackgroundColorMsg should still override the fallback's dark guess")
+	}
+}
+
+// Once the real background is known, a fallback tick that arrives after it
+// (Init batches both commands, so ordering isn't guaranteed) must not stomp
+// back over it.
+func TestThemeFallbackYieldsToAnAlreadyResolvedTheme(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+
+	model, _ := a.Update(tea.BackgroundColorMsg{Color: color.RGBA{R: 0xff, G: 0xff, B: 0xff, A: 0xff}})
+	a = model.(App)
+	lightPrimary := colorPrimary
+
+	model, _ = a.Update(themeFallbackMsg{})
+	_ = model.(App)
+
+	if colorPrimary != lightPrimary {
+		t.Error("the fallback should not override an already-resolved theme")
 	}
 }
 
