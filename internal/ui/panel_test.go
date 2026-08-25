@@ -3,6 +3,7 @@ package ui
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -338,6 +339,55 @@ func TestJumpRelativePathResolvesAgainstTheCurrentDir(t *testing.T) {
 	msg := cmd().(NavigateMsg)
 	if msg.Path != "/srv/www/sub" {
 		t.Errorf("relative jump landed on %q, want /srv/www/sub", msg.Path)
+	}
+}
+
+func TestJumpTildeExpandsToHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory available in this environment")
+	}
+
+	p := NewPanel("Local", true).WithFiles(nil, "/somewhere/else")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	p = typeInto(p, "~")
+
+	_, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg := cmd().(NavigateMsg)
+	if msg.Path != filepath.Clean(home) {
+		t.Errorf("bare ~ resolved to %q, want %q", msg.Path, filepath.Clean(home))
+	}
+}
+
+func TestJumpTildeSlashResolvesRelativeToHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory available in this environment")
+	}
+
+	p := NewPanel("Local", true).WithFiles(nil, "/somewhere/else")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	p = typeInto(p, "~/Documents")
+
+	_, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg := cmd().(NavigateMsg)
+	want := filepath.Join(home, "Documents")
+	if msg.Path != want {
+		t.Errorf("~/Documents resolved to %q, want %q", msg.Path, want)
+	}
+}
+
+// "~" has no universal meaning over FTP/SFTP, so the remote panel must treat
+// it as a literal path segment, not expand it.
+func TestJumpTildeIsLiteralOnTheRemotePanel(t *testing.T) {
+	p := NewPanel("Remote", false).WithFiles(nil, "/srv")
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	p = typeInto(p, "~/Documents")
+
+	_, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg := cmd().(NavigateMsg)
+	if msg.Path != "/srv/~/Documents" {
+		t.Errorf("remote ~ was expanded to %q, want it treated literally as /srv/~/Documents", msg.Path)
 	}
 }
 
