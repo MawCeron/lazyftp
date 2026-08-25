@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -127,7 +128,7 @@ func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) 
 		return fmt.Errorf("error reading local file: %w", err)
 	}
 
-	remotePath = filepath.Join(remotePath, filepath.Base(localPath))
+	remotePath = path.Join(remotePath, filepath.Base(localPath))
 	dst, err := c.client.Create(remotePath)
 	if err != nil {
 		return fmt.Errorf("error creating remote file: %w", err)
