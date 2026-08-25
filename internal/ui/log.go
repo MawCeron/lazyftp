@@ -113,7 +113,7 @@ func (l LogPanel) Update(msg tea.Msg) (LogPanel, tea.Cmd) {
 }
 
 func (l LogPanel) View(width, height int, active bool) string {
-	borderColor := colorMuted
+	borderColor := colorBorder
 	if active {
 		borderColor = colorAccent
 	}

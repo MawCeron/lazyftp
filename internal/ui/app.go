@@ -637,7 +637,7 @@ func renderHints(bindings []key.Binding, width int) string {
 	bar := lipgloss.NewStyle().Background(colorBarBg)
 	keyStyle := bar.Bold(true).Foreground(colorEmphasis)
 	descStyle := bar.Foreground(colorMuted)
-	sep := bar.Foreground(colorMuted).Render(" • ")
+	sep := bar.Foreground(colorBorder).Render(" • ")
 	sepWidth := lipgloss.Width(sep)
 
 	var b strings.Builder
