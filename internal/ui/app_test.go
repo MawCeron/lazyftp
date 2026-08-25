@@ -84,10 +84,10 @@ func TestQuitsFromConnectionBarWhenNotTypingText(t *testing.T) {
 	}
 }
 
-// Host/Port/User/Pass are real text fields -- a hostname or username can
-// legitimately contain "q", so it must reach the input, not quit.
+// Host/User/Pass are free text -- a hostname or username can legitimately
+// contain "q", so it must reach the input, not quit.
 func TestQDoesNotQuitWhileTypingInAConnectionBarField(t *testing.T) {
-	for _, field := range []connField{fieldHost, fieldPort, fieldUser, fieldPass} {
+	for _, field := range []connField{fieldHost, fieldUser, fieldPass} {
 		a := NewApp(nil, false, nil, "dev", false)
 		a.focus = focusConnectionBar
 		a.connBar.focused = field

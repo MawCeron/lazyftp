@@ -63,6 +63,15 @@ func NewConnectionBar() ConnectionBar {
 	return bar.showDefaultPort()
 }
 
+func isDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func (c ConnectionBar) showDefaultPort() ConnectionBar {
 	c.inputs[fieldPort].Placeholder = strconv.Itoa(c.protocol.DefaultPort())
 	return c
@@ -122,6 +131,12 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 				c.protocol = c.protocol.Next()
 			}
 			return c.showDefaultPort(), nil
+		}
+
+		// Port only accepts digits. Text is empty for non-printable keys
+		// (backspace, arrows, ...), which must still reach the input.
+		if c.focused == fieldPort && msg.Text != "" && !isDigits(msg.Text) {
+			return c, nil
 		}
 	}
 
