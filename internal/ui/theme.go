@@ -38,7 +38,7 @@ func SetTheme(isDark bool) {
 	ld := lipgloss.LightDark(isDark)
 	colorPrimary = ld(lipgloss.Color("#2C2C2A"), lipgloss.Color("#D4D4D4"))
 	colorEmphasis = ld(lipgloss.Color("#141414"), lipgloss.Color("#F5F5F0"))
-	colorMuted = ld(lipgloss.Color("#74736A"), lipgloss.Color("#808592"))
+	colorMuted = ld(lipgloss.Color("#57554C"), lipgloss.Color("#808592"))
 	colorBorder = ld(lipgloss.Color("#8A897F"), lipgloss.Color("#7A7F8C"))
 	colorAccent = ld(lipgloss.Color("#0F6E56"), lipgloss.Color("#5DCAA5"))
 	colorSuccess = ld(lipgloss.Color("#3B6D11"), lipgloss.Color("#97C459"))
