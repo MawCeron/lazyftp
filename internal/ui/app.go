@@ -286,14 +286,20 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// path character).
 		jumping := a.focusedPanelJumping()
 
+		// q/Q quits except where a literal "q" needs to reach a text field
+		// instead: a jump-to-path input, or the connection bar focused on an
+		// actual text field (Host/Port/User/Pass) rather than the Protocol
+		// selector, which takes no free text and so has nothing to lose.
+		connBarTypingText := a.focus == focusConnectionBar && a.connBar.focused != fieldProtocol
+		if key.Matches(msg, keyQuit) && !jumping && !connBarTypingText {
+			if a.client != nil {
+				a.client.Disconnect()
+			}
+			return a, tea.Quit
+		}
+
 		if a.focus != focusConnectionBar && !jumping {
 			switch {
-			case key.Matches(msg, keyQuit):
-				if a.client != nil {
-					a.client.Disconnect()
-				}
-				return a, tea.Quit
-
 			case key.Matches(msg, keyHelp):
 				a.helpOpen = true
 				return a, nil
