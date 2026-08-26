@@ -280,12 +280,42 @@ func TestRenderingSurvivesAnyTerminalSize(t *testing.T) {
 		for h := 0; h <= 24; h++ {
 			t.Run(fmt.Sprintf("%dx%d", w, h), func(t *testing.T) {
 				a := NewApp(nil, false, nil)
-				a.local = a.local.WithFiles(files, "/a/deep/enough/path/to/be/truncated")
-				a.remote = a.remote.WithFiles(files, "/another/path")
+				a.local, _ = a.local.WithFiles(files, "/a/deep/enough/path/to/be/truncated")
+				a.remote, _ = a.remote.WithFiles(files, "/another/path")
 
 				model, _ := a.Update(tea.WindowSizeMsg{Width: w, Height: h})
 				_ = model.(App).View()
 			})
 		}
+	}
+}
+
+// The bug this guards against: every other global key (quit, help, upload,
+// download) checks whether the focused panel is capturing filter input
+// before acting, but Tab -- which also switches focus -- didn't. Since Tab
+// is a natural key to reach for out of habit while typing, pressing it
+// mid-filter jumped to the other panel and left the first one's filter
+// half-finished, unresponsive to open/mark/transfer/refresh until someone
+// tabbed back and explicitly finished or cancelled the filter.
+func TestTabDoesNotSwitchFocusWhileFiltering(t *testing.T) {
+	a := NewApp(nil, false, nil)
+	a.width, a.height = 80, 24
+	a.focus = focusLocal
+	a.local, _ = a.local.WithFiles([]model.FileInfo{{Name: "apple.txt"}, {Name: "banana.txt"}}, "/tmp")
+
+	model, _ := a.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	a = model.(App)
+	if !a.local.Filtering() {
+		t.Fatal("/ did not start filtering on the focused panel")
+	}
+
+	model, _ = a.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	a = model.(App)
+
+	if a.focus != focusLocal {
+		t.Error("tab switched focus away from a panel while it was mid-filter")
+	}
+	if !a.local.Filtering() {
+		t.Error("tab should have reached the list (which owns tab while filtering), not been swallowed")
 	}
 }

@@ -14,6 +14,23 @@ import (
 	"github.com/MawCeron/lazyftp/internal/model"
 )
 
+// runFilterCmd runs a command returned from a Panel and feeds any resulting
+// message back into Update, mirroring what the real Bubble Tea runtime does
+// automatically. Tests that drive the list's filter need this: filtering
+// (SetItems included, see #31) relies on the framework running the commands
+// it returns, which doesn't happen on its own inside a unit test.
+func runFilterCmd(p Panel, cmd tea.Cmd) Panel {
+	if cmd == nil {
+		return p
+	}
+	msg := cmd()
+	if msg == nil {
+		return p
+	}
+	p, _ = p.Update(msg)
+	return p
+}
+
 // The bug this guards against: cursor and mark used to share one character
 // slot, so selecting a marked file hid its checkmark.
 func TestFileDelegateShowsCursorAndMarkTogether(t *testing.T) {
@@ -44,7 +61,7 @@ func TestHAndLDoNotTriggerListPagination(t *testing.T) {
 		files[i] = model.FileInfo{Name: fmt.Sprintf("file-%02d.txt", i)}
 	}
 
-	p := NewPanel("Local", true).WithFiles(files, "/tmp")
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
 	p = p.SetSize(40, 10) // short enough to force multiple pages
 	before := p.list.Paginator.Page
 
@@ -61,7 +78,7 @@ func TestHAndLDoNotTriggerListPagination(t *testing.T) {
 
 func TestSpaceTogglesMark(t *testing.T) {
 	files := []model.FileInfo{{Name: "a.txt"}, {Name: "b.txt"}}
-	p := NewPanel("Local", true).WithFiles(files, "/tmp")
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
 
 	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
 	if !p.marked["a.txt"] {
@@ -79,7 +96,7 @@ func TestSpaceTogglesMark(t *testing.T) {
 // position-keyed mark would silently follow the wrong file.
 func TestMarkFollowsTheFileNotItsPosition(t *testing.T) {
 	files := []model.FileInfo{{Name: "a.txt"}, {Name: "b.txt"}, {Name: "c.txt"}}
-	p := NewPanel("Local", true).WithFiles(files, "/tmp")
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
 
 	p.list.Select(1) // b.txt
 	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
@@ -95,7 +112,7 @@ func TestMarkFollowsTheFileNotItsPosition(t *testing.T) {
 }
 
 func TestRefreshReloadsTheCurrentPath(t *testing.T) {
-	p := NewPanel("Remote", false).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/srv")
+	p, _ := NewPanel("Remote", false).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/srv")
 
 	_, cmd := p.Update(tea.KeyPressMsg{Code: 'r', Text: "r"})
 	if cmd == nil {
@@ -107,6 +124,44 @@ func TestRefreshReloadsTheCurrentPath(t *testing.T) {
 	}
 	if msg.Panel != "Remote" || msg.Path != "/srv" {
 		t.Errorf("r navigated to %+v, want {Remote /srv} (the current path)", msg)
+	}
+}
+
+// The bug this guards against: WithFiles called list.SetItems but discarded
+// the command it returns. With filtering disabled that was harmless, but
+// once filtering was enabled (#31) the list needs that command run to
+// rebuild its filtered view against the new items -- otherwise a panel
+// reloaded while a filter is active (refresh, navigating into a matched
+// directory, or a completed transfer reloading both panels) shows no files
+// at all until the filter is cleared and re-typed.
+func TestReloadWhileFilteredKeepsMatchingItemsVisible(t *testing.T) {
+	files := []model.FileInfo{{Name: "apple.txt"}, {Name: "banana.txt"}, {Name: "cherry.txt"}}
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
+	p = p.SetSize(40, 10)
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	p = runFilterCmd(p, cmd)
+	if !p.Filtering() {
+		t.Fatal("/ did not start filtering")
+	}
+
+	for _, k := range []rune{'a', 'p', 'p', 'l', 'e'} {
+		p, cmd = p.Update(tea.KeyPressMsg{Code: k, Text: string(k)})
+		p = runFilterCmd(p, cmd)
+	}
+
+	if len(p.list.VisibleItems()) == 0 {
+		t.Fatal("typing a matching filter query left no visible items")
+	}
+
+	// Simulate a reload while filtered: same path as refresh, navigating
+	// into a matched subdirectory, or a completed transfer.
+	reloadFiles := []model.FileInfo{{Name: "apple.txt"}, {Name: "banana.txt"}}
+	p, cmd = p.WithFiles(reloadFiles, "/tmp")
+	p = runFilterCmd(p, cmd)
+
+	if len(p.list.VisibleItems()) == 0 {
+		t.Fatal("reloading while filtered left no visible items -- the WithFiles command was likely dropped")
 	}
 }
 

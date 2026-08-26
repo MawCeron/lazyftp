@@ -206,7 +206,11 @@ func NewPanel(title string, local bool) Panel {
 	}
 }
 
-func (p Panel) WithFiles(files []model.FileInfo, dir string) Panel {
+// WithFiles returns the command SetItems produces, which callers must run:
+// with filtering enabled, the list needs it to rebuild the filtered view
+// against the new items, or a panel reloaded while a filter is active (via
+// refresh, navigation, or a completed transfer) would show no files at all.
+func (p Panel) WithFiles(files []model.FileInfo, dir string) (Panel, tea.Cmd) {
 	dir = p.cleanPath(dir)
 
 	sort.Slice(files, func(i, j int) bool {
@@ -224,10 +228,10 @@ func (p Panel) WithFiles(files []model.FileInfo, dir string) Panel {
 	p.files = files
 	p.path = dir
 	p.marked = make(map[string]bool)
-	p.list.SetItems(items)
+	cmd := p.list.SetItems(items)
 	p.list.Select(0)
 	p.list.SetDelegate(fileDelegate{marked: p.marked})
-	return p
+	return p, cmd
 }
 
 func (p Panel) SetSize(width, height int) Panel {

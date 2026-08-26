@@ -253,7 +253,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.focus = focusConnectionBar
 			return a, nil
 		case key.Matches(msg, keySwitch):
-			if a.focus != focusConnectionBar {
+			// Guarded the same way as the global block above: while the
+			// focused panel is capturing filter input, Tab must reach the
+			// list rather than switch focus, or the panel left behind stays
+			// stuck in an unfinished filter that swallows its other keys
+			// until someone tabs back and explicitly finishes or cancels it.
+			if a.focus != focusConnectionBar && !a.focusedPanelFiltering() {
 				if a.focus == focusLocal {
 					a.focus = focusRemote
 				} else {
@@ -307,16 +312,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleTransfer(msg)
 
 	case LocalDirLoadedMsg:
-		a.local = a.local.WithFiles(msg.Files, msg.Path)
+		var filterCmd tea.Cmd
+		a.local, filterCmd = a.local.WithFiles(msg.Files, msg.Path)
 		_, panelH, _ := a.heights()
 		a.local = a.local.SetSize(a.panelWidth(), panelH)
-		return a, nil
+		return a, filterCmd
 
 	case RemoteDirLoadedMsg:
-		a.remote = a.remote.WithFiles(msg.Files, msg.Path)
+		var filterCmd tea.Cmd
+		a.remote, filterCmd = a.remote.WithFiles(msg.Files, msg.Path)
 		_, panelH, _ := a.heights()
 		a.remote = a.remote.SetSize(a.panelWidth(), panelH)
-		return a, nil
+		return a, filterCmd
 
 	case TransferDoneMsg:
 		return a.handleTransferDone(msg)
