@@ -188,7 +188,11 @@ func NewPanel(title string, local bool) Panel {
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetShowHelp(false)
-	l.SetFilteringEnabled(false)
+	// Filtering delegates to bubbles' own fuzzy-match implementation
+	// (sahilm/fuzzy is already in the dependency graph) and its built-in
+	// "/", Esc, Enter keymap -- see the guard in Update below that lets
+	// those keys reach the list uninterrupted while a query is being typed.
+	l.SetFilteringEnabled(true)
 	l.DisableQuitKeybindings()
 	l.Styles.NoItems = lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2)
 
@@ -239,56 +243,79 @@ func (p Panel) SetSize(width, height int) Panel {
 	return p
 }
 
+// Filtering reports whether the list is actively capturing filter query
+// input (the user is typing after "/"). While true, callers must let keys
+// reach the list unintercepted -- otherwise a query character that
+// happens to match a bound key (e.g. "q" while quit is bound) fires that
+// action instead of being typed into the filter.
+func (p Panel) Filtering() bool {
+	return p.list.SettingFilter()
+}
+
+// HasFilter reports whether a filter is active at all, whether still being
+// typed or already applied. Esc must reach the list in both states so
+// bubbles' own filter keymap can cancel (while typing) or clear (once
+// applied) it -- see acceptance criteria on #31.
+func (p Panel) HasFilter() bool {
+	return p.list.FilterState() != list.Unfiltered
+}
+
 func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch {
+		// While a filter query is being typed, every key belongs to the
+		// list's own filter input -- none of lazyftp's bindings below
+		// (which include letters like "l"/"h"/"t"/"r" and space) may
+		// intercept it, or normal filter text couldn't be typed.
+		if !p.list.SettingFilter() {
+			switch {
 
-		case key.Matches(msg, keyOpen):
-			item, ok := p.list.SelectedItem().(fileItem)
-			if ok && item.file.IsDir() {
-				panel, child := p.title, p.childPath(item.file.Name)
-				return p, func() tea.Msg {
-					return NavigateMsg{Panel: panel, Path: child}
+			case key.Matches(msg, keyOpen):
+				item, ok := p.list.SelectedItem().(fileItem)
+				if ok && item.file.IsDir() {
+					panel, child := p.title, p.childPath(item.file.Name)
+					return p, func() tea.Msg {
+						return NavigateMsg{Panel: panel, Path: child}
+					}
 				}
-			}
-			// Swallowed even on a non-directory: "l" must never fall through
-			// to the list, which binds it to pagination.
-			return p, nil
-
-		case key.Matches(msg, keyUp):
-			panel, parent := p.title, p.parentPath()
-			return p, func() tea.Msg {
-				return NavigateMsg{Panel: panel, Path: parent}
-			}
-
-		case key.Matches(msg, keyRefresh):
-			panel, path := p.title, p.path
-			return p, func() tea.Msg {
-				return NavigateMsg{Panel: panel, Path: path}
-			}
-
-		case key.Matches(msg, keyMark):
-			item, ok := p.list.SelectedItem().(fileItem)
-			if !ok {
+				// Swallowed even on a non-directory: "l" must never fall through
+				// to the list, which binds it to pagination.
 				return p, nil
-			}
-			name := item.file.Name
-			p.marked[name] = !p.marked[name]
-			if !p.marked[name] {
-				delete(p.marked, name)
-			}
-			p.list.SetDelegate(fileDelegate{marked: p.marked})
-			return p, nil
 
-		case key.Matches(msg, keyTransfer):
-			files := p.selectedFiles()
-			if len(files) == 0 {
+			case key.Matches(msg, keyUp):
+				panel, parent := p.title, p.parentPath()
+				return p, func() tea.Msg {
+					return NavigateMsg{Panel: panel, Path: parent}
+				}
+
+			case key.Matches(msg, keyRefresh):
+				panel, path := p.title, p.path
+				return p, func() tea.Msg {
+					return NavigateMsg{Panel: panel, Path: path}
+				}
+
+			case key.Matches(msg, keyMark):
+				item, ok := p.list.SelectedItem().(fileItem)
+				if !ok {
+					return p, nil
+				}
+				name := item.file.Name
+				p.marked[name] = !p.marked[name]
+				if !p.marked[name] {
+					delete(p.marked, name)
+				}
+				p.list.SetDelegate(fileDelegate{marked: p.marked})
 				return p, nil
-			}
-			panel := p.title
-			return p, func() tea.Msg {
-				return TransferMsg{SourcePanel: panel, Files: files}
+
+			case key.Matches(msg, keyTransfer):
+				files := p.selectedFiles()
+				if len(files) == 0 {
+					return p, nil
+				}
+				panel := p.title
+				return p, func() tea.Msg {
+					return TransferMsg{SourcePanel: panel, Files: files}
+				}
 			}
 		}
 	}
@@ -305,14 +332,27 @@ func (p Panel) View(width, height int, active bool) string {
 	}
 
 	pathStyle := lipgloss.NewStyle().Foreground(colorMuted)
+	counterStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	innerWidth := borderInteriorWidth(width)
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
 
-	path := truncateHead(p.path, innerWidth)
+	header := pathStyle.Render(truncateHead(p.path, innerWidth))
 
-	body := pathStyle.Render(path) + "\n" + p.list.View()
+	// Match counter, styled "12/340": visible listed items over the total
+	// unfiltered count, shown whenever a filter is typing or applied.
+	if p.list.FilterState() != list.Unfiltered {
+		counter := fmt.Sprintf("%d/%d", len(p.list.VisibleItems()), len(p.files))
+		avail := innerWidth - lipgloss.Width(counter) - 1
+		if avail < 0 {
+			avail = 0
+		}
+		trimmedPath := runewidth.FillRight(truncateHead(p.path, avail), avail)
+		header = pathStyle.Render(trimmedPath) + " " + counterStyle.Render(counter)
+	}
+
+	body := header + "\n" + p.list.View()
 
 	return borderWithTitle(body, p.title, width, height, borderColor)
 }

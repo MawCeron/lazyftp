@@ -155,6 +155,35 @@ func (a App) heights() (statusH, panelH, bottomH int) {
 	return
 }
 
+// focusedPanelFiltering reports whether the currently focused file panel is
+// actively capturing filter query input. Global key handling in Update must
+// not intercept keys while this is true, or typing a filter query
+// containing e.g. "q" or "U" would trigger that action instead of being
+// entered as filter text.
+func (a App) focusedPanelFiltering() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.Filtering()
+	case focusRemote:
+		return a.remote.Filtering()
+	}
+	return false
+}
+
+// focusedPanelHasFilter reports whether the currently focused file panel has
+// a filter active at all -- typing or already applied. Esc must be allowed
+// to reach the panel in both states so the list's own keymap can cancel or
+// clear it -- see acceptance criteria on #31.
+func (a App) focusedPanelHasFilter() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.HasFilter()
+	case focusRemote:
+		return a.remote.HasFilter()
+	}
+	return false
+}
+
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -196,7 +225,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
-		if a.focus != focusConnectionBar {
+		// While the focused panel is capturing filter input, none of these
+		// global single-letter/chord bindings may intercept the keystroke --
+		// see focusedPanelFiltering.
+		if a.focus != focusConnectionBar && !a.focusedPanelFiltering() {
 			switch {
 			case key.Matches(msg, keyQuit):
 				if a.client != nil {
@@ -240,6 +272,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if a.focus == focusConnectionBar {
 				a.focus = focusLocal
+				return a, nil
+			}
+			if a.focusedPanelHasFilter() {
+				// Fall through to the tail of Update below, which dispatches
+				// to the focused panel and, from there, to the list's own
+				// Esc handling: cancel while typing, clear once applied.
+				break
 			}
 			return a, nil
 		}
