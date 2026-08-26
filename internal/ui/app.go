@@ -189,6 +189,35 @@ func (a App) bottomPanelHeight(bottomH int) int {
 	return h
 }
 
+// focusedPanelFiltering reports whether the currently focused file panel is
+// actively capturing filter query input. Global key handling in Update must
+// not intercept keys while this is true, or typing a filter query
+// containing e.g. "q" or "U" would trigger that action instead of being
+// entered as filter text.
+func (a App) focusedPanelFiltering() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.Filtering()
+	case focusRemote:
+		return a.remote.Filtering()
+	}
+	return false
+}
+
+// focusedPanelHasFilter reports whether the currently focused file panel has
+// a filter active at all -- typing or already applied. Esc must be allowed
+// to reach the panel in both states so the list's own keymap can cancel or
+// clear it -- see acceptance criteria on #31.
+func (a App) focusedPanelHasFilter() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.HasFilter()
+	case focusRemote:
+		return a.remote.HasFilter()
+	}
+	return false
+}
+
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -232,13 +261,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
-		// A panel's own jump-to-path input is modal in the same way: while
-		// it's focused, global bindings must not steal keystrokes a typed
-		// path would otherwise contain (a bare "q" is a perfectly normal
-		// path character).
+		// A panel's own jump-to-path input, and a filter query being typed,
+		// are both modal in the same way: while either is focused, global
+		// bindings must not steal keystrokes that input would otherwise
+		// receive (a bare "q" is a perfectly normal path character, and just
+		// as valid in a filter query).
 		jumping := a.focusedPanelJumping()
+		filtering := a.focusedPanelFiltering()
 
-		if a.focus != focusConnectionBar && !jumping {
+		if a.focus != focusConnectionBar && !jumping && !filtering {
 			switch {
 			case key.Matches(msg, keyQuit):
 				if a.client != nil {
@@ -268,7 +299,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// two panels total; once Log joined the cycle that stopped being
 		// true, which is what this group split restores.
 		case key.Matches(msg, keySwitch):
-			if a.focus != focusConnectionBar && !jumping {
+			if a.focus != focusConnectionBar && !jumping && !filtering {
 				switch a.focus {
 				case focusLocal:
 					a.focus = focusRemote
@@ -282,7 +313,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 		case key.Matches(msg, keySwitchZone):
-			if a.focus != focusConnectionBar && !jumping {
+			if a.focus != focusConnectionBar && !jumping && !filtering {
 				switch a.focus {
 				case focusLocal, focusRemote:
 					a.focus = focusProcesses
@@ -304,10 +335,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.focus = focusLocal
 				return a, nil
 			}
-			if !jumping {
+			if !jumping && !a.focusedPanelHasFilter() {
 				return a, nil
 			}
-			// jumping: fall through so the panel's own Update closes it.
+			// jumping, or a filter is typing or applied: fall through so the
+			// panel's own Update closes/cancels/clears whichever it is.
 		}
 
 	case ConnectMsg:
