@@ -54,7 +54,7 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 	// line of a bordered, padded block at that total width, corners
 	// included, so the hand-built top row has to target the same number to
 	// close flush with the corners instead of overshooting them.
-	boxWidth := width - 2
+	boxWidth := width
 	label := " " + title + " "
 	fill := boxWidth - 3 - runewidth.StringWidth(label) // 2 corners + the leading dash
 	if fill < 0 {
@@ -86,14 +86,14 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 // given outer width are actually usable for content, once its border and
 // padding (1 cell each side, both) are subtracted.
 func borderInteriorWidth(width int) int {
-	return width - 6
+	return width - 4
 }
 
 // borderOuterWidth is borderInteriorWidth's inverse: the outer width a
 // borderWithTitle box needs so that contentWidth cells of content fit
 // without wrapping.
 func borderOuterWidth(contentWidth int) int {
-	return contentWidth + 6
+	return contentWidth + 4
 }
 
 // truncateHead keeps the trailing portion of s that fits within width cells,

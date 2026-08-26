@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -361,6 +362,31 @@ func TestStandardWidthShowsBothPanels(t *testing.T) {
 	out := a.render()
 	if !strings.Contains(out, "Local") || !strings.Contains(out, "Remote") {
 		t.Errorf("80 columns should show both panels side by side; render() = %q", out)
+	}
+}
+
+// borderWithTitle used to render every box 2 columns narrower than the width
+// it was asked for; side by side, that left the joined Local+Remote row 4
+// columns short. render()'s outer lipgloss.JoinVertical then silently pads
+// that shorter row with blank space to match the status/hints bars either
+// side of it, which is exactly the unused gap this was reported as -- and
+// why this has to check the panel row in isolation rather than the final
+// render() output, where that padding would mask the shortfall completely.
+func TestPanelRowsFillTheFullWidth(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	a.width, a.height = 120, 30 // even width: isolates this from the separate width/2 rounding case
+	panelW := a.panelWidth()
+	_, panelH, _ := a.heights()
+
+	localView := a.local.SetSize(panelW, panelH).View(panelW, panelH, true, diffMarks{})
+	remoteView := a.remote.SetSize(panelW, panelH).View(panelW, panelH, false, diffMarks{})
+	joined := lipgloss.JoinHorizontal(lipgloss.Top, localView, remoteView)
+
+	want := panelW * 2
+	for i, line := range strings.Split(joined, "\n") {
+		if w := lipgloss.Width(line); w != want {
+			t.Errorf("line %d is %d columns wide, want %d (2x panelWidth): %q", i, w, want, line)
+		}
 	}
 }
 
