@@ -471,6 +471,41 @@ func TestFileDelegateColumnsDegradeWithWidth(t *testing.T) {
 	}
 }
 
+// A marked or selected row renders name/size/date all in the same
+// Reverse(true) style, meant to read as one solid highlighted block. The
+// separators between them used to be literal, unstyled spaces -- rendered
+// outside any style, so they broke the block into visible gaps at each
+// column boundary instead of staying part of the reversed span.
+func TestHighlightedRowHasNoUnstyledGaps(t *testing.T) {
+	modTime := time.Date(2026, 8, 15, 14, 30, 0, 0, time.UTC)
+	file := fileItem{file: model.FileInfo{Name: "report.txt", Size: 2048, ModTime: modTime}}
+	items := []list.Item{file}
+
+	render := func(marked map[string]bool) string {
+		delegate := fileDelegate{marked: marked}
+		l := list.New(items, delegate, 50, 10)
+		var buf bytes.Buffer
+		delegate.Render(&buf, l, 0, items[0])
+		return buf.String()
+	}
+
+	// An SGR reset immediately followed by a bare space and a fresh escape
+	// is exactly the gap: the space sits between two styled spans instead of
+	// inside one. Checked from the name onward -- the cursor/mark icon
+	// prefix has its own single space before the name that isn't part of
+	// this row's highlighted block and was never the bug.
+	const gap = "\x1b[m \x1b["
+
+	out := render(map[string]bool{"report.txt": true})
+	idx := strings.Index(out, "report.txt")
+	if idx < 0 {
+		t.Fatalf("rendered output doesn't contain the file name: %q", out)
+	}
+	if strings.Contains(out[idx:], gap) {
+		t.Errorf("marked row has an unstyled gap: %q", out)
+	}
+}
+
 func TestFileDelegateShowsNoSizeForDirectories(t *testing.T) {
 	dir := fileItem{file: model.FileInfo{Name: "docs", Type: model.FileTypeDir}}
 	items := []list.Item{dir}

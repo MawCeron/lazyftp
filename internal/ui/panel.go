@@ -179,12 +179,16 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	name = runewidth.Truncate(name, nameW, "...")
 	name = runewidth.FillRight(name, nameW)
 
+	// The separating space is rendered through the style of whatever follows
+	// it, not left bare -- a bare space breaks a Reverse(true) row (selected
+	// or marked) into visible gaps, since nameStyle/sizeStyle/dateStyle are
+	// the same style there and the row is meant to read as one solid block.
 	row := nameStyle.Render(name)
 	if showSize {
-		row += " " + sizeStyle.Render(runewidth.FillLeft(sizeStr, sizeColWidth))
+		row += sizeStyle.Render(" " + runewidth.FillLeft(sizeStr, sizeColWidth))
 	}
 	if showDate {
-		row += " " + dateStyle.Render(dateStr)
+		row += dateStyle.Render(" " + dateStr)
 	}
 
 	fmt.Fprint(w, prefix+row)
