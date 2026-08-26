@@ -269,35 +269,45 @@ func NewPanel(title string, local bool) Panel {
 	}
 }
 
-func (p Panel) WithFiles(files []model.FileInfo, dir string) Panel {
+// WithFiles returns the command applySort's SetItems produces, which callers
+// must run: with filtering enabled (#31), the list needs it to rebuild the
+// filtered view against the new items, or a panel reloaded while a filter is
+// active (via refresh, navigation, or a completed transfer) would show no
+// files at all.
+func (p Panel) WithFiles(files []model.FileInfo, dir string) (Panel, tea.Cmd) {
 	p.files = files
 	p.path = p.cleanPath(dir)
 	p.marked = make(map[string]bool)
-	p = p.applySort()
+	p, cmd := p.applySort()
 	p.list.Select(0)
 	p.list.SetDelegate(fileDelegate{marked: p.marked})
-	return p
+	return p, cmd
 }
 
 // applySort re-sorts p.files by the panel's current sort settings and
 // rebuilds the list's items to match, in place. It does not touch the
 // cursor -- callers decide what that means for them (WithFiles resets it
 // to the top for a new directory; resort below keeps it on the same file).
-func (p Panel) applySort() Panel {
+//
+// The returned command must be run: with filtering enabled (#31), the list
+// needs it to rebuild the filtered view against the resorted items, or
+// resorting while a filter is active would show no files at all -- the same
+// failure WithFiles guards against.
+func (p Panel) applySort() (Panel, tea.Cmd) {
 	sortFiles(p.files, p.sortBy, p.sortDesc)
 	items := make([]list.Item, len(p.files))
 	for i, f := range p.files {
 		items[i] = fileItem{file: f}
 	}
-	p.list.SetItems(items)
-	return p
+	cmd := p.list.SetItems(items)
+	return p, cmd
 }
 
 // resort re-applies the current sort after sortBy/sortDesc changed, keeping
 // the cursor on the same file instead of snapping back to the top.
-func (p Panel) resort() Panel {
+func (p Panel) resort() (Panel, tea.Cmd) {
 	item, hadSelection := p.list.SelectedItem().(fileItem)
-	p = p.applySort()
+	p, cmd := p.applySort()
 	if hadSelection {
 		for i, f := range p.files {
 			if f.Name == item.file.Name {
@@ -306,7 +316,7 @@ func (p Panel) resort() Panel {
 			}
 		}
 	}
-	return p
+	return p, cmd
 }
 
 func (p Panel) SetSize(width, height int) Panel {
@@ -428,11 +438,11 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			case key.Matches(msg, keySortNext):
 				p.sortBy = p.sortBy.next()
 				p.sortDesc = false
-				return p.resort(), nil
+				return p.resort()
 
 			case key.Matches(msg, keySortFlip):
 				p.sortDesc = !p.sortDesc
-				return p.resort(), nil
+				return p.resort()
 			}
 		}
 	}

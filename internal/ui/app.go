@@ -299,6 +299,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// two panels total; once Log joined the cycle that stopped being
 		// true, which is what this group split restores.
 		case key.Matches(msg, keySwitch):
+			// Guarded the same way as the global block above: while the
+			// focused panel is capturing filter input (or jumping), Tab must
+			// reach the list rather than switch focus, or the panel left
+			// behind stays stuck in an unfinished filter/jump that swallows
+			// its other keys until someone tabs back to finish or cancel it.
 			if a.focus != focusConnectionBar && !jumping && !filtering {
 				switch a.focus {
 				case focusLocal:
@@ -366,16 +371,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleTransfer(msg)
 
 	case LocalDirLoadedMsg:
-		a.local = a.local.WithFiles(msg.Files, msg.Path)
+		var filterCmd tea.Cmd
+		a.local, filterCmd = a.local.WithFiles(msg.Files, msg.Path)
 		_, panelH, _ := a.heights()
 		a.local = a.local.SetSize(a.panelWidth(), panelH)
-		return a, nil
+		return a, filterCmd
 
 	case RemoteDirLoadedMsg:
-		a.remote = a.remote.WithFiles(msg.Files, msg.Path)
+		var filterCmd tea.Cmd
+		a.remote, filterCmd = a.remote.WithFiles(msg.Files, msg.Path)
 		_, panelH, _ := a.heights()
 		a.remote = a.remote.SetSize(a.panelWidth(), panelH)
-		return a, nil
+		return a, filterCmd
 
 	case TransferDoneMsg:
 		return a.handleTransferDone(msg)
