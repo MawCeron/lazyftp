@@ -30,3 +30,31 @@ jobs:
       - name: Formatting
         if: matrix.os == 'ubuntu-latest'
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+  screens:
+    # The README claims its screen is generated straight from the interface.
+    # This is what makes that true: regenerate it and fail if anything moved.
+    #
+    # ansisvg is pinned rather than @latest -- a new release of it would
+    # change the SVG it emits and turn this red on a commit that touched
+    # nothing.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - run: go install github.com/wader/ansisvg@v0.5.0
+
+      - run: ./assets/screens.sh
+
+      - name: Screens are current
+        run: |
+          if [ -n "$(git status --porcelain -- assets)" ]; then
+            echo "::error::assets/*.svg no longer match the interface -- run ./assets/screens.sh and commit the result"
+            git status --short -- assets
+            git diff --stat -- assets
+            exit 1
+          fi

@@ -11,7 +11,9 @@ A simple, keyboard-driven TUI FTP, FTPS and SFTP client inspired by
 [![License](https://img.shields.io/github/license/MawCeron/lazyftp?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/stargazers)
 
-![lazyftp screenshot](lazyftp_screenshot.png)
+<img src="assets/main.svg" alt="lazyftp connected over FTP, Local and Remote panels side by side with size and date columns, two completed uploads in Processes, and a connection log" width="100%">
+
+<sub>Generated straight from the real interface, not a screenshot — see <a href="assets/screens.sh">assets/screens.sh</a>.</sub>
 
 </div>
 
@@ -52,10 +54,23 @@ from the keyboard.
 
 ### Download a binary
 
-Grab the archive for your platform from the
-[latest release](https://github.com/MawCeron/lazyftp/releases/latest), unpack it and put `lazyftp`
-somewhere on your `PATH`. Linux, macOS and Windows, on both x86-64 and arm64. No Go toolchain
-needed.
+Packages and archives for Linux, macOS and Windows are on the
+[latest release](https://github.com/MawCeron/lazyftp/releases/latest), for both x86-64 and arm64.
+No Go toolchain needed.
+
+Debian, Ubuntu:
+
+```bash
+sudo dpkg -i lazyftp_*_linux_amd64.deb
+```
+
+Fedora, RHEL, openSUSE:
+
+```bash
+sudo rpm -i lazyftp_*_linux_amd64.rpm
+```
+
+Anywhere else, unpack the archive and put `lazyftp` somewhere on your `PATH`.
 
 ### From source
 

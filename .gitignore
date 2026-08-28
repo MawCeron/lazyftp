@@ -12,6 +12,9 @@ lazyftp
 # Release artifacts
 dist/
 
+# Intermediate frames for assets/screens.sh -- only the SVGs it produces are committed
+assets/frames/
+
 # Test binary, built with `go test -c`
 *.test
 
