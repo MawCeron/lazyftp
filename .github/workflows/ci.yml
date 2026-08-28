@@ -26,3 +26,7 @@ jobs:
       # The race detector needs cgo, which is not available on every runner.
       - run: go test -race ./...
         if: matrix.os == 'ubuntu-latest'
+
+      - name: Formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
