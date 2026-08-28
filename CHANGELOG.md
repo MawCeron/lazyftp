@@ -5,6 +5,89 @@ All notable changes to lazyftp are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-08-28
+
+The TUI overhaul. The connection form no longer eats a fifth of the screen, panels are usable
+down to the 80x24 floor, and file listings finally show more than a name: size, date, sort,
+filter, and a diff view between both sides.
+
+### Added
+
+- The connection form is now an overlay summoned with `Ctrl+L`, instead of a permanently
+  bordered panel. `Esc` dismisses it without disturbing panel state. Connected, a segmented
+  status line shows protocol, user, host, connection state and, once anything is marked, a
+  marked-file count -- visibility that previously meant opening Processes or counting checkmarks
+  by eye. ([#24](https://github.com/MawCeron/lazyftp/issues/24),
+  [#74](https://github.com/MawCeron/lazyftp/issues/74))
+- The status line and footer render as solid, full-width bars instead of loose text on the
+  terminal's own background, matching every other bordered element in the interface.
+  ([#72](https://github.com/MawCeron/lazyftp/issues/72))
+- The layout responds to terminal size instead of assuming a large window: the full two-panel
+  view above 120 columns, a narrower baseline layout down to 80, a single Tab-switched panel
+  below that, and a clear "terminal too small" message below 60x20 instead of a broken render.
+  ([#23](https://github.com/MawCeron/lazyftp/issues/23))
+- Panels show file size and modification date alongside the name, right-aligned and
+  fixed-width, degrading gracefully as the panel narrows.
+  ([#29](https://github.com/MawCeron/lazyftp/issues/29))
+- Sort by name, size or modification date, reversible, with the active column and direction
+  shown in the panel header. Directories still group first, and the choice is kept per panel
+  for the session. ([#30](https://github.com/MawCeron/lazyftp/issues/30))
+- Fuzzy filtering with `/`, with a live match counter (`12/340`) and `Esc` to clear -- thanks to
+  [@OdaloV](https://github.com/OdaloV). ([#31](https://github.com/MawCeron/lazyftp/issues/31))
+- Jump directly to a path by typing it with `:`, on either panel, using that panel's own path
+  conventions. ([#33](https://github.com/MawCeron/lazyftp/issues/33))
+- The Log and Processes panels can take focus and scroll through their full retained history,
+  instead of only ever showing whatever fits on screen.
+  ([#32](https://github.com/MawCeron/lazyftp/issues/32),
+  [#75](https://github.com/MawCeron/lazyftp/issues/75))
+- `--highlight-diff` marks, in both panels, entries that exist on only one side or that share a
+  name but differ in size -- comparison by name and exact byte count only, nothing timestamp-based
+  that plain FTP can't guarantee. Off by default. ([#52](https://github.com/MawCeron/lazyftp/issues/52))
+- `U`/`D` upload or download whichever side has marked files, regardless of which panel has
+  focus, alongside the existing focus-dependent `t`.
+  ([#67](https://github.com/MawCeron/lazyftp/issues/67))
+- A help screen (`?`) lists every keybinding grouped by context; the footer now shows only the
+  handful most useful for the focused panel instead of eight hints fighting for 80 columns.
+  ([#26](https://github.com/MawCeron/lazyftp/issues/26))
+- Success and error log entries carry a label alongside their color, readable in monochrome or
+  with `NO_COLOR` set. ([#64](https://github.com/MawCeron/lazyftp/issues/64))
+
+### Changed
+
+- Keybindings realigned to standard TUI convention: `Ctrl+C` now quits cleanly from anywhere,
+  `Space` toggles a mark (replacing `x`), `h`/`l` are aliases for up/open instead of silently
+  triggering the file list's own pagination, and `r` refreshes the focused panel.
+  ([#66](https://github.com/MawCeron/lazyftp/issues/66))
+- Migrated to Bubble Tea v2, Lipgloss v2 and Bubbles v2 -- the infrastructure the overlay
+  connection dialog needed, since only v2's layer compositor can float a form over the panels
+  without a full-view swap. No visible behavior change on its own.
+  ([#65](https://github.com/MawCeron/lazyftp/issues/65))
+- Colors moved from raw 256-palette codes scattered across six files to named semantic tokens,
+  and per-row style objects are now built once instead of every frame. Groundwork for loadable
+  themes; no visual change from this alone. ([#25](https://github.com/MawCeron/lazyftp/issues/25))
+
+### Fixed
+
+- A marked file that was also under the cursor lost its checkmark, because both shared one
+  character slot -- marking was then only visible as a background color, invisible in
+  monochrome or with `NO_COLOR` set. Cursor and mark now have their own columns.
+  ([#28](https://github.com/MawCeron/lazyftp/issues/28))
+- Filenames with accents or other multi-byte characters could be truncated mid-character in the
+  Processes and Log panels, rendering a replacement character. Truncation and column alignment
+  now go by display width everywhere, not byte length.
+  ([#27](https://github.com/MawCeron/lazyftp/issues/27))
+- A long path could wrap to two lines instead of truncating at the 80-column floor, misaligning
+  a panel's bottom border against its neighbor -- content width was computed two cells short of
+  what a bordered, padded box actually has available.
+  ([#68](https://github.com/MawCeron/lazyftp/issues/68))
+- The connection dialog let panel text behind it show through at its edges instead of owning a
+  clean space; the panels now render blank while the dialog has focus.
+  ([#69](https://github.com/MawCeron/lazyftp/issues/69))
+- **Every panel rendered one row short of the height it was given**, which pushed the footer up
+  off the true bottom of the terminal in normal view. `Height(N)` on a bordered box is the box's
+  total row count, not the content area on top of its border.
+  ([#73](https://github.com/MawCeron/lazyftp/issues/73))
+
 ## [0.1.2] - 2026-08-13
 
 The release that makes plain FTP work. Connecting to an FTP server on port 21 was not possible,
@@ -106,7 +189,8 @@ First working release.
 - Keyboard navigation, vim-style keys and arrows.
 - A hints bar reflecting the focused panel, and a panel logging transfers and connections.
 
-[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MawCeron/lazyftp/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/MawCeron/lazyftp/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/MawCeron/lazyftp/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/MawCeron/lazyftp/releases/tag/v0.1.0

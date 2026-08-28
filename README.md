@@ -35,12 +35,15 @@ from the keyboard.
 ## Features
 
 - FTP, FTPS and SFTP support
-- Dual-pane layout — local and remote side by side
+- Dual-pane layout — local and remote side by side, responsive down to an 80x24 terminal
+- File size and modification date, sortable by name, size or date
+- Fuzzy filtering and jump-to-path, so a deep or specific file is a few keystrokes away
+- `--highlight-diff` marks entries that differ between Local and Remote
 - Real-time transfer progress with direction indicators
-- Multiple file selection and batch transfers
+- Multiple file selection and batch transfers, with direction-independent `U`/`D` shortcuts
 - Keyboard-driven navigation (vim-style + arrow keys)
-- Context-aware hints bar
-- Transfer and connection log
+- A help screen (`?`) and a context-aware hints bar
+- Scrollable transfer and connection log, and a scrollable process list
 
 ---
 
@@ -82,11 +85,12 @@ The local panel opens in the directory you ran it from.
 | `--verbose` | Show the FTP control dialogue in the Log panel |
 | `--log-file <path>` | Write the log to a file as well, appending to it |
 | `--no-nerd-fonts` | Use plain Unicode symbols instead of Nerd Font icons |
+| `--highlight-diff` | Mark files that differ between Local and Remote (by name, and by size when both share a name) |
 | `--version` | Print the version and exit |
 
 ### Connecting
 
-Fill in the connection bar at the top:
+Press `Ctrl+L` to open the connection dialog:
 
 | Field | Description |
 |-------|-------------|
@@ -96,15 +100,17 @@ Fill in the connection bar at the top:
 | Pass | Password |
 | Port | Leave empty for the protocol's default: `21` for FTP and FTPS, `22` for SFTP |
 
-Press `Enter` to connect, `Esc` to give up on an attempt that is taking too long.
+Press `Enter` to connect, `Esc` to close the dialog or give up on an attempt that is taking too
+long. Once connected, the status line shows the protocol, user, host and connection state.
 
 FTPS certificates are verified, so a server with a self-signed certificate is refused.
 
 ### Transferring files
 
 1. Navigate to the file or directory you want to transfer
-2. Optionally mark multiple files with `x`
-3. Press `t` to transfer
+2. Optionally mark multiple files with `Space`
+3. Press `t` to transfer, or `U`/`D` to upload/download whichever side has marked files
+   regardless of which panel has focus
 
 If you are in the **local panel**, the file will be uploaded to the current remote path. If you are
 in the **remote panel**, it will be downloaded to the current local path.
@@ -113,16 +119,43 @@ in the **remote panel**, it will be downloaded to the current local path.
 
 ## Keybindings
 
+The full reference — every binding, grouped by context — is also one keystroke away in the app:
+press `?`.
+
 ### Global
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+L` | Focus connection bar |
-| `Tab` | Switch between local and remote panels |
-| `Esc` | Exit connection bar, or abandon a connection attempt |
+| `Ctrl+L` | Open the connection dialog |
+| `?` | Help screen |
+| `Tab` | Switch panel within the current group (Local/Remote, or Log/Processes) |
+| `Shift+Tab` | Switch between the Local/Remote group and the Log/Processes group |
+| `U` / `D` | Upload / download whichever side has marked files, regardless of focus |
 | `q` / `Q` | Quit |
 
-### Connection bar
+### File panels (Local, Remote)
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓`, `k` / `↑` | Move down / up |
+| `l` / `Enter` | Open directory |
+| `h` / `-` / `Backspace` | Go up one level |
+| `Space` | Mark / unmark file or directory |
+| `t` | Transfer (upload or download depending on active panel) |
+| `r` | Refresh the current directory listing |
+| `s` / `S` | Cycle sort column / reverse sort direction |
+| `:` | Jump to a path by typing it — `Enter` to go, `Esc` to cancel |
+| `/` | Fuzzy-filter the listing — `Esc` to clear |
+
+### Log & Processes
+
+| Key | Action |
+|-----|--------|
+| `↑`/`k`, `↓`/`j` | Scroll up / down |
+| `b`/`pgup`, `f`/`pgdn` | Page up / down |
+| `Tab` | Switch between Log and Processes |
+
+### Connection dialog
 
 | Key | Action |
 |-----|--------|
@@ -131,17 +164,6 @@ in the **remote panel**, it will be downloaded to the current local path.
 | `←` / `→` | Change protocol (on the Proto field) |
 | `Enter` | Connect |
 | `Esc` | Close, or abandon an attempt in progress |
-
-### Panels
-
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Move down |
-| `k` / `↑` | Move up |
-| `Enter` / `Space` | Enter directory |
-| `-` / `Backspace` | Go up one level |
-| `x` | Mark / unmark file or directory |
-| `t` | Transfer (upload or download depending on active panel) |
 
 ---
 
@@ -186,7 +208,7 @@ lazyftp/
 | Release | Focus |
 |---------|-------|
 | v0.1.2 | FTP connectivity and stability |
-| v0.2.0 | TUI overhaul — responsive layout, theming, help screen |
+| v0.2.0 | TUI overhaul — responsive layout, sort/filter/jump, help screen |
 | v0.3.0 | File operations — rename, delete, create directories |
 | v0.4.0 | Connections and authentication — favorites, history, SSH keys |
 | v0.5.0 | Transfer queue and permissions |
