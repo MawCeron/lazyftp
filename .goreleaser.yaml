@@ -17,6 +17,25 @@ archives:
       - goos: windows
         formats: [zip]
 
+# Only the Linux builds end up here; nfpm ignores the rest.
+nfpms:
+  - package_name: lazyftp
+    vendor: Mauricio Cerón
+    maintainer: Mauricio Cerón <ceron.maw@gmail.com>
+    homepage: https://github.com/MawCeron/lazyftp
+    description: A simple, keyboard-driven TUI FTP, FTPS and SFTP client.
+    license: MIT
+    section: net
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/lazyftp/copyright
+      - src: README.md
+        dst: /usr/share/doc/lazyftp/README.md
+
 changelog:
   abbrev: -1
   filters:
