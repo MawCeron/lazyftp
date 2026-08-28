@@ -27,8 +27,9 @@ from the keyboard.
 
 ### Built with
 
-[![Bubbletea](https://img.shields.io/badge/bubbletea-gray?style=for-the-badge)](https://github.com/charmbracelet/bubbletea)
-[![Lipgloss](https://img.shields.io/badge/lipgloss-gray?style=for-the-badge)](https://github.com/charmbracelet/lipgloss)
+[![Bubbletea](https://img.shields.io/badge/bubbletea-v2.0.8-gray?style=for-the-badge)](https://github.com/charmbracelet/bubbletea)
+[![Bubbles](https://img.shields.io/badge/bubbles-v2.1.1-gray?style=for-the-badge)](https://github.com/charmbracelet/bubbles)
+[![Lipgloss](https://img.shields.io/badge/lipgloss-v2.0.6-gray?style=for-the-badge)](https://github.com/charmbracelet/lipgloss)
 
 ---
 
