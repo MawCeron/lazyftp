@@ -814,7 +814,9 @@ func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
 	return a, nil
 }
 
-func (a App) handleTransferDone(_ TransferDoneMsg) (App, tea.Cmd) {
+func (a App) handleTransferDone(msg TransferDoneMsg) (App, tea.Cmd) {
+	a.processes = a.processes.MarkDone(msg.ID)
+
 	var cmds []tea.Cmd
 	cmds = append(cmds, loadLocalDir(a.local.path))
 

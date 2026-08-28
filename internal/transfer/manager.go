@@ -4,12 +4,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
 )
+
+// transferSeq hands out the ID that ties a transfer's Start/Progress/Error/Done
+// messages together. Filename alone can't do this: re-transferring a file
+// that shares a name with an earlier (possibly already-finished) row would
+// update both by matching on Filename.
+var transferSeq atomic.Int64
 
 type Direction int
 
@@ -144,6 +151,7 @@ func (m *Manager) run(job Job) {
 	}
 
 	filename := job.File.Name
+	id := transferSeq.Add(1)
 
 	direction := shared.DirectionUpload
 	if job.Direction == Download {
@@ -152,6 +160,7 @@ func (m *Manager) run(job Job) {
 
 	p.Send(shared.TransferStartMsg{
 		Transfer: shared.Transfer{
+			ID:        id,
 			Filename:  filename,
 			Total:     job.File.Size,
 			Direction: direction,
@@ -161,6 +170,7 @@ func (m *Manager) run(job Job) {
 
 	progress := func(current int64) {
 		p.Send(shared.TransferProgressMsg{
+			ID:       id,
 			Filename: filename,
 			Current:  current,
 		})
@@ -178,6 +188,7 @@ func (m *Manager) run(job Job) {
 
 	if err != nil {
 		p.Send(shared.TransferErrorMsg{
+			ID:       id,
 			Filename: filename,
 			Err:      err,
 		})
@@ -190,6 +201,6 @@ func (m *Manager) run(job Job) {
 			Message: fmt.Sprintf("Complete transfer: %s", filename),
 			Level:   shared.LogSuccess,
 		})
-		p.Send(shared.TransferDoneMsg{Filename: filename})
+		p.Send(shared.TransferDoneMsg{ID: id, Filename: filename})
 	}
 }

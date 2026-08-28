@@ -16,6 +16,7 @@ const (
 )
 
 type Transfer struct {
+	ID        int64
 	Filename  string
 	Total     int64
 	Current   int64
@@ -35,11 +36,13 @@ type TransferStartMsg struct {
 }
 
 type TransferProgressMsg struct {
+	ID       int64
 	Filename string
 	Current  int64
 }
 
 type TransferErrorMsg struct {
+	ID       int64
 	Filename string
 	Err      error
 }
@@ -58,5 +61,6 @@ type LogMsg struct {
 }
 
 type TransferDoneMsg struct {
+	ID       int64
 	Filename string
 }

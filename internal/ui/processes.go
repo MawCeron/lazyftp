@@ -25,22 +25,39 @@ func (p ProcessesPanel) AddTransfer(t shared.Transfer) ProcessesPanel {
 	return p.refreshViewport()
 }
 
-func (p ProcessesPanel) UpdateTransfer(filename string, current int64) ProcessesPanel {
+func (p ProcessesPanel) UpdateTransfer(id int64, current int64) ProcessesPanel {
 	for i, t := range p.transfers {
-		if t.Filename == filename {
+		if t.ID == id {
 			p.transfers[i].Current = current
 			if current >= t.Total && t.Total > 0 {
 				p.transfers[i].Status = shared.StatusDone
 			}
+			break
 		}
 	}
 	return p.refreshViewport()
 }
 
-func (p ProcessesPanel) MarkError(filename string) ProcessesPanel {
+func (p ProcessesPanel) MarkError(id int64) ProcessesPanel {
 	for i, t := range p.transfers {
-		if t.Filename == filename {
+		if t.ID == id {
 			p.transfers[i].Status = shared.StatusError
+			break
+		}
+	}
+	return p.refreshViewport()
+}
+
+// MarkDone is the authoritative completion signal: UpdateTransfer's
+// current>=Total check can't fire for a 0-byte file (Total is 0), so a
+// transfer that finishes without ever tripping it would otherwise sit at
+// "in progress" for the rest of the session.
+func (p ProcessesPanel) MarkDone(id int64) ProcessesPanel {
+	for i, t := range p.transfers {
+		if t.ID == id {
+			p.transfers[i].Current = t.Total
+			p.transfers[i].Status = shared.StatusDone
+			break
 		}
 	}
 	return p.refreshViewport()
@@ -89,9 +106,9 @@ func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 	case shared.TransferStartMsg:
 		return p.AddTransfer(msg.Transfer), nil
 	case shared.TransferProgressMsg:
-		return p.UpdateTransfer(msg.Filename, msg.Current), nil
+		return p.UpdateTransfer(msg.ID, msg.Current), nil
 	case shared.TransferErrorMsg:
-		return p.MarkError(msg.Filename), nil
+		return p.MarkError(msg.ID), nil
 	}
 	return p, nil
 }
