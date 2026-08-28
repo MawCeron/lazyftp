@@ -51,15 +51,19 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to connect to %s: %w", addr, err)
 	}
 
-	// Left in place the deadline would expire mid-transfer.
-	tcpConn.SetDeadline(time.Time{})
 	sshConn := ssh.NewClient(conn, chans, reqs)
 
+	// The deadline set above still applies here: a server that accepts the
+	// SSH handshake but never answers the SFTP subsystem request would
+	// otherwise hang Connect forever.
 	client, err := sftp.NewClient(sshConn)
 	if err != nil {
 		sshConn.Close()
 		return fmt.Errorf("error starting SFTP session: %w", err)
 	}
+
+	// Left in place the deadline would expire mid-transfer.
+	tcpConn.SetDeadline(time.Time{})
 
 	c.sshConn = sshConn
 	c.client = client
