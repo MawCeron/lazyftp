@@ -6,7 +6,7 @@ A simple, keyboard-driven TUI FTP, FTPS and SFTP client inspired by
 [lazygit](https://github.com/jesseduffield/lazygit).
 
 [![Release](https://img.shields.io/github/v/release/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/releases/latest)
-[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
 [![Build](https://img.shields.io/github/actions/workflow/status/MawCeron/lazyftp/ci.yml?style=for-the-badge)](https://github.com/MawCeron/lazyftp/actions)
 [![License](https://img.shields.io/github/license/MawCeron/lazyftp?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/stargazers)
