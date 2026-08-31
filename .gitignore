@@ -9,9 +9,11 @@
 *.dylib
 lazyftp
 
+# Built by assets/demo.tape -- the source at assets/sftpd/main.go stays tracked
+/assets/sftpd/sftpd
+
 # Release artifacts
 dist/
-
 
 # Test binary, built with `go test -c`
 *.test

@@ -11,7 +11,7 @@ A simple, keyboard-driven TUI FTP, FTPS and SFTP client inspired by
 [![License](https://img.shields.io/github/license/MawCeron/lazyftp?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/stargazers)
 
-<img src="assets/demo.gif" alt="lazyftp browsing a local project: sorting by size then date, filtering the file list, and jumping straight to a path by typing it" width="100%">
+<img src="assets/demo.gif" alt="lazyftp connecting over SFTP, then uploading a local file and downloading a remote one, both panels refreshing live" width="100%">
 
 <sub>Recorded with <a href="https://github.com/charmbracelet/vhs">VHS</a> — see <a href="assets/demo.tape">assets/demo.tape</a>.</sub>
 
