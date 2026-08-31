@@ -3,6 +3,7 @@ package transfer
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sync/atomic"
 
@@ -46,17 +47,20 @@ func NewManager(c client.Client, p func() *tea.Program) *Manager {
 
 func (m *Manager) Enqueue(jobs []Job) {
 	for _, job := range jobs {
-		if job.File.IsDir() && job.Direction == Upload {
+		switch {
+		case job.File.IsDir() && job.Direction == Upload:
 			go m.guard(job, m.runDir)
-		} else {
+		case job.File.IsDir() && job.Direction == Download:
+			go m.guard(job, m.runDirDownload)
+		default:
 			go m.guard(job, m.run)
 		}
 	}
 }
 
 // These goroutines run outside Bubble Tea, whose own panic recovery never sees
-// them. Recursive directory uploads share these frames, so one guard covers the
-// whole tree.
+// them. Recursive directory transfers share these frames, so one guard covers
+// the whole tree.
 func (m *Manager) guard(job Job, run func(Job)) {
 	defer func() {
 		r := recover()
@@ -90,7 +94,7 @@ func (m *Manager) runDir(job Job) {
 	}
 
 	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
-	remoteDirPath := filepath.Join(job.RemotePath, job.File.Name)
+	remoteDirPath := path.Join(job.RemotePath, job.File.Name)
 
 	if err := m.client.Mkdir(remoteDirPath); err != nil {
 		p.Send(shared.LogMsg{
@@ -144,6 +148,57 @@ func (m *Manager) runDir(job Job) {
 	}
 }
 
+// runDirDownload mirrors runDir for the opposite direction: it recreates the
+// directory locally instead of remotely, and lists the remote side instead of
+// walking the local filesystem. m.client.List already returns []model.FileInfo,
+// so unlike runDir there's no os.DirEntry to convert.
+func (m *Manager) runDirDownload(job Job) {
+	p := m.program()
+	if p == nil {
+		return
+	}
+
+	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
+	remoteDirPath := path.Join(job.RemotePath, job.File.Name)
+
+	if err := os.MkdirAll(localDirPath, 0o755); err != nil {
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Error creating local directory %s: %v", job.File.Name, err),
+			Level:   shared.LogError,
+		})
+		return
+	}
+
+	p.Send(shared.LogMsg{
+		Message: fmt.Sprintf("Directory created: %s", localDirPath),
+		Level:   shared.LogInfo,
+	})
+
+	entries, err := m.client.List(remoteDirPath)
+	if err != nil {
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Error listing remote directory %s: %v", remoteDirPath, err),
+			Level:   shared.LogError,
+		})
+		return
+	}
+
+	for _, entry := range entries {
+		subJob := Job{
+			File:       entry,
+			LocalPath:  localDirPath,
+			RemotePath: remoteDirPath,
+			Direction:  Download,
+		}
+
+		if entry.IsDir() {
+			m.runDirDownload(subJob)
+		} else {
+			m.run(subJob)
+		}
+	}
+}
+
 func (m *Manager) run(job Job) {
 	p := m.program()
 	if p == nil {
@@ -182,7 +237,7 @@ func (m *Manager) run(job Job) {
 		localFile := filepath.Join(job.LocalPath, filename)
 		err = m.client.Upload(localFile, job.RemotePath, progress)
 	case Download:
-		remoteFile := filepath.Join(job.RemotePath, filename)
+		remoteFile := path.Join(job.RemotePath, filename)
 		err = m.client.Download(remoteFile, job.LocalPath, progress)
 	}
 

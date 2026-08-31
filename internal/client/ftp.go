@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 
 	"github.com/MawCeron/lazyftp/internal/model"
@@ -128,7 +129,7 @@ func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) e
 		Callback: progress,
 	}
 
-	remotePath = filepath.Join(remotePath, filepath.Base(localPath))
+	remotePath = path.Join(remotePath, filepath.Base(localPath))
 	if err := c.conn.Store(remotePath, reader); err != nil {
 		return fmt.Errorf("error uploading file: %w", err)
 	}
@@ -141,7 +142,7 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 		return fmt.Errorf("no active connection")
 	}
 
-	entries, err := c.conn.ReadDir(filepath.Dir(remotePath))
+	entries, err := c.conn.ReadDir(path.Dir(remotePath))
 	size := int64(0)
 	if err == nil {
 		for _, e := range entries {

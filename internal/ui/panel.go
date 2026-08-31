@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -233,8 +234,15 @@ func (p Panel) parentPath() string {
 // resolveJumpPath treats input as absolute if it's rooted by the panel's own
 // convention (a leading "/" for remote's always-POSIX paths, filepath.IsAbs
 // for local's host rules), otherwise resolves it against the current
-// directory -- the same way a relative path works in a shell.
+// directory -- the same way a relative path works in a shell. A leading "~"
+// is local-only: it has no universal meaning over FTP/SFTP.
 func (p Panel) resolveJumpPath(input string) string {
+	if p.local && (input == "~" || strings.HasPrefix(input, "~/")) {
+		if home, err := os.UserHomeDir(); err == nil {
+			return p.cleanPath(filepath.Join(home, strings.TrimPrefix(input, "~")))
+		}
+	}
+
 	isAbs := strings.HasPrefix(input, "/")
 	if p.local {
 		isAbs = filepath.IsAbs(input)
