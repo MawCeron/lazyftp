@@ -5,6 +5,39 @@ All notable changes to lazyftp are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-31
+
+Theme accuracy and connection-bar polish, plus fixes to how transfers and SFTP connections
+recover from the unexpected.
+
+### Added
+
+- The interface now reacts live to the terminal's light/dark setting changing mid-session,
+  instead of only resolving it once at startup.
+
+### Fixed
+
+- Both palettes are now truecolor hex, each value checked with WCAG contrast against a
+  representative dark and light background; `colorMuted` (readable secondary text) and
+  `colorBorder` (structural lines) no longer share one value tuned for neither role well.
+  ([#76](https://github.com/MawCeron/lazyftp/issues/76))
+- `colorMuted` on the light theme cleared WCAG AA by only 0.07:1 -- technically passing but too
+  close to the line to read comfortably in practice. Darkened for a real margin.
+- A terminal or multiplexer that never answers the background-color query (tmux without
+  passthrough, some SSH paths) left the theme silently stuck on its dark default forever; it now
+  falls back explicitly after 300ms, and a late real reply still overrides it.
+- `q`/`Q` now quit from the connection bar's Protocol and Port fields -- neither can hold literal
+  text, so both had nothing to lose the way Host/User/Pass do.
+- The Port field now rejects anything but digits, instead of accepting arbitrary text that a
+  later conversion to a number would silently fall back from.
+- Processes rows were matched by filename alone, so re-transferring a file that shared a name
+  with an earlier (possibly already-finished) row corrupted both progress bars. Each transfer
+  now gets a unique ID, and a 0-byte transfer -- which could never trip the old "current reached
+  total" threshold -- gets an explicit completion signal instead of sitting at "in progress"
+  forever.
+- An SFTP server that accepted the SSH handshake but never answered the SFTP subsystem request
+  could hang the connection attempt forever; the connect timeout now covers that negotiation too.
+
 ## [0.2.0] - 2026-08-28
 
 The TUI overhaul. The connection form no longer eats a fifth of the screen, panels are usable
@@ -190,6 +223,7 @@ First working release.
 - A hints bar reflecting the focused panel, and a panel logging transfers and connections.
 
 [Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.2.0...HEAD
+[0.2.1]: https://github.com/MawCeron/lazyftp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/MawCeron/lazyftp/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/MawCeron/lazyftp/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/MawCeron/lazyftp/compare/v0.1.0...v0.1.1
