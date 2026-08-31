@@ -32,7 +32,7 @@ If something belongs to one package, it goes in that package.
 
 ### Where things are
 
-`main.go` (53 lines) parses two flags, opens the log file if asked, and starts the program. It
+`main.go` (63 lines) parses the flags, opens the log file if asked, and starts the program. It
 holds no logic worth reading twice.
 
 Inside `ui`, `app.go` is the largest file in the project and the one to read first: it holds the
@@ -146,8 +146,8 @@ transfer goroutines, but the program is built from the model, so neither exists 
 
 ```go
 var p *tea.Program
-app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter)
-p = tea.NewProgram(app, tea.WithAltScreen())
+app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter, version, *highlightDiff)
+p = tea.NewProgram(app)
 ```
 
 Callers must therefore expect `nil` until the program is running, which is what the `p == nil`
@@ -254,9 +254,11 @@ connections through NAT.
 
 `ssh.Dial` passes `ClientConfig.Timeout` to the TCP dial and nowhere else. The handshake that
 follows has no deadline, so a host that accepts the connection and never announces itself as SSH
-waits forever — an FTP server sharing port 22 does exactly that. `SFTPClient.Connect`
-consequently dials by hand, sets a deadline, runs `ssh.NewClientConn`, and **clears the deadline
-again**: left in place it expires in the middle of a transfer.
+waits forever — an FTP server sharing port 22 does exactly that. Worse, a host that completes the
+SSH handshake but never answers the `sftp` subsystem request would hang the same way one layer up.
+`SFTPClient.Connect` consequently dials by hand, sets a deadline, and only clears it once
+`sftp.NewClient` has actually finished negotiating the subsystem — covering both handshakes, not
+just the first — left in place any longer it would expire in the middle of a transfer.
 
 Addresses are assembled with `net.JoinHostPort`. `fmt.Sprintf("%s:%d", …)` produces something
 unusable for IPv6 hosts, and `go vet` will tell you so.
@@ -264,8 +266,9 @@ unusable for IPv6 hosts, and `go vet` will tell you so.
 ### Choices that look arbitrary
 
 - **`dialTimeout` is a constant.** Anything a user must configure before they can connect is a
-  bug, not an option. Nothing lazyftp accepts on the command line changes how it behaves:
-  `--verbose` and `--log-file` are diagnostic, and `--version` prints and exits.
+  bug, not an option. Nothing lazyftp accepts on the command line is required to connect:
+  `--verbose` and `--log-file` are diagnostic, `--no-nerd-fonts` and `--highlight-diff` change
+  what's drawn but never what a server needs, and `--version` prints and exits.
 - **FTPS certificates are verified.** The absence of `InsecureSkipVerify` is deliberate: a
   self-signed certificate fails loudly rather than being waved through.
 - **A refused FTPS connection names two causes.** Servers without TLS refuse `AUTH TLS` with a
@@ -277,7 +280,8 @@ unusable for IPv6 hosts, and `go vet` will tell you so.
 ## Rules that are easy to break
 
 Each of these was learned by breaking it. Some restate, as a rule you can scan, what earlier
-sections explain at length. The code holds to all of them today.
+sections explain at length. The code holds to all of them today, with one exception tracked
+below in Known traps.
 
 **Nothing slow runs inside `Update`.** A network call in the update loop freezes the whole
 interface for as long as the server takes, drawing nothing and accepting no keys — and a dial
@@ -319,15 +323,6 @@ the loop keeps whatever `Update` returned rather than whatever you modified.
 Defects that exist today, listed because building on top of one is expensive to undo. Each has an
 issue; when it is fixed, its entry here goes with it.
 
-**Marks are keyed by list position.** `Panel.marked` is a `map[int]bool` of list indices, and
-`selectedFiles` uses those indices against `p.files`. The two agree today only because both come
-from the same sorted slice in the same order. Anything that makes the visible order differ from
-`p.files` — sorting ([#30](https://github.com/MawCeron/lazyftp/issues/30)), filtering
-([#31](https://github.com/MawCeron/lazyftp/issues/31)), hiding entries
-([#52](https://github.com/MawCeron/lazyftp/issues/52)) — silently marks one file and transfers
-another. This is a decision to settle before the first of those three, not inside any of them:
-marks need to be keyed by something stable, not by where a row happens to sit.
-
 **SSH host keys are not verified.** `SFTPClient.Connect` uses `ssh.InsecureIgnoreHostKey()`, so
 lazyftp connects to whatever answers and never warns that the key changed. Password authentication
 over an unverified connection is exactly the shape a machine-in-the-middle needs. Documented rather
@@ -339,15 +334,19 @@ bar and ten for the bottom panels before the file panels get anything, so at the
 80×24 floor the panels show two entries. Any layout work has to replace the budget, not adjust the
 numbers. ([#23](https://github.com/MawCeron/lazyftp/issues/23))
 
-**Truncation ignores display width, in two different ways.** `log.go` slices by byte
-(`msg[:maxMsg-3]`), which cuts UTF-8 sequences in half and produces replacement characters.
-`panel.go` slices by rune, which is safe from that but counts every rune as one column — wrong for
-double-width characters such as CJK. Anything that shortens text for the screen needs a
-width-aware measure. ([#27](https://github.com/MawCeron/lazyftp/issues/27))
+**Remote paths are built with `filepath`, not `path`, in the client and transfer packages.** The
+rule just above ("Local and remote paths do not share code") is followed in `ui/panel.go` but
+not in `client/ftp.go`, `client/sftp.go`, or `transfer/manager.go`: `Upload`, `Download`, `Mkdir`
+and the directory-recursion helpers all join the *remote* path with `filepath.Join`/`Dir`/`Base`.
+On Linux and macOS that's indistinguishable from `path`, so it works — and lazyftp ships Windows
+builds. On a Windows client, every remote path comes out with backslashes and every transfer
+fails. ([#77](https://github.com/MawCeron/lazyftp/issues/77))
 
-**Transfers are identified by filename.** `ProcessesPanel` matches progress updates with
-`t.Filename == filename`, so two files with the same name in different directories update each
-other's rows. ([#43](https://github.com/MawCeron/lazyftp/issues/43))
+**Downloading a directory fails instead of recursing.** `Manager.Enqueue` only recurses
+(`runDir`) when `job.File.IsDir() && job.Direction == Upload`; a directory queued for `Download`
+falls through to the single-file path, which asks the server to read a directory as a file and
+gets back an error. Uploading a marked directory works; downloading one does not.
+([#35](https://github.com/MawCeron/lazyftp/issues/35))
 
 **Transfers are unbounded and cannot be stopped.** `Manager.Enqueue` starts one goroutine per job
 with no concurrency limit and no way to cancel, so marking a hundred files opens a hundred

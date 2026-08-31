@@ -73,8 +73,6 @@ Requires extending the client interface with rename and remove operations.
   Not a resumable queue: resuming is goftp's job, unblocked in v0.1.2 by #54.
 - [#10](https://github.com/MawCeron/lazyftp/issues/10) Change permissions on remote files, through the inline input from v0.3.0. SFTP
   only: goftp has no chmod, and `SITE CHMOD` is outside the FTP standard.
-- [#43](https://github.com/MawCeron/lazyftp/issues/43) **Transfer IDs.** Progress is matched by filename, so identically named files in
-  different directories overwrite each other. Prerequisite for the queue.
 - [#44](https://github.com/MawCeron/lazyftp/issues/44) **Cancellable transfers and a concurrency limit.** Transfers spawn unbounded
   goroutines with no way to abort them.
 - [#45](https://github.com/MawCeron/lazyftp/issues/45) **Overwrite protection** — existing files are clobbered silently today.

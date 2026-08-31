@@ -130,7 +130,7 @@ not been.
 
 ## Dependencies
 
-Six direct dependencies, four of them Charm's. A seventh needs to be something the standard
+Seven direct dependencies, three of them Charm's. An eighth needs to be something the standard
 library cannot do and a few lines here cannot either.
 
 Replacing one is a decision with a reason: the FTP client moved from `jlaffaye/ftp` to
