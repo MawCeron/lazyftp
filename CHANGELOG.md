@@ -37,6 +37,12 @@ recover from the unexpected.
   forever.
 - An SFTP server that accepted the SSH handshake but never answered the SFTP subsystem request
   could hang the connection attempt forever; the connect timeout now covers that negotiation too.
+- Bordered panels rendered 2 columns narrower than the width they were asked for; side by side,
+  Local and Remote came out 4 columns short of the terminal's real width.
+  ([#82](https://github.com/MawCeron/lazyftp/issues/82))
+- A selected or marked file row's highlight broke into visible gaps at each column boundary,
+  because the separating spaces between name/size/date were never rendered through the row's own
+  style. ([#83](https://github.com/MawCeron/lazyftp/issues/83))
 
 ## [0.2.0] - 2026-08-28
 
