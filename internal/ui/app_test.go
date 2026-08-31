@@ -41,7 +41,8 @@ func connecting() App {
 }
 
 // Unlike "q", Ctrl+C must quit from every focus state -- including the
-// connection bar, where "q" is deliberately left to reach the text field.
+// connection bar focused on a text field, where "q" is deliberately left to
+// reach the input instead.
 func TestCtrlCQuitsFromEveryFocusState(t *testing.T) {
 	for _, focus := range []focus{focusConnectionBar, focusLocal, focusRemote} {
 		a := NewApp(nil, false, nil, "dev", false)
@@ -63,6 +64,42 @@ func TestCtrlCQuitsFromEveryFocusState(t *testing.T) {
 		}
 		if !stub.disconnected {
 			t.Errorf("focus %d: ctrl+c did not disconnect the client", focus)
+		}
+	}
+}
+
+// Protocol (left/right only) and Port (digits only) take no free text, so
+// both have nothing to lose by also responding to q/Q, unlike Host/User/Pass.
+func TestQuitsFromConnectionBarWhenNotTypingText(t *testing.T) {
+	for _, field := range []connField{fieldProtocol, fieldPort} {
+		a := NewApp(nil, false, nil, "dev", false)
+		a.focus = focusConnectionBar
+		a.connBar.focused = field
+
+		_, cmd := a.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+		if cmd == nil {
+			t.Fatalf("field %d: q returned no command", field)
+		}
+		if _, ok := cmd().(tea.QuitMsg); !ok {
+			t.Errorf("field %d: q did not quit", field)
+		}
+	}
+}
+
+// Host/User/Pass are free text -- a hostname or username can legitimately
+// contain "q", so it must reach the input, not quit.
+func TestQDoesNotQuitWhileTypingInAConnectionBarField(t *testing.T) {
+	for _, field := range []connField{fieldHost, fieldUser, fieldPass} {
+		a := NewApp(nil, false, nil, "dev", false)
+		a.focus = focusConnectionBar
+		a.connBar.focused = field
+		a.connBar = a.connBar.focus()
+
+		model, _ := a.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+		a = model.(App)
+
+		if got := a.connBar.inputs[field].Value(); got != "q" {
+			t.Errorf("field %d: q should have reached the input, got %q", field, got)
 		}
 	}
 }

@@ -115,3 +115,24 @@ func TestProtocolKeysDoNotReachTheInputs(t *testing.T) {
 		t.Errorf("host holds %q after tabbing to it and typing, want \"h\"", got)
 	}
 }
+
+// Port only accepts digits -- anything else typed must be swallowed, but
+// editing keys (backspace here) still need to reach the input.
+func TestPortOnlyAcceptsDigits(t *testing.T) {
+	bar := NewConnectionBar()
+	bar, _ = bar.Update(tab) // Host
+	bar, _ = bar.Update(tab) // Port
+
+	for _, s := range []string{"a", "!", " ", "2", "1"} {
+		bar, _ = bar.Update(keyMsg(s))
+	}
+	if got := bar.inputs[fieldPort].Value(); got != "21" {
+		t.Errorf("port holds %q, want \"21\" (letters/symbols/space rejected)", got)
+	}
+
+	backspace := tea.KeyPressMsg{Code: tea.KeyBackspace}
+	bar, _ = bar.Update(backspace)
+	if got := bar.inputs[fieldPort].Value(); got != "2" {
+		t.Errorf("backspace should still edit the port field, got %q", got)
+	}
+}

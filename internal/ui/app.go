@@ -317,14 +317,23 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		jumping := a.focusedPanelJumping()
 		filtering := a.focusedPanelFiltering()
 
+		// q/Q quits except where a literal "q" needs to reach a text field
+		// instead: a jump-to-path input, a filter query being typed, or the
+		// connection bar focused on Host/User/Pass. Protocol and Port take no
+		// free text -- letters never reach Port's input at all -- so both
+		// have nothing to lose.
+		connBarTypingText := a.focus == focusConnectionBar &&
+			a.connBar.focused != fieldProtocol &&
+			a.connBar.focused != fieldPort
+		if key.Matches(msg, keyQuit) && !jumping && !filtering && !connBarTypingText {
+			if a.client != nil {
+				a.client.Disconnect()
+			}
+			return a, tea.Quit
+		}
+
 		if a.focus != focusConnectionBar && !jumping && !filtering {
 			switch {
-			case key.Matches(msg, keyQuit):
-				if a.client != nil {
-					a.client.Disconnect()
-				}
-				return a, tea.Quit
-
 			case key.Matches(msg, keyHelp):
 				a.helpOpen = true
 				return a, nil
