@@ -1,21 +1,28 @@
 package main
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 // The one piece of real logic here: every incoming SFTP path must resolve
-// under root, even a client attempting to walk out of it with "..".
+// under root, even a client attempting to walk out of it with "..". Expected
+// paths are built with filepath.Join too, not hardcoded with "/" -- real()
+// joins onto root with the host's own separator (root is a real filesystem
+// path), so a literal "/srv/demo/..." string never matches on Windows.
 func TestRealStaysInsideRoot(t *testing.T) {
-	fs := rootedFS{root: "/srv/demo"}
+	root := filepath.Join(string(filepath.Separator), "srv", "demo")
+	fs := rootedFS{root: root}
 
-	cases := map[string]string{
-		"/":                     "/srv/demo",
-		"/index.html":           "/srv/demo/index.html",
-		"/../../etc/passwd":     "/srv/demo/etc/passwd",
-		"/a/../../../../secret": "/srv/demo/secret",
+	cases := []struct{ in, want string }{
+		{"/", root},
+		{"/index.html", filepath.Join(root, "index.html")},
+		{"/../../etc/passwd", filepath.Join(root, "etc", "passwd")},
+		{"/a/../../../../secret", filepath.Join(root, "secret")},
 	}
-	for in, want := range cases {
-		if got := fs.real(in); got != want {
-			t.Errorf("real(%q) = %q, want %q", in, got, want)
+	for _, c := range cases {
+		if got := fs.real(c.in); got != c.want {
+			t.Errorf("real(%q) = %q, want %q", c.in, got, c.want)
 		}
 	}
 }
