@@ -195,14 +195,15 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 }
 
 type Panel struct {
-	title    string
-	path     string
-	local    bool
-	list     list.Model
-	marked   map[string]bool
-	files    []model.FileInfo
-	sortBy   sortColumn
-	sortDesc bool
+	title      string
+	path       string
+	local      bool
+	list       list.Model
+	marked     map[string]bool
+	files      []model.FileInfo
+	sortBy     sortColumn
+	sortDesc   bool
+	showHidden bool
 
 	jumping   bool
 	jumpInput textinput.Model
@@ -271,13 +272,14 @@ func NewPanel(title string, local bool) Panel {
 	jump.Prompt = ""
 
 	return Panel{
-		title:     title,
-		path:      "/",
-		local:     local,
-		list:      l,
-		marked:    make(map[string]bool),
-		files:     []model.FileInfo{},
-		jumpInput: jump,
+		title:      title,
+		path:       "/",
+		local:      local,
+		list:       l,
+		marked:     make(map[string]bool),
+		files:      []model.FileInfo{},
+		jumpInput:  jump,
+		showHidden: true,
 	}
 }
 
@@ -305,23 +307,45 @@ func (p Panel) WithFiles(files []model.FileInfo, dir string) (Panel, tea.Cmd) {
 // needs it to rebuild the filtered view against the resorted items, or
 // resorting while a filter is active would show no files at all -- the same
 // failure WithFiles guards against.
+// visibleFiles is p.files filtered by the current hidden-files setting, in
+// their current sort order -- the exact set and order fed into the list as
+// items. applySort, resort and the match counter in View all key off this
+// one definition so they can't drift apart on what "visible" means.
+func (p Panel) visibleFiles() []model.FileInfo {
+	if p.showHidden {
+		return p.files
+	}
+	visible := make([]model.FileInfo, 0, len(p.files))
+	for _, f := range p.files {
+		if !f.IsHidden {
+			visible = append(visible, f)
+		}
+	}
+	return visible
+}
+
 func (p Panel) applySort() (Panel, tea.Cmd) {
 	sortFiles(p.files, p.sortBy, p.sortDesc)
-	items := make([]list.Item, len(p.files))
-	for i, f := range p.files {
+	visible := p.visibleFiles()
+	items := make([]list.Item, len(visible))
+	for i, f := range visible {
 		items[i] = fileItem{file: f}
 	}
 	cmd := p.list.SetItems(items)
 	return p, cmd
 }
 
-// resort re-applies the current sort after sortBy/sortDesc changed, keeping
-// the cursor on the same file instead of snapping back to the top.
+// resort re-applies the current sort after sortBy/sortDesc (or the
+// hidden-files setting) changed, keeping the cursor on the same file
+// instead of snapping back to the top.
 func (p Panel) resort() (Panel, tea.Cmd) {
 	item, hadSelection := p.list.SelectedItem().(fileItem)
 	p, cmd := p.applySort()
 	if hadSelection {
-		for i, f := range p.files {
+		// Index must be within the same filtered/sorted set applySort just
+		// fed the list -- p.files itself no longer lines up 1:1 with list
+		// items once hidden files are excluded.
+		for i, f := range p.visibleFiles() {
 			if f.Name == item.file.Name {
 				p.list.Select(i)
 				break
@@ -455,6 +479,10 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			case key.Matches(msg, keySortFlip):
 				p.sortDesc = !p.sortDesc
 				return p.resort()
+
+			case key.Matches(msg, keyToggleHidden):
+				p.showHidden = !p.showHidden
+				return p.resort()
 			}
 		}
 	}
@@ -497,7 +525,7 @@ func (p Panel) View(width, height int, active bool, diff diffMarks) string {
 		// Match counter, styled "12/340": visible listed items over the
 		// total unfiltered count, shown whenever a filter is typing or
 		// applied.
-		counter := fmt.Sprintf("%d/%d", len(p.list.VisibleItems()), len(p.files))
+		counter := fmt.Sprintf("%d/%d", len(p.list.VisibleItems()), len(p.visibleFiles()))
 		avail := innerWidth - lipgloss.Width(counter) - 1
 		if avail < 0 {
 			avail = 0

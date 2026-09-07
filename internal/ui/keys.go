@@ -28,14 +28,15 @@ var (
 	keyDownload   = key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "download marked"))
 
 	// File panels (Local, Remote).
-	keyOpen     = key.NewBinding(key.WithKeys("enter", "l"), key.WithHelp("l/enter", "open dir"))
-	keyUp       = key.NewBinding(key.WithKeys("-", "backspace", "h"), key.WithHelp("h/-", "go up"))
-	keyMark     = key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "mark"))
-	keyTransfer = key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "transfer"))
-	keyRefresh  = key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh"))
-	keySortNext = key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sort"))
-	keySortFlip = key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "reverse sort"))
-	keyJump     = key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "jump to path"))
+	keyOpen         = key.NewBinding(key.WithKeys("enter", "l"), key.WithHelp("l/enter", "open dir"))
+	keyUp           = key.NewBinding(key.WithKeys("-", "backspace", "h"), key.WithHelp("h/-", "go up"))
+	keyMark         = key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "mark"))
+	keyTransfer     = key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "transfer"))
+	keyRefresh      = key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "refresh"))
+	keySortNext     = key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "sort"))
+	keySortFlip     = key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "reverse sort"))
+	keyJump         = key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "jump to path"))
+	keyToggleHidden = key.NewBinding(key.WithKeys("ctrl+h"), key.WithHelp("ctrl+h", "toggle hidden"))
 
 	// esc/enter while a panel's jump-to-path input is focused; separate
 	// display copies of the shared keyEsc/keySubmit below so the footer and
@@ -98,7 +99,7 @@ func helpGroups() [][]key.Binding {
 	up, down, pageUp, pageDown := scrollKeys()
 	return [][]key.Binding{
 		{keyQuit, keyHelp, keyConnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
-		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump},
+		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden},
 		{up, down, pageUp, pageDown},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
 	}

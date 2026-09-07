@@ -500,6 +500,48 @@ func TestReloadWhileFilteredKeepsMatchingItemsVisible(t *testing.T) {
 	}
 }
 
+func TestToggleHiddenFilesShowsAndHidesDotfiles(t *testing.T) {
+	files := []model.FileInfo{
+		{Name: "visible.txt"},
+		{Name: ".hidden", IsHidden: true},
+	}
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
+
+	if len(p.list.Items()) != 2 {
+		t.Fatalf("hidden files should be visible by default, got %d items", len(p.list.Items()))
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
+	if len(p.list.Items()) != 1 {
+		t.Fatalf("ctrl+h should hide dotfiles, got %d items", len(p.list.Items()))
+	}
+	if p.list.Items()[0].(fileItem).file.Name != "visible.txt" {
+		t.Error("the remaining item after hiding dotfiles should be the non-hidden file")
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
+	if len(p.list.Items()) != 2 {
+		t.Fatalf("a second ctrl+h should show dotfiles again, got %d items", len(p.list.Items()))
+	}
+}
+
+// Toggling hidden files while the cursor sits on a file that remains visible
+// must not move the cursor -- only files() shrinking should ever do that.
+func TestToggleHiddenKeepsCursorOnTheSameFile(t *testing.T) {
+	files := []model.FileInfo{
+		{Name: ".hidden", IsHidden: true},
+		{Name: "kept.txt"},
+	}
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
+	p.list.Select(1) // "kept.txt"
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
+	item, ok := p.list.SelectedItem().(fileItem)
+	if !ok || item.file.Name != "kept.txt" {
+		t.Errorf("selection after hiding dotfiles = %+v, want kept.txt", item.file)
+	}
+}
+
 func TestFileDelegateColumnsDegradeWithWidth(t *testing.T) {
 	modTime := time.Date(2026, 8, 15, 14, 30, 0, 0, time.UTC)
 	file := fileItem{file: model.FileInfo{Name: "report.txt", Size: 2048, ModTime: modTime}}
