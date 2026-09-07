@@ -365,7 +365,7 @@ func TestJumpTildeExpandsToHome(t *testing.T) {
 		t.Skip("no home directory available in this environment")
 	}
 
-	p := NewPanel("Local", true).WithFiles(nil, "/somewhere/else")
+	p, _ := NewPanel("Local", true).WithFiles(nil, "/somewhere/else")
 	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
 	p = typeInto(p, "~")
 
@@ -382,7 +382,7 @@ func TestJumpTildeSlashResolvesRelativeToHome(t *testing.T) {
 		t.Skip("no home directory available in this environment")
 	}
 
-	p := NewPanel("Local", true).WithFiles(nil, "/somewhere/else")
+	p, _ := NewPanel("Local", true).WithFiles(nil, "/somewhere/else")
 	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
 	p = typeInto(p, "~/Documents")
 
@@ -397,7 +397,7 @@ func TestJumpTildeSlashResolvesRelativeToHome(t *testing.T) {
 // "~" has no universal meaning over FTP/SFTP, so the remote panel must treat
 // it as a literal path segment, not expand it.
 func TestJumpTildeIsLiteralOnTheRemotePanel(t *testing.T) {
-	p := NewPanel("Remote", false).WithFiles(nil, "/srv")
+	p, _ := NewPanel("Remote", false).WithFiles(nil, "/srv")
 	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
 	p = typeInto(p, "~/Documents")
 
