@@ -5,6 +5,33 @@ All notable changes to lazyftp are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-09-07
+
+Two Windows-consistency fixes and two layout/discoverability fixes, found in a post-release
+review of v0.3.0.
+
+### Added
+
+- Enter on a file -- previously a no-op -- shows its exact byte count and full-precision
+  timestamp in a small overlay, for when the panel is too narrow to show the size/date columns.
+  It composites over the real view instead of blanking it like the help screen and connection
+  dialog do, so the listing stays visible (and can be partially covered) behind it.
+  ([#71](https://github.com/MawCeron/lazyftp/issues/71))
+
+### Fixed
+
+- Processes and Log claimed a flat 10 rows regardless of terminal height, so at the 60x20 floor
+  Local and Remote were already down to their own 8-row minimum while the two panels most often
+  showing idle placeholder text ("no transfers", "no logs") got more space. File panels now get
+  priority for extra height, and Processes/Log still grow on a tall terminal instead of staying
+  pinned at a constant. ([#70](https://github.com/MawCeron/lazyftp/issues/70))
+- Renaming a local file or directory onto an already-existing destination was inconsistent across
+  platforms: POSIX silently replaced an existing empty directory, Windows refused it outright with
+  a raw API error. Both now refuse with one clear message, matching how SFTP's own rename already
+  behaves; a plain capitalization fix (`README.md` -> `Readme.md`) still works.
+- A bare `~` or a `~/`-prefixed path in jump-to-path expanded to the home directory; `~\`, what a
+  Windows user actually types, did not.
+
 ## [0.3.0] - 2026-09-07
 
 File operations. Create, rename and delete now work from the keyboard on both panels, hidden

@@ -39,7 +39,8 @@ from the keyboard.
 
 - FTP, FTPS and SFTP support
 - Dual-pane layout — local and remote side by side, responsive down to an 80x24 terminal
-- File size and modification date, sortable by name, size or date
+- File size and modification date, sortable by name, size or date, with the exact byte count and
+  full timestamp a keystroke away when the panel is too narrow to show them
 - Fuzzy filtering and jump-to-path, so a deep or specific file is a few keystrokes away
 - Create, rename and delete files and directories, on either panel
 - Toggle hidden (dot) file visibility per panel
@@ -157,7 +158,7 @@ press `?`.
 | Key | Action |
 |-----|--------|
 | `j` / `↓`, `k` / `↑` | Move down / up |
-| `l` / `Enter` | Open directory |
+| `l` / `Enter` | Open directory, or show a file's exact size and full timestamp |
 | `h` / `-` / `Backspace` | Go up one level |
 | `Space` | Mark / unmark file or directory |
 | `t` | Transfer (upload or download depending on active panel) |
