@@ -96,18 +96,27 @@ func (m *Manager) runDir(job Job) {
 	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
 	remoteDirPath := path.Join(job.RemotePath, job.File.Name)
 
-	if err := m.client.Mkdir(remoteDirPath); err != nil {
+	// A single file upload overwrites an existing remote file; re-uploading a
+	// directory must merge into an existing one the same way instead of
+	// failing just because MKD/Mkdir refuses to recreate it.
+	if mkErr := m.client.Mkdir(remoteDirPath); mkErr != nil {
+		if !m.remoteDirExists(job.RemotePath, job.File.Name) {
+			p.Send(shared.LogMsg{
+				Message: fmt.Sprintf("Error creating remote directory %s: %v", job.File.Name, mkErr),
+				Level:   shared.LogError,
+			})
+			return
+		}
 		p.Send(shared.LogMsg{
-			Message: fmt.Sprintf("Error creating remote directory %s: %v", job.File.Name, err),
-			Level:   shared.LogError,
+			Message: fmt.Sprintf("Directory already exists, merging: %s", remoteDirPath),
+			Level:   shared.LogInfo,
 		})
-		return
+	} else {
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Directory created: %s", remoteDirPath),
+			Level:   shared.LogInfo,
+		})
 	}
-
-	p.Send(shared.LogMsg{
-		Message: fmt.Sprintf("Directory created: %s", remoteDirPath),
-		Level:   shared.LogInfo,
-	})
 
 	entries, err := os.ReadDir(localDirPath)
 	if err != nil {
@@ -146,6 +155,23 @@ func (m *Manager) runDir(job Job) {
 			m.run(subJob)
 		}
 	}
+}
+
+// remoteDirExists reports whether parent already lists a directory entry
+// named name -- the only way to tell "already exists" apart from a real
+// Mkdir failure (permission denied, disk full, connection dropped) without
+// depending on server-specific error codes.
+func (m *Manager) remoteDirExists(parent, name string) bool {
+	entries, err := m.client.List(parent)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Name == name && e.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 // runDirDownload mirrors runDir for the opposite direction: it recreates the

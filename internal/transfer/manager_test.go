@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -44,11 +45,13 @@ func startHeadlessProgram(t *testing.T) *tea.Program {
 // dirClient is a stub Client backing a small in-memory remote directory tree,
 // for exercising runDirDownload's recursion without a real server.
 type dirClient struct {
-	tree map[string][]model.FileInfo
-	fail map[string]error // remote paths whose Download should fail
+	tree     map[string][]model.FileInfo
+	fail     map[string]error // remote paths whose Download should fail
+	mkdirErr map[string]error // remote paths whose Mkdir should fail
 
 	mkdirCalls []string
 	downloaded []string
+	uploaded   []string
 }
 
 func (c *dirClient) Connect(string, string, string, int) error { return nil }
@@ -56,7 +59,10 @@ func (c *dirClient) Disconnect() error                         { return nil }
 func (c *dirClient) List(path string) ([]model.FileInfo, error) {
 	return c.tree[path], nil
 }
-func (c *dirClient) Upload(string, string, func(int64)) error { return nil }
+func (c *dirClient) Upload(localPath, remotePath string, _ func(int64)) error {
+	c.uploaded = append(c.uploaded, path.Join(remotePath, filepath.Base(localPath)))
+	return nil
+}
 func (c *dirClient) Download(remotePath, _ string, _ func(int64)) error {
 	c.downloaded = append(c.downloaded, remotePath)
 	if err, ok := c.fail[remotePath]; ok {
@@ -66,7 +72,7 @@ func (c *dirClient) Download(remotePath, _ string, _ func(int64)) error {
 }
 func (c *dirClient) Mkdir(path string) error {
 	c.mkdirCalls = append(c.mkdirCalls, path)
-	return nil
+	return c.mkdirErr[path]
 }
 
 // Transfers run as bare goroutines, outside Bubble Tea's panic handling. An
@@ -166,5 +172,122 @@ func TestRunDirDownloadContinuesPastAFailedEntry(t *testing.T) {
 	want := []string{"/remote/photos/broken.jpg", "/remote/photos/ok.jpg"}
 	if len(stub.downloaded) != len(want) {
 		t.Fatalf("downloaded %v, want %v -- a failed entry must not abandon its siblings", stub.downloaded, want)
+	}
+}
+
+func TestRunDirUploadsDirectoryTree(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.Mkdir(filepath.Join(tmp, "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "a.jpg"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "nested", "b.jpg"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stub := &dirClient{tree: map[string][]model.FileInfo{}}
+	prog := startHeadlessProgram(t)
+	m := NewManager(stub, func() *tea.Program { return prog })
+
+	m.runDir(Job{
+		File:       model.FileInfo{Name: filepath.Base(tmp), Type: model.FileTypeDir},
+		LocalPath:  filepath.Dir(tmp),
+		RemotePath: "/remote",
+		Direction:  Upload,
+	})
+
+	remoteRoot := path.Join("/remote", filepath.Base(tmp))
+	wantMkdir := []string{remoteRoot, path.Join(remoteRoot, "nested")}
+	if len(stub.mkdirCalls) != len(wantMkdir) {
+		t.Fatalf("mkdirCalls = %v, want %v", stub.mkdirCalls, wantMkdir)
+	}
+
+	wantUploaded := []string{path.Join(remoteRoot, "a.jpg"), path.Join(remoteRoot, "nested", "b.jpg")}
+	if len(stub.uploaded) != len(wantUploaded) {
+		t.Fatalf("uploaded %v, want %v", stub.uploaded, wantUploaded)
+	}
+	for _, want := range wantUploaded {
+		found := false
+		for _, got := range stub.uploaded {
+			if got == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("uploaded %v, missing %q", stub.uploaded, want)
+		}
+	}
+}
+
+// Regression test for the bug this fix addresses: re-uploading a directory
+// that already exists remotely must merge into it, the same overwrite
+// semantics a single file upload already gets -- not abandon the whole
+// subtree just because Mkdir refuses to recreate an existing directory.
+func TestRunDirMergesIntoAnAlreadyExistingRemoteDirectory(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.Mkdir(filepath.Join(tmp, "photos"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "photos", "a.jpg"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	remoteRoot := "/remote/photos"
+	stub := &dirClient{
+		tree: map[string][]model.FileInfo{
+			// "/remote" already lists "photos" as an existing directory --
+			// what m.client.List("/remote") would return on a re-upload.
+			"/remote": {{Name: "photos", Type: model.FileTypeDir}},
+		},
+		mkdirErr: map[string]error{
+			remoteRoot: errors.New("550 Create directory operation failed"),
+		},
+	}
+	prog := startHeadlessProgram(t)
+	m := NewManager(stub, func() *tea.Program { return prog })
+
+	m.runDir(Job{
+		File:       model.FileInfo{Name: "photos", Type: model.FileTypeDir},
+		LocalPath:  tmp,
+		RemotePath: "/remote",
+		Direction:  Upload,
+	})
+
+	want := path.Join(remoteRoot, "a.jpg")
+	if len(stub.uploaded) != 1 || stub.uploaded[0] != want {
+		t.Fatalf("uploaded %v, want [%q] -- Mkdir failing because the directory already exists must not abort the merge", stub.uploaded, want)
+	}
+}
+
+// A Mkdir failure that ISN'T "already exists" (permission denied, disk
+// full, connection dropped) must still abort instead of being silently
+// treated as a pre-existing directory.
+func TestRunDirAbortsOnARealMkdirError(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "a.jpg"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	remoteRoot := "/remote/photos"
+	stub := &dirClient{
+		tree: map[string][]model.FileInfo{"/remote": {}}, // "photos" is NOT listed
+		mkdirErr: map[string]error{
+			remoteRoot: errors.New("550 Permission denied"),
+		},
+	}
+	prog := startHeadlessProgram(t)
+	m := NewManager(stub, func() *tea.Program { return prog })
+
+	m.runDir(Job{
+		File:       model.FileInfo{Name: "photos", Type: model.FileTypeDir},
+		LocalPath:  tmp,
+		RemotePath: "/remote",
+		Direction:  Upload,
+	})
+
+	if len(stub.uploaded) != 0 {
+		t.Errorf("uploaded %v, want none -- a genuine Mkdir error must abort the transfer", stub.uploaded)
 	}
 }
