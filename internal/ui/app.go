@@ -994,11 +994,32 @@ func mkdirRemote(c client.Client, dirPath, reloadPath string) tea.Cmd {
 // reload the panel via the same NavigateMsg path a manual refresh takes.
 func renameLocal(oldPath, newPath, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
+		if err := checkRenameTarget(oldPath, newPath); err != nil {
+			return LogMsg{Message: "Error renaming: " + err.Error(), Level: LogError}
+		}
 		if err := os.Rename(oldPath, newPath); err != nil {
 			return LogMsg{Message: "Error renaming: " + err.Error(), Level: LogError}
 		}
 		return NavigateMsg{Panel: "Local", Path: reloadPath}
 	}
+}
+
+// checkRenameTarget refuses when newPath already exists and isn't just
+// oldPath itself under a different case, matching how SFTP's own Rename
+// already refuses a destination collision (SFTPv3 semantics -- only the
+// separate PosixRename extension replaces). Without this, os.Rename gives
+// inconsistent behavior across platforms: POSIX silently replaces an
+// existing empty directory, Windows refuses it outright with a raw
+// MoveFileEx error instead of a clear one.
+func checkRenameTarget(oldPath, newPath string) error {
+	newInfo, err := os.Lstat(newPath)
+	if err != nil {
+		return nil // nothing at newPath to collide with
+	}
+	if oldInfo, err := os.Lstat(oldPath); err == nil && os.SameFile(oldInfo, newInfo) {
+		return nil // case-only rename on a case-insensitive filesystem
+	}
+	return fmt.Errorf("%s already exists", newPath)
 }
 
 func renameRemote(c client.Client, oldPath, newPath, reloadPath string) tea.Cmd {

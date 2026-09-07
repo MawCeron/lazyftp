@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"image/color"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -686,5 +688,49 @@ func TestTabDoesNotSwitchFocusWhileFiltering(t *testing.T) {
 	}
 	if !a.local.Filtering() {
 		t.Error("tab should have reached the list (which owns tab while filtering), not been swallowed")
+	}
+}
+
+func TestCheckRenameTargetAllowsWhenDestinationIsFree(t *testing.T) {
+	tmp := t.TempDir()
+	old := filepath.Join(tmp, "old.txt")
+	if err := os.WriteFile(old, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := checkRenameTarget(old, filepath.Join(tmp, "new.txt")); err != nil {
+		t.Errorf("checkRenameTarget = %v, want nil: nothing exists at the destination", err)
+	}
+}
+
+func TestCheckRenameTargetRefusesAnExistingDestination(t *testing.T) {
+	tmp := t.TempDir()
+	old := filepath.Join(tmp, "old.txt")
+	existing := filepath.Join(tmp, "existing.txt")
+	if err := os.WriteFile(old, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(existing, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := checkRenameTarget(old, existing); err == nil {
+		t.Error("checkRenameTarget = nil, want an error: the destination is a different, existing file")
+	}
+}
+
+// The regression this guards against: a naive "does newPath exist" check
+// would refuse a plain capitalization fix (README.md -> Readme.md) on a
+// case-insensitive filesystem, since Lstat(newPath) finds the same file
+// under its old name.
+func TestCheckRenameTargetAllowsACaseOnlyRename(t *testing.T) {
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "readme.txt")
+	if err := os.WriteFile(p, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := checkRenameTarget(p, p); err != nil {
+		t.Errorf("checkRenameTarget = %v, want nil: same file, not a real collision", err)
 	}
 }
