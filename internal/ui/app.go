@@ -231,17 +231,35 @@ func (a App) panelWidth() int {
 	return a.width / 2
 }
 
+const (
+	panelMinHeight  = 8 // Local/Remote's own floor
+	bottomMinHeight = 8 // Processes+Log's own floor
+
+	// Below this, every extra row goes to Local/Remote -- they do the actual
+	// work, Processes and Log are placeholder text ("no transfers", "no
+	// logs") in the common idle case. Past it, extra height is split with
+	// the bottom panels too, so a tall terminal doesn't leave them pinned at
+	// their floor forever. ([#70](https://github.com/MawCeron/lazyftp/issues/70))
+	panelComfortHeight = 20
+)
+
 func (a App) heights() (statusH, panelH, bottomH int) {
-	statusH = 1  // connection status line
-	bottomH = 10 // Processes + Log minimal fixed
+	statusH = 1 // connection status line
 	hintsH := 1
-	panelH = a.height - statusH - bottomH - hintsH
-	if panelH < 8 {
-		panelH = 8
+	avail := a.height - statusH - hintsH
+
+	panelH = avail - bottomMinHeight
+	if panelH < panelMinHeight {
+		panelH = panelMinHeight
 	}
-	bottomH = a.height - statusH - panelH - hintsH
-	if bottomH < 8 {
-		bottomH = 8
+	if panelH > panelComfortHeight {
+		extra := panelH - panelComfortHeight
+		panelH = panelComfortHeight + extra/2
+	}
+
+	bottomH = avail - panelH
+	if bottomH < bottomMinHeight {
+		bottomH = bottomMinHeight
 	}
 	return
 }

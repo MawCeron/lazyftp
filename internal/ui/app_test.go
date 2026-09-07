@@ -638,6 +638,41 @@ func TestThemeFallbackYieldsToAnAlreadyResolvedTheme(t *testing.T) {
 	}
 }
 
+// At the response floor (60x20), Processes and Log used to claim a flat 10
+// rows while Local/Remote were already down to their own 8-row minimum --
+// the two panels doing the least (idle placeholder text, most sessions)
+// outweighing the ones doing the actual work. Panels must come out ahead.
+// (#70)
+func TestHeightsGivesPanelsPriorityAtTheFloor(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	a.height = 20
+
+	_, panelH, bottomH := a.heights()
+	if panelH <= panelMinHeight {
+		t.Errorf("panelH = %d, want more than the bare minimum (%d) at the floor", panelH, panelMinHeight)
+	}
+	if bottomH != bottomMinHeight {
+		t.Errorf("bottomH = %d, want exactly its floor (%d) at the response floor", bottomH, bottomMinHeight)
+	}
+}
+
+// Past panelComfortHeight, growth must reach the bottom panels too -- a flat
+// constant regardless of terminal height was the bug (#70); this is the
+// other half of that fix, since the floor test alone can't tell "flat
+// constant" apart from "grows, just slower."
+func TestHeightsScalesTheBottomPanelsOnATallTerminal(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	a.height = 60
+
+	_, panelH, bottomH := a.heights()
+	if panelH <= panelComfortHeight {
+		t.Errorf("panelH = %d, want more than panelComfortHeight (%d) on a tall terminal", panelH, panelComfortHeight)
+	}
+	if bottomH <= bottomMinHeight {
+		t.Errorf("bottomH = %d, want more than its floor (%d) on a tall terminal", bottomH, bottomMinHeight)
+	}
+}
+
 // Rendering reaches lipgloss and the bubbles list through several derived
 // widths and heights, any one of which can go negative before the others do.
 // Sweeping the sizes covers the arithmetic without having to find each one.
