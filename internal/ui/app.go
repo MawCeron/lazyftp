@@ -461,16 +461,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NavigateMsg:
 		return a.handleNavigate(msg)
 
-	case MkdirMsg:
+	case mkdirMsg:
 		return a.handleMkdir(msg)
 
-	case RenameMsg:
+	case renameMsg:
 		return a.handleRename(msg)
 
-	case DeleteMsg:
+	case deleteMsg:
 		return a.handleDelete(msg)
 
-	case DeleteDoneMsg:
+	case deleteDoneMsg:
 		return a.handleDeleteDone(msg)
 
 	case TransferMsg:
@@ -838,7 +838,7 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 	return a, loadRemoteDir(a.client, msg.Path)
 }
 
-func (a App) handleMkdir(msg MkdirMsg) (App, tea.Cmd) {
+func (a App) handleMkdir(msg mkdirMsg) (App, tea.Cmd) {
 	if msg.Panel == "Local" {
 		return a, mkdirLocal(msg.Path, a.local.path)
 	}
@@ -851,7 +851,7 @@ func (a App) handleMkdir(msg MkdirMsg) (App, tea.Cmd) {
 	return a, mkdirRemote(a.client, msg.Path, a.remote.path)
 }
 
-func (a App) handleRename(msg RenameMsg) (App, tea.Cmd) {
+func (a App) handleRename(msg renameMsg) (App, tea.Cmd) {
 	if msg.Panel == "Local" {
 		return a, renameLocal(msg.OldPath, msg.NewPath, a.local.path)
 	}
@@ -864,7 +864,7 @@ func (a App) handleRename(msg RenameMsg) (App, tea.Cmd) {
 	return a, renameRemote(a.client, msg.OldPath, msg.NewPath, a.remote.path)
 }
 
-func (a App) handleDelete(msg DeleteMsg) (App, tea.Cmd) {
+func (a App) handleDelete(msg deleteMsg) (App, tea.Cmd) {
 	if msg.Panel == "Local" {
 		return a, deleteLocal(msg.Targets, a.local.path)
 	}
@@ -881,7 +881,7 @@ func (a App) handleDelete(msg DeleteMsg) (App, tea.Cmd) {
 // not hide that the rest were still removed -- then reloads the panel via
 // the same path a manual refresh takes, reflecting whatever the delete
 // actually left behind.
-func (a App) handleDeleteDone(msg DeleteDoneMsg) (App, tea.Cmd) {
+func (a App) handleDeleteDone(msg deleteDoneMsg) (App, tea.Cmd) {
 	for _, failure := range msg.Failed {
 		a.log = a.log.Add("Error deleting "+failure, LogError)
 	}
@@ -1012,10 +1012,10 @@ func renameRemote(c client.Client, oldPath, newPath, reloadPath string) tea.Cmd 
 
 // deleteLocal/deleteRemote remove every target, continuing past a failed
 // one instead of abandoning the rest of the selection, then always reload
-// the panel -- via DeleteDoneMsg, since a plain tea.Cmd can only return one
+// the panel -- via deleteDoneMsg, since a plain tea.Cmd can only return one
 // message and the outcome (which targets failed, if any) is only known
 // after attempting all of them.
-func deleteLocal(targets []DeleteTarget, reloadPath string) tea.Cmd {
+func deleteLocal(targets []deleteTarget, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
 		var failed []string
 		for _, t := range targets {
@@ -1023,11 +1023,11 @@ func deleteLocal(targets []DeleteTarget, reloadPath string) tea.Cmd {
 				failed = append(failed, fmt.Sprintf("%s: %v", filepath.Base(t.Path), err))
 			}
 		}
-		return DeleteDoneMsg{Panel: "Local", ReloadPath: reloadPath, Failed: failed}
+		return deleteDoneMsg{Panel: "Local", ReloadPath: reloadPath, Failed: failed}
 	}
 }
 
-func deleteRemote(c client.Client, targets []DeleteTarget, reloadPath string) tea.Cmd {
+func deleteRemote(c client.Client, targets []deleteTarget, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
 		var failed []string
 		for _, t := range targets {
@@ -1035,7 +1035,7 @@ func deleteRemote(c client.Client, targets []DeleteTarget, reloadPath string) te
 				failed = append(failed, fmt.Sprintf("%s: %v", path.Base(t.Path), err))
 			}
 		}
-		return DeleteDoneMsg{Panel: "Remote", ReloadPath: reloadPath, Failed: failed}
+		return deleteDoneMsg{Panel: "Remote", ReloadPath: reloadPath, Failed: failed}
 	}
 }
 
@@ -1049,7 +1049,7 @@ type RemoteDirLoadedMsg struct {
 	Files []model.FileInfo
 }
 
-type DeleteDoneMsg struct {
+type deleteDoneMsg struct {
 	Panel      string
 	ReloadPath string
 	Failed     []string // "name: error" for each target that failed, empty if all succeeded

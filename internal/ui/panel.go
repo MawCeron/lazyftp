@@ -441,7 +441,7 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 				}
 				panel, target := p.title, p.childPath(name)
 				return p, func() tea.Msg {
-					return MkdirMsg{Panel: panel, Path: target}
+					return mkdirMsg{Panel: panel, Path: target}
 				}
 			case key.Matches(msg, keyMkdirCancel):
 				p.creatingDir = false
@@ -463,7 +463,7 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 				panel := p.title
 				oldPath, newPath := p.childPath(p.renamingName), p.childPath(newName)
 				return p, func() tea.Msg {
-					return RenameMsg{Panel: panel, OldPath: oldPath, NewPath: newPath}
+					return renameMsg{Panel: panel, OldPath: oldPath, NewPath: newPath}
 				}
 			case key.Matches(msg, keyRenameCancel):
 				p.renaming = false
@@ -479,12 +479,12 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			case key.Matches(msg, keyDeleteConfirm):
 				p.deleting = false
 				panel := p.title
-				targets := make([]DeleteTarget, len(p.deletingFiles))
+				targets := make([]deleteTarget, len(p.deletingFiles))
 				for i, f := range p.deletingFiles {
-					targets[i] = DeleteTarget{Path: p.childPath(f.Name), IsDir: f.IsDir()}
+					targets[i] = deleteTarget{Path: p.childPath(f.Name), IsDir: f.IsDir()}
 				}
 				return p, func() tea.Msg {
-					return DeleteMsg{Panel: panel, Targets: targets}
+					return deleteMsg{Panel: panel, Targets: targets}
 				}
 			case key.Matches(msg, keyDeleteCancel):
 				p.deleting = false
@@ -766,23 +766,23 @@ type TransferMsg struct {
 	Files       []model.FileInfo
 }
 
-type MkdirMsg struct {
+type mkdirMsg struct {
 	Panel string
 	Path  string
 }
 
-type RenameMsg struct {
+type renameMsg struct {
 	Panel   string
 	OldPath string
 	NewPath string
 }
 
-type DeleteTarget struct {
+type deleteTarget struct {
 	Path  string
 	IsDir bool
 }
 
-type DeleteMsg struct {
+type deleteMsg struct {
 	Panel   string
-	Targets []DeleteTarget
+	Targets []deleteTarget
 }

@@ -483,9 +483,9 @@ func TestMkdirEnterCreatesInsideCurrentDir(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("Enter did not return a command")
 	}
-	msg, ok := cmd().(MkdirMsg)
+	msg, ok := cmd().(mkdirMsg)
 	if !ok {
-		t.Fatalf("Enter returned %T, want MkdirMsg", cmd())
+		t.Fatalf("Enter returned %T, want mkdirMsg", cmd())
 	}
 	if msg.Panel != "Remote" || msg.Path != "/srv/www/newdir" {
 		t.Errorf("created %+v, want {Remote /srv/www/newdir}", msg)
@@ -543,11 +543,11 @@ func TestRenameEnterRenamesToNewName(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("Enter did not return a command")
 	}
-	msg, ok := cmd().(RenameMsg)
+	msg, ok := cmd().(renameMsg)
 	if !ok {
-		t.Fatalf("Enter returned %T, want RenameMsg", cmd())
+		t.Fatalf("Enter returned %T, want renameMsg", cmd())
 	}
-	want := RenameMsg{Panel: "Remote", OldPath: "/srv/www/old.txt", NewPath: "/srv/www/new.txt"}
+	want := renameMsg{Panel: "Remote", OldPath: "/srv/www/old.txt", NewPath: "/srv/www/new.txt"}
 	if msg != want {
 		t.Errorf("renamed %+v, want %+v", msg, want)
 	}
@@ -643,11 +643,11 @@ func TestDeleteEnterEmitsTargetsForMarkedFiles(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("Enter did not return a command")
 	}
-	msg, ok := cmd().(DeleteMsg)
+	msg, ok := cmd().(deleteMsg)
 	if !ok {
-		t.Fatalf("Enter returned %T, want DeleteMsg", cmd())
+		t.Fatalf("Enter returned %T, want deleteMsg", cmd())
 	}
-	want := DeleteMsg{Panel: "Remote", Targets: []DeleteTarget{
+	want := deleteMsg{Panel: "Remote", Targets: []deleteTarget{
 		{Path: "/srv/a.txt", IsDir: false},
 		{Path: "/srv/sub", IsDir: true},
 	}}
