@@ -246,9 +246,11 @@ func (p Panel) parentPath() string {
 // convention (a leading "/" for remote's always-POSIX paths, filepath.IsAbs
 // for local's host rules), otherwise resolves it against the current
 // directory -- the same way a relative path works in a shell. A leading "~"
-// is local-only: it has no universal meaning over FTP/SFTP.
+// is local-only: it has no universal meaning over FTP/SFTP. "~\" is accepted
+// alongside "~/" since a local path on Windows is typically typed with
+// backslashes.
 func (p Panel) resolveJumpPath(input string) string {
-	if p.local && (input == "~" || strings.HasPrefix(input, "~/")) {
+	if p.local && (input == "~" || strings.HasPrefix(input, "~/") || strings.HasPrefix(input, `~\`)) {
 		if home, err := os.UserHomeDir(); err == nil {
 			return p.cleanPath(filepath.Join(home, strings.TrimPrefix(input, "~")))
 		}

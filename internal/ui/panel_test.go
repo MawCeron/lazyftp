@@ -394,6 +394,29 @@ func TestJumpTildeSlashResolvesRelativeToHome(t *testing.T) {
 	}
 }
 
+// A Windows user types "~\Documents", not "~/Documents".
+func TestJumpTildeBackslashResolvesRelativeToHomeOnWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows path semantics")
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory available in this environment")
+	}
+
+	p, _ := NewPanel("Local", true).WithFiles(nil, `C:\somewhere\else`)
+	p, _ = p.Update(tea.KeyPressMsg{Code: ':', Text: ":"})
+	p = typeInto(p, `~\Documents`)
+
+	_, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	msg := cmd().(NavigateMsg)
+	want := filepath.Join(home, "Documents")
+	if msg.Path != want {
+		t.Errorf(`~\Documents resolved to %q, want %q`, msg.Path, want)
+	}
+}
+
 // "~" has no universal meaning over FTP/SFTP, so the remote panel must treat
 // it as a literal path segment, not expand it.
 func TestJumpTildeIsLiteralOnTheRemotePanel(t *testing.T) {
