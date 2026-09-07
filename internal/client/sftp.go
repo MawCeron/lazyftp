@@ -194,3 +194,10 @@ func (c *SFTPClient) Mkdir(path string) error {
 	}
 	return c.client.MkdirAll(path)
 }
+
+func (c *SFTPClient) Rename(oldPath, newPath string) error {
+	if c.client == nil {
+		return fmt.Errorf("no active connection")
+	}
+	return c.client.Rename(oldPath, newPath)
+}

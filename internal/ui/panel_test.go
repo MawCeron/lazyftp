@@ -519,6 +519,92 @@ func TestMkdirEmptyInputCancelsWithoutCreating(t *testing.T) {
 	}
 }
 
+func TestRenameKeyOpensTheNameInputPrefilled(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "old.txt"}}, "/tmp")
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeyF2})
+	if !p.renaming {
+		t.Fatal("F2 did not open the rename input")
+	}
+	if got := p.renameInput.Value(); got != "old.txt" {
+		t.Errorf("renameInput.Value() = %q, want %q (pre-filled with the current name)", got, "old.txt")
+	}
+}
+
+func TestRenameEnterRenamesToNewName(t *testing.T) {
+	p, _ := NewPanel("Remote", false).WithFiles([]model.FileInfo{{Name: "old.txt"}}, "/srv/www")
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeyF2})
+	p.renameInput.SetValue("new.txt")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.renaming {
+		t.Error("rename input still open after Enter")
+	}
+	if cmd == nil {
+		t.Fatal("Enter did not return a command")
+	}
+	msg, ok := cmd().(RenameMsg)
+	if !ok {
+		t.Fatalf("Enter returned %T, want RenameMsg", cmd())
+	}
+	want := RenameMsg{Panel: "Remote", OldPath: "/srv/www/old.txt", NewPath: "/srv/www/new.txt"}
+	if msg != want {
+		t.Errorf("renamed %+v, want %+v", msg, want)
+	}
+}
+
+func TestRenameEscCancelsWithoutRenaming(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "old.txt"}}, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeyF2})
+	p.renameInput.SetValue("new.txt")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if p.renaming {
+		t.Error("rename input still open after Esc")
+	}
+	if cmd != nil {
+		t.Error("Esc returned a command, want nil: cancelling must not rename")
+	}
+}
+
+func TestRenameEmptyInputCancelsWithoutRenaming(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "old.txt"}}, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeyF2})
+	p.renameInput.SetValue("")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.renaming {
+		t.Error("rename input still open after Enter on empty input")
+	}
+	if cmd != nil {
+		t.Error("Enter on empty input returned a command, want nil")
+	}
+}
+
+// Confirming without changing the pre-filled name is a no-op, not a rename
+// to itself.
+func TestRenameUnchangedNameDoesNothing(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "old.txt"}}, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeyF2})
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.renaming {
+		t.Error("rename input still open after confirming an unchanged name")
+	}
+	if cmd != nil {
+		t.Error("confirming an unchanged name returned a command, want nil")
+	}
+}
+
+func TestRenameKeyWithNoSelectionDoesNothing(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles(nil, "/tmp")
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: tea.KeyF2})
+	if p.renaming {
+		t.Error("F2 opened the rename input with nothing selected")
+	}
+}
+
 // The bug this guards against: WithFiles called list.SetItems but discarded
 // the command it returns. With filtering disabled that was harmless, but
 // once filtering was enabled (#31) the list needs that command run to

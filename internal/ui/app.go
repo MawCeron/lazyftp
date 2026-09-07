@@ -200,6 +200,17 @@ func (a App) focusedPanelCreatingDir() bool {
 	}
 }
 
+func (a App) focusedPanelRenaming() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.renaming
+	case focusRemote:
+		return a.remote.renaming
+	default:
+		return false
+	}
+}
+
 func (a App) panelWidth() int {
 	if a.narrow() {
 		return a.width
@@ -320,12 +331,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
-		// A panel's own jump-to-path input, its new-directory input, and a
-		// filter query being typed are all modal in the same way: while any
-		// is focused, global bindings must not steal keystrokes that input
-		// would otherwise receive (a bare "q" is a perfectly normal path or
-		// directory name character, and just as valid in a filter query).
-		jumping := a.focusedPanelJumping() || a.focusedPanelCreatingDir()
+		// A panel's own jump-to-path input, its new-directory input, its
+		// rename input, and a filter query being typed are all modal in the
+		// same way: while any is focused, global bindings must not steal
+		// keystrokes that input would otherwise receive (a bare "q" is a
+		// perfectly normal path, directory, or file name character, and just
+		// as valid in a filter query).
+		jumping := a.focusedPanelJumping() || a.focusedPanelCreatingDir() || a.focusedPanelRenaming()
 		filtering := a.focusedPanelFiltering()
 
 		// q/Q quits except where a literal "q" needs to reach a text field
@@ -437,6 +449,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case MkdirMsg:
 		return a.handleMkdir(msg)
+
+	case RenameMsg:
+		return a.handleRename(msg)
 
 	case TransferMsg:
 		return a.handleTransfer(msg)
@@ -672,6 +687,7 @@ func (a App) hintsView() string {
 		helpOpen:    a.helpOpen,
 		jumping:     a.focusedPanelJumping(),
 		creatingDir: a.focusedPanelCreatingDir(),
+		renaming:    a.focusedPanelRenaming(),
 	}
 	hints := renderHints(km.ShortHelp(), a.width-leadWidth)
 
@@ -814,6 +830,19 @@ func (a App) handleMkdir(msg MkdirMsg) (App, tea.Cmd) {
 	return a, mkdirRemote(a.client, msg.Path, a.remote.path)
 }
 
+func (a App) handleRename(msg RenameMsg) (App, tea.Cmd) {
+	if msg.Panel == "Local" {
+		return a, renameLocal(msg.OldPath, msg.NewPath, a.local.path)
+	}
+
+	if !a.connected {
+		a.log = a.log.Add("No active connection", LogError)
+		return a, nil
+	}
+
+	return a, renameRemote(a.client, msg.OldPath, msg.NewPath, a.remote.path)
+}
+
 // handleDirectTransfer is U/D: transfer marked files in a given direction
 // regardless of which panel currently has focus.
 func (a App) handleDirectTransfer(sourcePanel string, files []model.FileInfo) (App, tea.Cmd) {
@@ -911,6 +940,26 @@ func mkdirRemote(c client.Client, dirPath, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
 		if err := c.Mkdir(dirPath); err != nil {
 			return LogMsg{Message: "Error creating directory: " + err.Error(), Level: LogError}
+		}
+		return NavigateMsg{Panel: "Remote", Path: reloadPath}
+	}
+}
+
+// renameLocal/renameRemote mirror mkdirLocal/mkdirRemote: rename, then
+// reload the panel via the same NavigateMsg path a manual refresh takes.
+func renameLocal(oldPath, newPath, reloadPath string) tea.Cmd {
+	return func() tea.Msg {
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return LogMsg{Message: "Error renaming: " + err.Error(), Level: LogError}
+		}
+		return NavigateMsg{Panel: "Local", Path: reloadPath}
+	}
+}
+
+func renameRemote(c client.Client, oldPath, newPath, reloadPath string) tea.Cmd {
+	return func() tea.Msg {
+		if err := c.Rename(oldPath, newPath); err != nil {
+			return LogMsg{Message: "Error renaming: " + err.Error(), Level: LogError}
 		}
 		return NavigateMsg{Panel: "Remote", Path: reloadPath}
 	}

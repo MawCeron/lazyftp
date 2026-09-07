@@ -25,6 +25,7 @@ func (s *stubClient) Connect(host, user, pass string, port int) error { return n
 func (s *stubClient) Disconnect() error                               { s.disconnected = true; return nil }
 func (s *stubClient) List(path string) ([]model.FileInfo, error)      { return nil, nil }
 func (s *stubClient) Mkdir(path string) error                         { return nil }
+func (s *stubClient) Rename(oldPath, newPath string) error            { return nil }
 func (s *stubClient) Upload(local, remote string, p func(int64)) error {
 	return nil
 }

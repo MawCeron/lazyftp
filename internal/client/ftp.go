@@ -186,6 +186,13 @@ func (c *FTPClient) Mkdir(path string) error {
 	return err
 }
 
+func (c *FTPClient) Rename(oldPath, newPath string) error {
+	if c.conn == nil {
+		return fmt.Errorf("no active connection")
+	}
+	return c.conn.Rename(oldPath, newPath)
+}
+
 // readDir lists a directory, falling back to a DOS/IIS-style LIST parser
 // when goftp's own Unix-only parser can't read the server's output (#86).
 func (c *FTPClient) readDir(path string) ([]os.FileInfo, error) {

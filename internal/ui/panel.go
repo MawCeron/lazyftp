@@ -210,6 +210,10 @@ type Panel struct {
 
 	creatingDir bool
 	createInput textinput.Model
+
+	renaming     bool
+	renamingName string // the file's name when rename was triggered, since renameInput's own value changes as the user edits it
+	renameInput  textinput.Model
 }
 
 // Local paths follow the host's rules; remote paths are always POSIX.
@@ -277,6 +281,9 @@ func NewPanel(title string, local bool) Panel {
 	create := textinput.New()
 	create.Prompt = ""
 
+	rename := textinput.New()
+	rename.Prompt = ""
+
 	return Panel{
 		title:       title,
 		path:        "/",
@@ -286,6 +293,7 @@ func NewPanel(title string, local bool) Panel {
 		files:       []model.FileInfo{},
 		jumpInput:   jump,
 		createInput: create,
+		renameInput: rename,
 		showHidden:  true,
 	}
 }
@@ -372,9 +380,10 @@ func (p Panel) SetSize(width, height int) Panel {
 		listHeight = 1
 	}
 	p.list.SetSize(listWidth, listHeight)
-	// listWidth minus 2 for the ": "/"+ " prompt drawn beside it in View.
+	// listWidth minus 2 for the ": "/"+ "/"* " prompt drawn beside it in View.
 	p.jumpInput.SetWidth(max(listWidth-2, 1))
 	p.createInput.SetWidth(max(listWidth-2, 1))
+	p.renameInput.SetWidth(max(listWidth-2, 1))
 	return p
 }
 
@@ -440,6 +449,28 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			return p, cmd
 		}
 
+		if p.renaming {
+			switch {
+			case key.Matches(msg, keyRenameConfirm):
+				p.renaming = false
+				newName := strings.TrimSpace(p.renameInput.Value())
+				if newName == "" || newName == p.renamingName {
+					return p, nil
+				}
+				panel := p.title
+				oldPath, newPath := p.childPath(p.renamingName), p.childPath(newName)
+				return p, func() tea.Msg {
+					return RenameMsg{Panel: panel, OldPath: oldPath, NewPath: newPath}
+				}
+			case key.Matches(msg, keyRenameCancel):
+				p.renaming = false
+				return p, nil
+			}
+			var cmd tea.Cmd
+			p.renameInput, cmd = p.renameInput.Update(msg)
+			return p, cmd
+		}
+
 		// While a filter query is being typed, every key belongs to the
 		// list's own filter input -- none of lazyftp's bindings below
 		// (which include letters like "l"/"h"/"t"/"r" and space, and ":" to
@@ -457,6 +488,18 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 				p.creatingDir = true
 				p.createInput.SetValue("")
 				p.createInput.Focus()
+				return p, nil
+
+			case key.Matches(msg, keyRename):
+				item, ok := p.list.SelectedItem().(fileItem)
+				if !ok {
+					return p, nil
+				}
+				p.renaming = true
+				p.renamingName = item.file.Name
+				p.renameInput.SetValue(item.file.Name)
+				p.renameInput.CursorEnd()
+				p.renameInput.Focus()
 				return p, nil
 
 			case key.Matches(msg, keyOpen):
@@ -559,6 +602,10 @@ func (p Panel) View(width, height int, active bool, diff diffMarks) string {
 	case p.creatingDir:
 		prompt := lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("+")
 		pathLine = prompt + " " + p.createInput.View()
+
+	case p.renaming:
+		prompt := lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("*")
+		pathLine = prompt + " " + p.renameInput.View()
 
 	case p.list.FilterState() != list.Unfiltered:
 		// Match counter, styled "12/340": visible listed items over the
@@ -681,4 +728,10 @@ type TransferMsg struct {
 type MkdirMsg struct {
 	Panel string
 	Path  string
+}
+
+type RenameMsg struct {
+	Panel   string
+	OldPath string
+	NewPath string
 }
