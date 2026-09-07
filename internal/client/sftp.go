@@ -201,3 +201,13 @@ func (c *SFTPClient) Rename(oldPath, newPath string) error {
 	}
 	return c.client.Rename(oldPath, newPath)
 }
+
+func (c *SFTPClient) Delete(path string, isDir bool) error {
+	if c.client == nil {
+		return fmt.Errorf("no active connection")
+	}
+	if isDir {
+		return c.client.RemoveAll(path)
+	}
+	return c.client.Remove(path)
+}

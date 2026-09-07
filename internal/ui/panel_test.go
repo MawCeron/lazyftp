@@ -605,6 +605,106 @@ func TestRenameKeyWithNoSelectionDoesNothing(t *testing.T) {
 	}
 }
 
+func TestDeleteKeyShowsConfirmationForSelectedFile(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/tmp")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if !p.deleting {
+		t.Fatal("d did not show the delete confirmation")
+	}
+	if cmd != nil {
+		t.Error("d returned a command, want nil: it must only arm the confirmation")
+	}
+	if len(p.deletingFiles) != 1 || p.deletingFiles[0].Name != "a.txt" {
+		t.Errorf("deletingFiles = %+v, want [a.txt]", p.deletingFiles)
+	}
+}
+
+func TestDeleteEnterEmitsTargetsForMarkedFiles(t *testing.T) {
+	files := []model.FileInfo{
+		{Name: "a.txt"},
+		{Name: "b.txt"},
+		{Name: "sub", Type: model.FileTypeDir},
+	}
+	p, _ := NewPanel("Remote", false).WithFiles(files, "/srv")
+	// Mark a.txt and sub, leave b.txt unmarked.
+	p.marked["a.txt"] = true
+	p.marked["sub"] = true
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if len(p.deletingFiles) != 2 {
+		t.Fatalf("deletingFiles = %+v, want the 2 marked files, not the cursor file", p.deletingFiles)
+	}
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.deleting {
+		t.Error("delete confirmation still open after Enter")
+	}
+	if cmd == nil {
+		t.Fatal("Enter did not return a command")
+	}
+	msg, ok := cmd().(DeleteMsg)
+	if !ok {
+		t.Fatalf("Enter returned %T, want DeleteMsg", cmd())
+	}
+	want := DeleteMsg{Panel: "Remote", Targets: []DeleteTarget{
+		{Path: "/srv/a.txt", IsDir: false},
+		{Path: "/srv/sub", IsDir: true},
+	}}
+	if msg.Panel != want.Panel || len(msg.Targets) != len(want.Targets) {
+		t.Fatalf("deleted %+v, want %+v", msg, want)
+	}
+	for _, wantTarget := range want.Targets {
+		found := false
+		for _, got := range msg.Targets {
+			if got == wantTarget {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("targets %+v, missing %+v", msg.Targets, wantTarget)
+		}
+	}
+}
+
+func TestDeleteEscCancelsWithoutDeleting(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if p.deleting {
+		t.Error("delete confirmation still open after Esc")
+	}
+	if cmd != nil {
+		t.Error("Esc returned a command, want nil: cancelling must not delete")
+	}
+}
+
+func TestDeleteKeyWithNoSelectionDoesNothing(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles(nil, "/tmp")
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if p.deleting {
+		t.Error("d showed the delete confirmation with nothing to delete")
+	}
+}
+
+// The confirmation prompt must own every keystroke: a "t" typed by mistake
+// (or a genuine attempt to abandon the prompt via some other binding) must
+// not fall through to transfer, mark, or any other action.
+func TestDeleteConfirmationSwallowsOtherwiseBoundKeys(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles([]model.FileInfo{{Name: "a.txt"}}, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'd', Text: "d"})
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
+	if !p.deleting {
+		t.Error("delete confirmation closed by an unrelated key")
+	}
+	if cmd != nil {
+		t.Error("an unrelated key while confirming delete returned a command, want nil")
+	}
+}
+
 // The bug this guards against: WithFiles called list.SetItems but discarded
 // the command it returns. With filtering disabled that was harmless, but
 // once filtering was enabled (#31) the list needs that command run to

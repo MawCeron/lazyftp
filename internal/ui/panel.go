@@ -214,6 +214,9 @@ type Panel struct {
 	renaming     bool
 	renamingName string // the file's name when rename was triggered, since renameInput's own value changes as the user edits it
 	renameInput  textinput.Model
+
+	deleting      bool
+	deletingFiles []model.FileInfo // snapshot of selectedFiles() taken when delete was triggered
 }
 
 // Local paths follow the host's rules; remote paths are always POSIX.
@@ -471,6 +474,28 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			return p, cmd
 		}
 
+		if p.deleting {
+			switch {
+			case key.Matches(msg, keyDeleteConfirm):
+				p.deleting = false
+				panel := p.title
+				targets := make([]DeleteTarget, len(p.deletingFiles))
+				for i, f := range p.deletingFiles {
+					targets[i] = DeleteTarget{Path: p.childPath(f.Name), IsDir: f.IsDir()}
+				}
+				return p, func() tea.Msg {
+					return DeleteMsg{Panel: panel, Targets: targets}
+				}
+			case key.Matches(msg, keyDeleteCancel):
+				p.deleting = false
+				return p, nil
+			}
+			// No text input owns this state -- every other key is swallowed
+			// rather than reaching the list, since Enter/Esc are the only
+			// two answers a confirmation prompt takes.
+			return p, nil
+		}
+
 		// While a filter query is being typed, every key belongs to the
 		// list's own filter input -- none of lazyftp's bindings below
 		// (which include letters like "l"/"h"/"t"/"r" and space, and ":" to
@@ -500,6 +525,15 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 				p.renameInput.SetValue(item.file.Name)
 				p.renameInput.CursorEnd()
 				p.renameInput.Focus()
+				return p, nil
+
+			case key.Matches(msg, keyDelete):
+				files := p.selectedFiles()
+				if len(files) == 0 {
+					return p, nil
+				}
+				p.deleting = true
+				p.deletingFiles = files
 				return p, nil
 
 			case key.Matches(msg, keyOpen):
@@ -606,6 +640,13 @@ func (p Panel) View(width, height int, active bool, diff diffMarks) string {
 	case p.renaming:
 		prompt := lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("*")
 		pathLine = prompt + " " + p.renameInput.View()
+
+	case p.deleting:
+		label := fmt.Sprintf("Delete %d items?", len(p.deletingFiles))
+		if len(p.deletingFiles) == 1 {
+			label = fmt.Sprintf("Delete %q?", p.deletingFiles[0].Name)
+		}
+		pathLine = lipgloss.NewStyle().Foreground(colorError).Bold(true).Render(label)
 
 	case p.list.FilterState() != list.Unfiltered:
 		// Match counter, styled "12/340": visible listed items over the
@@ -734,4 +775,14 @@ type RenameMsg struct {
 	Panel   string
 	OldPath string
 	NewPath string
+}
+
+type DeleteTarget struct {
+	Path  string
+	IsDir bool
+}
+
+type DeleteMsg struct {
+	Panel   string
+	Targets []DeleteTarget
 }

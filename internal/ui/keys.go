@@ -40,6 +40,7 @@ var (
 	keyMkdir        = key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "new dir"))
 	// f2, not "r": "r" is already refresh (#7).
 	keyRename = key.NewBinding(key.WithKeys("f2"), key.WithHelp("f2", "rename"))
+	keyDelete = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete"))
 
 	// esc/enter while a panel's jump-to-path input is focused; separate
 	// display copies of the shared keyEsc/keySubmit below so the footer and
@@ -58,6 +59,12 @@ var (
 	// for the same reason keyJumpGo/keyJumpCancel exist separately above.
 	keyRenameConfirm = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "rename"))
 	keyRenameCancel  = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel"))
+
+	// esc/enter while a panel's delete confirmation is showing; own display
+	// copies for the same reason keyJumpGo/keyJumpCancel exist separately
+	// above.
+	keyDeleteConfirm = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "delete"))
+	keyDeleteCancel  = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel"))
 
 	// Connection dialog.
 	keyNextField    = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next field"))
@@ -85,6 +92,7 @@ type footerKeyMap struct {
 	jumping     bool
 	creatingDir bool
 	renaming    bool
+	deleting    bool
 }
 
 func (k footerKeyMap) ShortHelp() []key.Binding {
@@ -99,6 +107,8 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 		return []key.Binding{keyMkdirConfirm, keyMkdirCancel}
 	case k.renaming:
 		return []key.Binding{keyRenameConfirm, keyRenameCancel}
+	case k.deleting:
+		return []key.Binding{keyDeleteConfirm, keyDeleteCancel}
 	case k.focus == focusConnectionBar:
 		return []key.Binding{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection}
 	case k.focus == focusLog || k.focus == focusProcesses:
@@ -119,7 +129,7 @@ func helpGroups() [][]key.Binding {
 	up, down, pageUp, pageDown := scrollKeys()
 	return [][]key.Binding{
 		{keyQuit, keyHelp, keyConnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
-		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden, keyMkdir, keyRename},
+		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden, keyMkdir, keyRename, keyDelete},
 		{up, down, pageUp, pageDown},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
 	}

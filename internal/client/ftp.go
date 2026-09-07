@@ -193,6 +193,38 @@ func (c *FTPClient) Rename(oldPath, newPath string) error {
 	return c.conn.Rename(oldPath, newPath)
 }
 
+func (c *FTPClient) Delete(target string, isDir bool) error {
+	if c.conn == nil {
+		return fmt.Errorf("no active connection")
+	}
+	if !isDir {
+		return c.conn.Delete(target)
+	}
+	return c.deleteDirRecursive(target)
+}
+
+// deleteDirRecursive removes a remote directory tree. goftp has no
+// recursive delete -- Rmdir errors unless the directory is already empty --
+// so this walks it manually: delete every file, recurse into every
+// subdirectory, then remove the now-empty directory itself.
+func (c *FTPClient) deleteDirRecursive(dirPath string) error {
+	entries, err := c.readDir(dirPath)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		childPath := path.Join(dirPath, e.Name())
+		if e.IsDir() {
+			if err := c.deleteDirRecursive(childPath); err != nil {
+				return err
+			}
+		} else if err := c.conn.Delete(childPath); err != nil {
+			return err
+		}
+	}
+	return c.conn.Rmdir(dirPath)
+}
+
 // readDir lists a directory, falling back to a DOS/IIS-style LIST parser
 // when goftp's own Unix-only parser can't read the server's output (#86).
 func (c *FTPClient) readDir(path string) ([]os.FileInfo, error) {

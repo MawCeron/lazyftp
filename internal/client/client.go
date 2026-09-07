@@ -18,4 +18,5 @@ type Client interface {
 	Download(remotePath, localPath string, progress func(int64)) error
 	Mkdir(path string) error
 	Rename(oldPath, newPath string) error
+	Delete(path string, isDir bool) error
 }

@@ -75,6 +75,7 @@ func (c *dirClient) Mkdir(path string) error {
 	return c.mkdirErr[path]
 }
 func (c *dirClient) Rename(string, string) error { return nil }
+func (c *dirClient) Delete(string, bool) error   { return nil }
 
 // Transfers run as bare goroutines, outside Bubble Tea's panic handling. An
 // unrecovered panic in one of them ends the process with the terminal still in

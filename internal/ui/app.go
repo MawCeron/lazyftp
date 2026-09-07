@@ -5,6 +5,8 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -211,6 +213,17 @@ func (a App) focusedPanelRenaming() bool {
 	}
 }
 
+func (a App) focusedPanelDeleting() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.deleting
+	case focusRemote:
+		return a.remote.deleting
+	default:
+		return false
+	}
+}
+
 func (a App) panelWidth() int {
 	if a.narrow() {
 		return a.width
@@ -332,12 +345,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// A panel's own jump-to-path input, its new-directory input, its
-		// rename input, and a filter query being typed are all modal in the
-		// same way: while any is focused, global bindings must not steal
-		// keystrokes that input would otherwise receive (a bare "q" is a
-		// perfectly normal path, directory, or file name character, and just
-		// as valid in a filter query).
-		jumping := a.focusedPanelJumping() || a.focusedPanelCreatingDir() || a.focusedPanelRenaming()
+		// rename input, its delete confirmation, and a filter query being
+		// typed are all modal in the same way: while any is focused, global
+		// bindings must not steal keystrokes that input would otherwise
+		// receive (a bare "q" is a perfectly normal path, directory, or file
+		// name character, and just as valid in a filter query).
+		jumping := a.focusedPanelJumping() || a.focusedPanelCreatingDir() ||
+			a.focusedPanelRenaming() || a.focusedPanelDeleting()
 		filtering := a.focusedPanelFiltering()
 
 		// q/Q quits except where a literal "q" needs to reach a text field
@@ -452,6 +466,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case RenameMsg:
 		return a.handleRename(msg)
+
+	case DeleteMsg:
+		return a.handleDelete(msg)
+
+	case DeleteDoneMsg:
+		return a.handleDeleteDone(msg)
 
 	case TransferMsg:
 		return a.handleTransfer(msg)
@@ -688,6 +708,7 @@ func (a App) hintsView() string {
 		jumping:     a.focusedPanelJumping(),
 		creatingDir: a.focusedPanelCreatingDir(),
 		renaming:    a.focusedPanelRenaming(),
+		deleting:    a.focusedPanelDeleting(),
 	}
 	hints := renderHints(km.ShortHelp(), a.width-leadWidth)
 
@@ -843,6 +864,30 @@ func (a App) handleRename(msg RenameMsg) (App, tea.Cmd) {
 	return a, renameRemote(a.client, msg.OldPath, msg.NewPath, a.remote.path)
 }
 
+func (a App) handleDelete(msg DeleteMsg) (App, tea.Cmd) {
+	if msg.Panel == "Local" {
+		return a, deleteLocal(msg.Targets, a.local.path)
+	}
+
+	if !a.connected {
+		a.log = a.log.Add("No active connection", LogError)
+		return a, nil
+	}
+
+	return a, deleteRemote(a.client, msg.Targets, a.remote.path)
+}
+
+// handleDeleteDone logs whichever targets failed -- a failure on one must
+// not hide that the rest were still removed -- then reloads the panel via
+// the same path a manual refresh takes, reflecting whatever the delete
+// actually left behind.
+func (a App) handleDeleteDone(msg DeleteDoneMsg) (App, tea.Cmd) {
+	for _, failure := range msg.Failed {
+		a.log = a.log.Add("Error deleting "+failure, LogError)
+	}
+	return a.handleNavigate(NavigateMsg{Panel: msg.Panel, Path: msg.ReloadPath})
+}
+
 // handleDirectTransfer is U/D: transfer marked files in a given direction
 // regardless of which panel currently has focus.
 func (a App) handleDirectTransfer(sourcePanel string, files []model.FileInfo) (App, tea.Cmd) {
@@ -965,6 +1010,35 @@ func renameRemote(c client.Client, oldPath, newPath, reloadPath string) tea.Cmd 
 	}
 }
 
+// deleteLocal/deleteRemote remove every target, continuing past a failed
+// one instead of abandoning the rest of the selection, then always reload
+// the panel -- via DeleteDoneMsg, since a plain tea.Cmd can only return one
+// message and the outcome (which targets failed, if any) is only known
+// after attempting all of them.
+func deleteLocal(targets []DeleteTarget, reloadPath string) tea.Cmd {
+	return func() tea.Msg {
+		var failed []string
+		for _, t := range targets {
+			if err := os.RemoveAll(t.Path); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", filepath.Base(t.Path), err))
+			}
+		}
+		return DeleteDoneMsg{Panel: "Local", ReloadPath: reloadPath, Failed: failed}
+	}
+}
+
+func deleteRemote(c client.Client, targets []DeleteTarget, reloadPath string) tea.Cmd {
+	return func() tea.Msg {
+		var failed []string
+		for _, t := range targets {
+			if err := c.Delete(t.Path, t.IsDir); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", path.Base(t.Path), err))
+			}
+		}
+		return DeleteDoneMsg{Panel: "Remote", ReloadPath: reloadPath, Failed: failed}
+	}
+}
+
 type LocalDirLoadedMsg struct {
 	Path  string
 	Files []model.FileInfo
@@ -973,6 +1047,12 @@ type LocalDirLoadedMsg struct {
 type RemoteDirLoadedMsg struct {
 	Path  string
 	Files []model.FileInfo
+}
+
+type DeleteDoneMsg struct {
+	Panel      string
+	ReloadPath string
+	Failed     []string // "name: error" for each target that failed, empty if all succeeded
 }
 
 type TransferDoneMsg = shared.TransferDoneMsg
