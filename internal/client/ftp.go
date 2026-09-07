@@ -1,12 +1,17 @@
 package client
 
 import (
+	"bufio"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
@@ -77,7 +82,7 @@ func (c *FTPClient) List(path string) ([]model.FileInfo, error) {
 		return nil, fmt.Errorf("no active connection")
 	}
 
-	entries, err := c.conn.ReadDir(path)
+	entries, err := c.readDir(path)
 	if err != nil {
 		return nil, fmt.Errorf("error listing %s: %w", path, err)
 	}
@@ -142,7 +147,7 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 		return fmt.Errorf("no active connection")
 	}
 
-	entries, err := c.conn.ReadDir(path.Dir(remotePath))
+	entries, err := c.readDir(path.Dir(remotePath))
 	size := int64(0)
 	if err == nil {
 		for _, e := range entries {
@@ -179,4 +184,121 @@ func (c *FTPClient) Mkdir(path string) error {
 	}
 	_, err := c.conn.Mkdir(path)
 	return err
+}
+
+// readDir lists a directory, falling back to a DOS/IIS-style LIST parser
+// when goftp's own Unix-only parser can't read the server's output (#86).
+func (c *FTPClient) readDir(path string) ([]os.FileInfo, error) {
+	entries, err := c.conn.ReadDir(path)
+	if err != nil && strings.Contains(err.Error(), "failed parsing LIST entry:") {
+		return c.readDirDOS(path)
+	}
+	return entries, err
+}
+
+// readDirDOS re-issues LIST over its own raw connection (goftp's ReadDir
+// gives no way to swap in a different parser) and reads entries in the
+// MS-DOS format Windows/IIS FTP servers use, e.g.:
+//
+//	07-20-26  09:52AM       <DIR>          Fuentes
+//	07-20-26  10:15AM             123456 report.pdf
+func (c *FTPClient) readDirDOS(path string) ([]os.FileInfo, error) {
+	raw, err := c.conn.OpenRawConn()
+	if err != nil {
+		return nil, err
+	}
+	defer raw.Close()
+
+	getConn, err := raw.PrepareDataConn()
+	if err != nil {
+		return nil, err
+	}
+
+	code, msg, err := raw.SendCommand("LIST %s", path)
+	if err != nil {
+		return nil, err
+	}
+	if code/100 != 1 {
+		return nil, fmt.Errorf("unexpected response to LIST %s: %d-%s", path, code, msg)
+	}
+
+	dc, err := getConn()
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(dc)
+	var lines []string
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+	scanErr := scanner.Err()
+	dc.Close()
+	if scanErr != nil {
+		return nil, scanErr
+	}
+
+	if code, msg, err := raw.ReadResponse(); err != nil {
+		return nil, err
+	} else if code/100 != 2 {
+		return nil, fmt.Errorf("unexpected response after LIST %s: %d-%s", path, code, msg)
+	}
+
+	var entries []os.FileInfo
+	for _, line := range lines {
+		if info, ok := parseDOSListEntry(line); ok {
+			entries = append(entries, info)
+		}
+	}
+	return entries, nil
+}
+
+var dosListRegex = regexp.MustCompile(`^(\d{2}-\d{2}-\d{2})\s+(\d{2}:\d{2}(?:AM|PM))\s+(<DIR>|\d+)\s+(.+)$`)
+
+func parseDOSListEntry(line string) (os.FileInfo, bool) {
+	m := dosListRegex.FindStringSubmatch(line)
+	if m == nil {
+		return nil, false
+	}
+
+	name := m[4]
+	if name == "." || name == ".." {
+		return nil, false
+	}
+
+	mtime, err := time.Parse("01-02-06 03:04PM", m[1]+" "+m[2])
+	if err != nil {
+		return nil, false
+	}
+
+	isDir := m[3] == "<DIR>"
+	var size int64
+	if !isDir {
+		size, err = strconv.ParseInt(m[3], 10, 64)
+		if err != nil {
+			return nil, false
+		}
+	}
+
+	return &dosFileInfo{name: name, size: size, isDir: isDir, mtime: mtime}, true
+}
+
+type dosFileInfo struct {
+	name  string
+	size  int64
+	isDir bool
+	mtime time.Time
+}
+
+func (f *dosFileInfo) Name() string       { return f.name }
+func (f *dosFileInfo) Size() int64        { return f.size }
+func (f *dosFileInfo) ModTime() time.Time { return f.mtime }
+func (f *dosFileInfo) IsDir() bool        { return f.isDir }
+func (f *dosFileInfo) Sys() any           { return nil }
+
+func (f *dosFileInfo) Mode() os.FileMode {
+	if f.isDir {
+		return os.ModeDir | 0o755
+	}
+	return 0o644
 }
