@@ -178,8 +178,9 @@ abandoned attempt from connecting the application after the user has moved on.
 
 Everything that reaches a server goes through one interface, `client.Client` in
 `internal/client/client.go`. It declares what lazyftp needs a server to do — connect and
-disconnect, list a directory, upload, download, make a directory — and nothing else. Paths are
-plain strings, listings come back as `[]model.FileInfo`, and progress is reported through a
+disconnect, list a directory, upload, download, make a directory, rename, delete — and nothing
+else. Paths are plain strings, listings come back as `[]model.FileInfo`, and progress is reported
+through a
 `func(int64)` callback that fires as bytes move.
 
 Two types implement it. `FTPClient` speaks FTP and FTPS, which are the same protocol with TLS
@@ -236,7 +237,12 @@ only after asserting the source to an `io.Seeker`. `shared.ProgressReader` conse
 resuming silently, with no error to notice.
 
 **Listing degrades on its own.** `MLSD` is tried first and `LIST` used when the server rejects
-it. Nothing to detect or configure.
+it. Nothing to detect or configure. What goftp does *not* handle is a server's `LIST` output
+using DOS/IIS format instead of Unix — goftp's parser only understands the latter and returns an
+error for the former. `FTPClient.readDir` catches that specific parse error and falls back to
+`readDirDOS`, which reissues `LIST` over a raw connection outside the pool and parses it itself;
+Unix-style listings never take this path, so the fallback costs nothing when it isn't needed.
+([#86](https://github.com/MawCeron/lazyftp/issues/86))
 
 **There is no chmod.** `SITE CHMOD` sits outside the FTP standard and goftp does not implement
 it, so changing permissions is an SFTP-only feature rather than one with an FTP gap.
@@ -280,8 +286,7 @@ unusable for IPv6 hosts, and `go vet` will tell you so.
 ## Rules that are easy to break
 
 Each of these was learned by breaking it. Some restate, as a rule you can scan, what earlier
-sections explain at length. The code holds to all of them today, with one exception tracked
-below in Known traps.
+sections explain at length. The code holds to all of them today.
 
 **Nothing slow runs inside `Update`.** A network call in the update loop freezes the whole
 interface for as long as the server takes, drawing nothing and accepting no keys — and a dial
@@ -328,25 +333,6 @@ lazyftp connects to whatever answers and never warns that the key changed. Passw
 over an unverified connection is exactly the shape a machine-in-the-middle needs. Documented rather
 than buried because a user should be able to find it out before trusting it with a password.
 ([#38](https://github.com/MawCeron/lazyftp/issues/38))
-
-**Vertical space is budgeted in fixed rows.** `App.heights` reserves five rows for the connection
-bar and ten for the bottom panels before the file panels get anything, so at the conventional
-80×24 floor the panels show two entries. Any layout work has to replace the budget, not adjust the
-numbers. ([#23](https://github.com/MawCeron/lazyftp/issues/23))
-
-**Remote paths are built with `filepath`, not `path`, in the client and transfer packages.** The
-rule just above ("Local and remote paths do not share code") is followed in `ui/panel.go` but
-not in `client/ftp.go`, `client/sftp.go`, or `transfer/manager.go`: `Upload`, `Download`, `Mkdir`
-and the directory-recursion helpers all join the *remote* path with `filepath.Join`/`Dir`/`Base`.
-On Linux and macOS that's indistinguishable from `path`, so it works — and lazyftp ships Windows
-builds. On a Windows client, every remote path comes out with backslashes and every transfer
-fails. ([#77](https://github.com/MawCeron/lazyftp/issues/77))
-
-**Downloading a directory fails instead of recursing.** `Manager.Enqueue` only recurses
-(`runDir`) when `job.File.IsDir() && job.Direction == Upload`; a directory queued for `Download`
-falls through to the single-file path, which asks the server to read a directory as a file and
-gets back an error. Uploading a marked directory works; downloading one does not.
-([#35](https://github.com/MawCeron/lazyftp/issues/35))
 
 **Transfers are unbounded and cannot be stopped.** `Manager.Enqueue` starts one goroutine per job
 with no concurrency limit and no way to cancel, so marking a hundred files opens a hundred

@@ -5,6 +5,45 @@ All notable changes to lazyftp are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-07
+
+File operations. Create, rename and delete now work from the keyboard on both panels, hidden
+files can be toggled off, and the last directory-recursion gap (downloading) is closed. Create,
+rename and delete share one inline pattern -- `Enter` confirms, `Esc` cancels, the panel
+refreshes on success.
+
+### Added
+
+- Create directories with `Ctrl+N`: an inline input appears, `Enter` creates it and reloads the
+  panel, `Esc` or an empty name cancels. ([#9](https://github.com/MawCeron/lazyftp/issues/9))
+- Rename files and directories with `F2`, pre-filled with the current name -- `r` was already
+  bound to refresh, so this doesn't reuse the letter the issue originally asked for.
+  ([#7](https://github.com/MawCeron/lazyftp/issues/7))
+- Delete files and directories with `d`. A confirmation prompt names the file or the count of
+  marked files being deleted; deleting a directory removes its contents recursively on both FTP
+  and SFTP. A failure on one target doesn't abandon the rest of a multi-file delete.
+  ([#8](https://github.com/MawCeron/lazyftp/issues/8))
+- Toggle hidden (dot) file visibility per panel with `Ctrl+H`. Visible by default, matching the
+  behavior before this existed. ([#5](https://github.com/MawCeron/lazyftp/issues/5))
+- Downloading a marked directory now recurses into it, the same way uploading one already did.
+  ([#35](https://github.com/MawCeron/lazyftp/issues/35))
+- A bare `~` or a `~/`-prefixed path typed into jump-to-path expands to the home directory, on
+  the local panel only -- `~` has no universal meaning over FTP/SFTP.
+  ([#78](https://github.com/MawCeron/lazyftp/issues/78))
+
+### Fixed
+
+- Listing a directory failed against Windows/IIS FTP servers, which return `LIST` output in DOS
+  format instead of Unix and don't support `MLSD`. Falls back to parsing the DOS format only when
+  the normal path fails, so a Unix server pays no extra cost.
+  ([#86](https://github.com/MawCeron/lazyftp/issues/86))
+- Remote paths were built with `filepath.Join`/`Dir`/`Base`, which use the host's own separator.
+  Harmless on Linux and macOS, this sent backslash-separated paths to the server and broke every
+  transfer on a Windows client. ([#77](https://github.com/MawCeron/lazyftp/issues/77))
+- Re-uploading a directory that already exists on the remote errored and abandoned the whole
+  subtree, instead of merging into it the way a single file upload already overwrites an existing
+  one.
+
 ## [0.2.1] - 2026-08-31
 
 Theme accuracy and connection-bar polish, plus fixes to how transfers and SFTP connections

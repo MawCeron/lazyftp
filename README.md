@@ -41,8 +41,11 @@ from the keyboard.
 - Dual-pane layout — local and remote side by side, responsive down to an 80x24 terminal
 - File size and modification date, sortable by name, size or date
 - Fuzzy filtering and jump-to-path, so a deep or specific file is a few keystrokes away
+- Create, rename and delete files and directories, on either panel
+- Toggle hidden (dot) file visibility per panel
 - `--highlight-diff` marks entries that differ between Local and Remote
-- Real-time transfer progress with direction indicators
+- Real-time transfer progress with direction indicators, including recursive directory
+  upload/download
 - Multiple file selection and batch transfers, with direction-independent `U`/`D` shortcuts
 - Keyboard-driven navigation (vim-style + arrow keys)
 - A help screen (`?`) and a context-aware hints bar
@@ -162,6 +165,10 @@ press `?`.
 | `s` / `S` | Cycle sort column / reverse sort direction |
 | `:` | Jump to a path by typing it — `Enter` to go, `Esc` to cancel |
 | `/` | Fuzzy-filter the listing — `Esc` to clear |
+| `Ctrl+H` | Toggle hidden (dot) file visibility |
+| `Ctrl+N` | Create a directory — `Enter` to confirm, `Esc` to cancel |
+| `F2` | Rename the selected file or directory — `Enter` to confirm, `Esc` to cancel |
+| `d` | Delete the selected or marked files — `Enter` to confirm, `Esc` to cancel |
 
 ### Log & Processes
 
