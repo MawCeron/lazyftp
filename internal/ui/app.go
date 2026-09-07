@@ -37,6 +37,9 @@ type App struct {
 	focus    focus
 	helpOpen bool
 
+	fileInfoOpen bool
+	fileInfoFile model.FileInfo
+
 	client  client.Client
 	manager *transfer.Manager
 	program func() *tea.Program
@@ -362,6 +365,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
+		// Same modal treatment as the help screen -- only Esc closes it.
+		if a.fileInfoOpen {
+			if key.Matches(msg, keyEsc) {
+				a.fileInfoOpen = false
+			}
+			return a, nil
+		}
+
 		// A panel's own jump-to-path input, its new-directory input, its
 		// rename input, its delete confirmation, and a filter query being
 		// typed are all modal in the same way: while any is focused, global
@@ -491,6 +502,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case deleteDoneMsg:
 		return a.handleDeleteDone(msg)
 
+	case showFileInfoMsg:
+		a.fileInfoOpen = true
+		a.fileInfoFile = msg.File
+		return a, nil
+
 	case TransferMsg:
 		return a.handleTransfer(msg)
 
@@ -612,7 +628,17 @@ func (a App) render() string {
 		bottom = lipgloss.JoinHorizontal(lipgloss.Top, processesView, logView)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, status, panels, bottom, hints)
+	base := lipgloss.JoinVertical(lipgloss.Left, status, panels, bottom, hints)
+
+	// Unlike the help screen and connection dialog, this composites straight
+	// onto the real, already-rendered view instead of a blanked canvas: it's
+	// a small lookup, not a mode the panels need to disappear under, so the
+	// listing stays visible behind it even where the box overlaps it.
+	if a.fileInfoOpen {
+		return a.withOverlay(base, fileInfoView(a.fileInfoFile, a.width))
+	}
+
+	return base
 }
 
 // blankArea returns height blank lines, each width cells wide, so the
@@ -720,13 +746,14 @@ func (a App) hintsView() string {
 	leadWidth := lipgloss.Width(identity) + lipgloss.Width(gap)
 
 	km := footerKeyMap{
-		focus:       a.focus,
-		connecting:  a.connecting,
-		helpOpen:    a.helpOpen,
-		jumping:     a.focusedPanelJumping(),
-		creatingDir: a.focusedPanelCreatingDir(),
-		renaming:    a.focusedPanelRenaming(),
-		deleting:    a.focusedPanelDeleting(),
+		focus:        a.focus,
+		connecting:   a.connecting,
+		helpOpen:     a.helpOpen,
+		fileInfoOpen: a.fileInfoOpen,
+		jumping:      a.focusedPanelJumping(),
+		creatingDir:  a.focusedPanelCreatingDir(),
+		renaming:     a.focusedPanelRenaming(),
+		deleting:     a.focusedPanelDeleting(),
 	}
 	hints := renderHints(km.ShortHelp(), a.width-leadWidth)
 

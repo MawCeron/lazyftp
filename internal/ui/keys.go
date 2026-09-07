@@ -28,7 +28,7 @@ var (
 	keyDownload   = key.NewBinding(key.WithKeys("D"), key.WithHelp("D", "download marked"))
 
 	// File panels (Local, Remote).
-	keyOpen         = key.NewBinding(key.WithKeys("enter", "l"), key.WithHelp("l/enter", "open dir"))
+	keyOpen         = key.NewBinding(key.WithKeys("enter", "l"), key.WithHelp("l/enter", "open dir / info"))
 	keyUp           = key.NewBinding(key.WithKeys("-", "backspace", "h"), key.WithHelp("h/-", "go up"))
 	keyMark         = key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "mark"))
 	keyTransfer     = key.NewBinding(key.WithKeys("t"), key.WithHelp("t", "transfer"))
@@ -81,18 +81,20 @@ var (
 	keyCancelConnecting = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "abandon"))
 	keyCancelConnection = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close"))
 	keyCancelHelp       = key.NewBinding(key.WithKeys("esc", "?"), key.WithHelp("esc", "close"))
+	keyCancelFileInfo   = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close"))
 )
 
 // footerKeyMap drives the always-visible footer: only what's actionable
 // from where the user is right now, never the full reference — that's ?.
 type footerKeyMap struct {
-	focus       focus
-	connecting  bool
-	helpOpen    bool
-	jumping     bool
-	creatingDir bool
-	renaming    bool
-	deleting    bool
+	focus        focus
+	connecting   bool
+	helpOpen     bool
+	fileInfoOpen bool
+	jumping      bool
+	creatingDir  bool
+	renaming     bool
+	deleting     bool
 }
 
 func (k footerKeyMap) ShortHelp() []key.Binding {
@@ -101,6 +103,8 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 		return []key.Binding{keyCancelConnecting}
 	case k.helpOpen:
 		return []key.Binding{keyCancelHelp}
+	case k.fileInfoOpen:
+		return []key.Binding{keyCancelFileInfo}
 	case k.jumping:
 		return []key.Binding{keyJumpGo, keyJumpCancel}
 	case k.creatingDir:

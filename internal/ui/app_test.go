@@ -769,3 +769,49 @@ func TestCheckRenameTargetAllowsACaseOnlyRename(t *testing.T) {
 		t.Errorf("checkRenameTarget = %v, want nil: same file, not a real collision", err)
 	}
 }
+
+func TestShowFileInfoMsgOpensTheOverlay(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	file := model.FileInfo{Name: "report.pdf", Size: 42}
+
+	model, _ := a.Update(showFileInfoMsg{File: file})
+	a = model.(App)
+
+	if !a.fileInfoOpen {
+		t.Fatal("showFileInfoMsg did not open the overlay")
+	}
+	if a.fileInfoFile.Name != "report.pdf" {
+		t.Errorf("fileInfoFile.Name = %q, want report.pdf", a.fileInfoFile.Name)
+	}
+}
+
+func TestFileInfoOverlayEscCloses(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	a.fileInfoOpen = true
+
+	model, _ := a.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	a = model.(App)
+
+	if a.fileInfoOpen {
+		t.Error("fileInfoOpen still true after Esc")
+	}
+}
+
+// Same modal treatment as the help screen: while the overlay is open, other
+// keys (including q) must not reach global handling.
+func TestFileInfoOverlaySwallowsOtherKeys(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	a.fileInfoOpen = true
+
+	model, cmd := a.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+	a = model.(App)
+
+	if !a.fileInfoOpen {
+		t.Error("fileInfoOpen closed by an unrelated key")
+	}
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("q quit the app while the file-info overlay was open")
+		}
+	}
+}

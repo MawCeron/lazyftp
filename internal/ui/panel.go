@@ -546,8 +546,16 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 						return NavigateMsg{Panel: panel, Path: child}
 					}
 				}
-				// Swallowed even on a non-directory: "l" must never fall through
-				// to the list, which binds it to pagination.
+				// keyOpen binds both "enter" and "l" so h/l never falls through
+				// to the list's own pagination (see TestHAndLDoNotTriggerListPagination);
+				// only the literal Enter key shows file info on a non-directory,
+				// "l" stays a no-op here (#71).
+				if ok && msg.String() == "enter" {
+					file := item.file
+					return p, func() tea.Msg {
+						return showFileInfoMsg{File: file}
+					}
+				}
 				return p, nil
 
 			case key.Matches(msg, keyUp):
@@ -787,4 +795,11 @@ type deleteTarget struct {
 type deleteMsg struct {
 	Panel   string
 	Targets []deleteTarget
+}
+
+// showFileInfoMsg asks App to open the file-info overlay for a non-directory
+// entry, showing the exact size and full-precision timestamp a narrow panel
+// drops to make room for the name (#71).
+type showFileInfoMsg struct {
+	File model.FileInfo
 }

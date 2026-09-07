@@ -152,6 +152,44 @@ func TestHAndLDoNotTriggerListPagination(t *testing.T) {
 	}
 }
 
+// Enter on a file shows its info instead of being a no-op; "l" stays a
+// no-op on a file, same as before -- only the literal Enter key triggers it.
+func TestEnterOnAFileShowsFileInfo(t *testing.T) {
+	files := []model.FileInfo{{Name: "report.pdf", Size: 42}}
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter on a file did not return a command")
+	}
+	msg, ok := cmd().(showFileInfoMsg)
+	if !ok {
+		t.Fatalf("Enter returned %T, want showFileInfoMsg", cmd())
+	}
+	if msg.File.Name != "report.pdf" {
+		t.Errorf("showFileInfoMsg.File.Name = %q, want report.pdf", msg.File.Name)
+	}
+
+	p, cmd = p.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	if cmd != nil {
+		t.Error("l on a file returned a command, want nil: only Enter shows info")
+	}
+}
+
+// Enter on a directory must still navigate, not show info -- IsDir wins.
+func TestEnterOnADirectoryStillNavigates(t *testing.T) {
+	files := []model.FileInfo{{Name: "sub", Type: model.FileTypeDir}}
+	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
+
+	_, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("Enter on a directory did not return a command")
+	}
+	if _, ok := cmd().(NavigateMsg); !ok {
+		t.Fatalf("Enter on a directory returned %T, want NavigateMsg", cmd())
+	}
+}
+
 func TestSpaceTogglesMark(t *testing.T) {
 	files := []model.FileInfo{{Name: "a.txt"}, {Name: "b.txt"}}
 	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
