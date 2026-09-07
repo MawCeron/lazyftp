@@ -207,6 +207,9 @@ type Panel struct {
 
 	jumping   bool
 	jumpInput textinput.Model
+
+	creatingDir bool
+	createInput textinput.Model
 }
 
 // Local paths follow the host's rules; remote paths are always POSIX.
@@ -271,15 +274,19 @@ func NewPanel(title string, local bool) Panel {
 	jump := textinput.New()
 	jump.Prompt = ""
 
+	create := textinput.New()
+	create.Prompt = ""
+
 	return Panel{
-		title:      title,
-		path:       "/",
-		local:      local,
-		list:       l,
-		marked:     make(map[string]bool),
-		files:      []model.FileInfo{},
-		jumpInput:  jump,
-		showHidden: true,
+		title:       title,
+		path:        "/",
+		local:       local,
+		list:        l,
+		marked:      make(map[string]bool),
+		files:       []model.FileInfo{},
+		jumpInput:   jump,
+		createInput: create,
+		showHidden:  true,
 	}
 }
 
@@ -365,8 +372,9 @@ func (p Panel) SetSize(width, height int) Panel {
 		listHeight = 1
 	}
 	p.list.SetSize(listWidth, listHeight)
-	// listWidth minus 2 for the ": " prompt drawn beside it in View.
+	// listWidth minus 2 for the ": "/"+ " prompt drawn beside it in View.
 	p.jumpInput.SetWidth(max(listWidth-2, 1))
+	p.createInput.SetWidth(max(listWidth-2, 1))
 	return p
 }
 
@@ -411,6 +419,27 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 			return p, cmd
 		}
 
+		if p.creatingDir {
+			switch {
+			case key.Matches(msg, keyMkdirConfirm):
+				p.creatingDir = false
+				name := strings.TrimSpace(p.createInput.Value())
+				if name == "" {
+					return p, nil
+				}
+				panel, target := p.title, p.childPath(name)
+				return p, func() tea.Msg {
+					return MkdirMsg{Panel: panel, Path: target}
+				}
+			case key.Matches(msg, keyMkdirCancel):
+				p.creatingDir = false
+				return p, nil
+			}
+			var cmd tea.Cmd
+			p.createInput, cmd = p.createInput.Update(msg)
+			return p, cmd
+		}
+
 		// While a filter query is being typed, every key belongs to the
 		// list's own filter input -- none of lazyftp's bindings below
 		// (which include letters like "l"/"h"/"t"/"r" and space, and ":" to
@@ -422,6 +451,12 @@ func (p Panel) Update(msg tea.Msg) (Panel, tea.Cmd) {
 				p.jumping = true
 				p.jumpInput.SetValue("")
 				p.jumpInput.Focus()
+				return p, nil
+
+			case key.Matches(msg, keyMkdir):
+				p.creatingDir = true
+				p.createInput.SetValue("")
+				p.createInput.Focus()
 				return p, nil
 
 			case key.Matches(msg, keyOpen):
@@ -520,6 +555,10 @@ func (p Panel) View(width, height int, active bool, diff diffMarks) string {
 	case p.jumping:
 		prompt := lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render(":")
 		pathLine = prompt + " " + p.jumpInput.View()
+
+	case p.creatingDir:
+		prompt := lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("+")
+		pathLine = prompt + " " + p.createInput.View()
 
 	case p.list.FilterState() != list.Unfiltered:
 		// Match counter, styled "12/340": visible listed items over the
@@ -637,4 +676,9 @@ type NavigateMsg struct {
 type TransferMsg struct {
 	SourcePanel string
 	Files       []model.FileInfo
+}
+
+type MkdirMsg struct {
+	Panel string
+	Path  string
 }

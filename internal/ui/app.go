@@ -189,6 +189,17 @@ func (a App) focusedPanelJumping() bool {
 	}
 }
 
+func (a App) focusedPanelCreatingDir() bool {
+	switch a.focus {
+	case focusLocal:
+		return a.local.creatingDir
+	case focusRemote:
+		return a.remote.creatingDir
+	default:
+		return false
+	}
+}
+
 func (a App) panelWidth() int {
 	if a.narrow() {
 		return a.width
@@ -309,12 +320,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 
-		// A panel's own jump-to-path input, and a filter query being typed,
-		// are both modal in the same way: while either is focused, global
-		// bindings must not steal keystrokes that input would otherwise
-		// receive (a bare "q" is a perfectly normal path character, and just
-		// as valid in a filter query).
-		jumping := a.focusedPanelJumping()
+		// A panel's own jump-to-path input, its new-directory input, and a
+		// filter query being typed are all modal in the same way: while any
+		// is focused, global bindings must not steal keystrokes that input
+		// would otherwise receive (a bare "q" is a perfectly normal path or
+		// directory name character, and just as valid in a filter query).
+		jumping := a.focusedPanelJumping() || a.focusedPanelCreatingDir()
 		filtering := a.focusedPanelFiltering()
 
 		// q/Q quits except where a literal "q" needs to reach a text field
@@ -423,6 +434,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case NavigateMsg:
 		return a.handleNavigate(msg)
+
+	case MkdirMsg:
+		return a.handleMkdir(msg)
 
 	case TransferMsg:
 		return a.handleTransfer(msg)
@@ -652,7 +666,13 @@ func (a App) hintsView() string {
 	gap := lipgloss.NewStyle().Background(colorBarBg).Render("  ")
 	leadWidth := lipgloss.Width(identity) + lipgloss.Width(gap)
 
-	km := footerKeyMap{focus: a.focus, connecting: a.connecting, helpOpen: a.helpOpen, jumping: a.focusedPanelJumping()}
+	km := footerKeyMap{
+		focus:       a.focus,
+		connecting:  a.connecting,
+		helpOpen:    a.helpOpen,
+		jumping:     a.focusedPanelJumping(),
+		creatingDir: a.focusedPanelCreatingDir(),
+	}
 	hints := renderHints(km.ShortHelp(), a.width-leadWidth)
 
 	return composeBar(colorBarBg, a.width, identity+gap+hints, "")
@@ -781,6 +801,19 @@ func (a App) handleNavigate(msg NavigateMsg) (App, tea.Cmd) {
 	return a, loadRemoteDir(a.client, msg.Path)
 }
 
+func (a App) handleMkdir(msg MkdirMsg) (App, tea.Cmd) {
+	if msg.Panel == "Local" {
+		return a, mkdirLocal(msg.Path, a.local.path)
+	}
+
+	if !a.connected {
+		a.log = a.log.Add("No active connection", LogError)
+		return a, nil
+	}
+
+	return a, mkdirRemote(a.client, msg.Path, a.remote.path)
+}
+
 // handleDirectTransfer is U/D: transfer marked files in a given direction
 // regardless of which panel currently has focus.
 func (a App) handleDirectTransfer(sourcePanel string, files []model.FileInfo) (App, tea.Cmd) {
@@ -859,6 +892,27 @@ func loadLocalDir(path string) tea.Cmd {
 			}
 		}
 		return LocalDirLoadedMsg{Path: path, Files: files}
+	}
+}
+
+// mkdirLocal/mkdirRemote create the directory and, on success, reload the
+// panel via the same NavigateMsg path a manual refresh takes -- reloadPath
+// is the panel's current directory, unaffected by the new subdirectory.
+func mkdirLocal(dirPath, reloadPath string) tea.Cmd {
+	return func() tea.Msg {
+		if err := os.Mkdir(dirPath, 0o755); err != nil {
+			return LogMsg{Message: "Error creating directory: " + err.Error(), Level: LogError}
+		}
+		return NavigateMsg{Panel: "Local", Path: reloadPath}
+	}
+}
+
+func mkdirRemote(c client.Client, dirPath, reloadPath string) tea.Cmd {
+	return func() tea.Msg {
+		if err := c.Mkdir(dirPath); err != nil {
+			return LogMsg{Message: "Error creating directory: " + err.Error(), Level: LogError}
+		}
+		return NavigateMsg{Panel: "Remote", Path: reloadPath}
 	}
 }
 

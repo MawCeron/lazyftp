@@ -462,6 +462,63 @@ func TestJumpInputSwallowsOtherwiseBoundKeys(t *testing.T) {
 	}
 }
 
+func TestMkdirKeyOpensTheNameInput(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles(nil, "/tmp")
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl})
+	if !p.creatingDir {
+		t.Fatal("ctrl+n did not open the new-directory input")
+	}
+}
+
+func TestMkdirEnterCreatesInsideCurrentDir(t *testing.T) {
+	p, _ := NewPanel("Remote", false).WithFiles(nil, "/srv/www")
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl})
+	p = typeInto(p, "newdir")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.creatingDir {
+		t.Error("new-directory input still open after Enter")
+	}
+	if cmd == nil {
+		t.Fatal("Enter did not return a command")
+	}
+	msg, ok := cmd().(MkdirMsg)
+	if !ok {
+		t.Fatalf("Enter returned %T, want MkdirMsg", cmd())
+	}
+	if msg.Panel != "Remote" || msg.Path != "/srv/www/newdir" {
+		t.Errorf("created %+v, want {Remote /srv/www/newdir}", msg)
+	}
+}
+
+func TestMkdirEscCancelsWithoutCreating(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles(nil, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl})
+	p = typeInto(p, "newdir")
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	if p.creatingDir {
+		t.Error("new-directory input still open after Esc")
+	}
+	if cmd != nil {
+		t.Error("Esc returned a command, want nil: cancelling must not create a directory")
+	}
+}
+
+func TestMkdirEmptyInputCancelsWithoutCreating(t *testing.T) {
+	p, _ := NewPanel("Local", true).WithFiles(nil, "/tmp")
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'n', Mod: tea.ModCtrl})
+
+	p, cmd := p.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if p.creatingDir {
+		t.Error("new-directory input still open after Enter on empty input")
+	}
+	if cmd != nil {
+		t.Error("Enter on empty input returned a command, want nil")
+	}
+}
+
 // The bug this guards against: WithFiles called list.SetItems but discarded
 // the command it returns. With filtering disabled that was harmless, but
 // once filtering was enabled (#31) the list needs that command run to

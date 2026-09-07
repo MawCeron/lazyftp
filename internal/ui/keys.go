@@ -37,6 +37,7 @@ var (
 	keySortFlip     = key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "reverse sort"))
 	keyJump         = key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "jump to path"))
 	keyToggleHidden = key.NewBinding(key.WithKeys("ctrl+h"), key.WithHelp("ctrl+h", "toggle hidden"))
+	keyMkdir        = key.NewBinding(key.WithKeys("ctrl+n"), key.WithHelp("ctrl+n", "new dir"))
 
 	// esc/enter while a panel's jump-to-path input is focused; separate
 	// display copies of the shared keyEsc/keySubmit below so the footer and
@@ -44,6 +45,12 @@ var (
 	// "close"/"connect".
 	keyJumpGo     = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "go"))
 	keyJumpCancel = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel"))
+
+	// esc/enter while a panel's new-directory input is focused; own display
+	// copies for the same reason keyJumpGo/keyJumpCancel exist separately
+	// from keyEsc/keySubmit above.
+	keyMkdirConfirm = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "create"))
+	keyMkdirCancel  = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "cancel"))
 
 	// Connection dialog.
 	keyNextField    = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next field"))
@@ -65,10 +72,11 @@ var (
 // footerKeyMap drives the always-visible footer: only what's actionable
 // from where the user is right now, never the full reference — that's ?.
 type footerKeyMap struct {
-	focus      focus
-	connecting bool
-	helpOpen   bool
-	jumping    bool
+	focus       focus
+	connecting  bool
+	helpOpen    bool
+	jumping     bool
+	creatingDir bool
 }
 
 func (k footerKeyMap) ShortHelp() []key.Binding {
@@ -79,6 +87,8 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 		return []key.Binding{keyCancelHelp}
 	case k.jumping:
 		return []key.Binding{keyJumpGo, keyJumpCancel}
+	case k.creatingDir:
+		return []key.Binding{keyMkdirConfirm, keyMkdirCancel}
 	case k.focus == focusConnectionBar:
 		return []key.Binding{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection}
 	case k.focus == focusLog || k.focus == focusProcesses:
@@ -99,7 +109,7 @@ func helpGroups() [][]key.Binding {
 	up, down, pageUp, pageDown := scrollKeys()
 	return [][]key.Binding{
 		{keyQuit, keyHelp, keyConnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
-		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden},
+		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden, keyMkdir},
 		{up, down, pageUp, pageDown},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
 	}
