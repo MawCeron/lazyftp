@@ -27,7 +27,7 @@ var (
 // from Host skipped over the visually-adjacent Port field.
 func TestTabFollowsVisualOrder(t *testing.T) {
 	bar := NewConnectionBar()
-	want := []connField{fieldHost, fieldPort, fieldUser, fieldPass, fieldProtocol}
+	want := []connField{fieldHost, fieldPort, fieldUser, fieldPass, fieldKey, fieldProtocol}
 
 	bar, _ = bar.Update(tab) // off the protocol field, onto Host
 	for i, field := range want {

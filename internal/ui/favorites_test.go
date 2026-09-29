@@ -227,3 +227,27 @@ func TestAnAbandonedConnectionIsNotRecorded(t *testing.T) {
 		t.Fatal("recorded an attempt nobody is waiting for")
 	}
 }
+
+func TestIdentityFileTravelsWithTheConnection(t *testing.T) {
+	keyring.MockInit()
+	f := fav
+	f.IdentityFile = "~/.ssh/work"
+	bar := NewConnectionBar().SetFavorites([]config.Connection{f})
+	bar, _ = bar.Update(ctrlO)
+	bar, _ = bar.Update(enter)
+	if got := bar.inputs[fieldKey].Value(); got != "~/.ssh/work" {
+		t.Fatalf("key field %q", got)
+	}
+	bar, _ = bar.Update(ctrlS)
+	bar.name.SetValue("other")
+	_, cmd := bar.Update(enter)
+	if got := cmd().(saveFavoriteMsg).Conn.IdentityFile; got != "~/.ssh/work" {
+		t.Fatalf("saved identity %q", got)
+	}
+}
+
+func TestConnectionDialogFitsTheMinimumTerminal(t *testing.T) {
+	if h := lipgloss.Height(NewConnectionBar().View(minWidth)); h > minHeight-2 {
+		t.Fatalf("dialog is %d rows, the canvas has %d", h, minHeight-2)
+	}
+}

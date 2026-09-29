@@ -22,6 +22,7 @@ const (
 	fieldPort
 	fieldUser
 	fieldPass
+	fieldKey
 	fieldCount
 )
 
@@ -56,6 +57,11 @@ func NewConnectionBar() ConnectionBar {
 	pass.EchoMode = textinput.EchoPassword
 	pass.SetWidth(32)
 
+	keyFile := textinput.New()
+	keyFile.Prompt = ""
+	keyFile.Placeholder = "optional, SFTP"
+	keyFile.SetWidth(32)
+
 	port := textinput.New()
 	port.Prompt = ""
 	port.SetWidth(8)
@@ -71,6 +77,7 @@ func NewConnectionBar() ConnectionBar {
 			fieldHost: host,
 			fieldUser: user,
 			fieldPass: pass,
+			fieldKey:  keyFile,
 			fieldPort: port,
 		},
 		focused: fieldProtocol,
@@ -166,6 +173,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 					Host:     c.inputs[fieldHost].Value(),
 					User:     c.inputs[fieldUser].Value(),
 					Pass:     c.inputs[fieldPass].Value(),
+					Identity: c.inputs[fieldKey].Value(),
 					Port:     c.inputs[fieldPort].Value(),
 				}
 			}
@@ -241,6 +249,8 @@ func (c ConnectionBar) View(maxWidth int) string {
 		row("User", c.inputs[fieldUser]),
 		"",
 		row("Pass", c.inputs[fieldPass]),
+		"",
+		row("Key", c.inputs[fieldKey]),
 	}
 
 	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
@@ -258,5 +268,6 @@ type ConnectMsg struct {
 	Host     string
 	User     string
 	Pass     string
+	Identity string
 	Port     string
 }

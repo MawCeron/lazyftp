@@ -105,6 +105,8 @@ func (c ConnectionBar) current() config.Connection {
 		User:     c.inputs[fieldUser].Value(),
 		Port:     port,
 		Protocol: c.protocol.String(),
+
+		IdentityFile: strings.TrimSpace(c.inputs[fieldKey].Value()),
 	}
 }
 
@@ -116,6 +118,7 @@ func (c ConnectionBar) fill(f config.Connection) ConnectionBar {
 	c.inputs[fieldPort].SetValue(strconv.Itoa(f.Port))
 	pass, _ := config.Secret(f)
 	c.inputs[fieldPass].SetValue(pass)
+	c.inputs[fieldKey].SetValue(f.IdentityFile)
 	c.mode = modeForm
 	c.focused = fieldPass
 	return c.showDefaultPort().focus()

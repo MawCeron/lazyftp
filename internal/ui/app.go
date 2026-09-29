@@ -83,6 +83,7 @@ type connectedMsg struct {
 	client   client.Client
 	host     string
 	port     int
+	identity string
 	addr     string
 	user     string
 	protocol client.Protocol
@@ -867,6 +868,9 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 		logger = a.protoLog
 	}
 	c := client.New(msg.Protocol, logger)
+	if s, ok := c.(interface{ SetIdentityFile(string) }); ok {
+		s.SetIdentityFile(strings.TrimSpace(msg.Identity))
+	}
 	if s, ok := c.(interface{ SetHostKeyPrompt(client.HostKeyPrompt) }); ok {
 		program := a.program
 		s.SetHostKeyPrompt(func(host, keyType, fingerprint string) bool {
@@ -887,7 +891,7 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
 			return connectFailedMsg{seq: seq, err: err}
 		}
-		return connectedMsg{seq: seq, client: c, host: msg.Host, port: port, addr: addr, user: msg.User, protocol: msg.Protocol}
+		return connectedMsg{seq: seq, client: c, host: msg.Host, port: port, identity: msg.Identity, addr: addr, user: msg.User, protocol: msg.Protocol}
 	}
 
 	// The spinner keeps the update loop turning, which advances the elapsed time
@@ -911,7 +915,7 @@ func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
 	a.connProtocol = msg.protocol
 	a.focus = focusLocal
 	a.log = a.log.Add("Connected to "+msg.addr, LogSuccess)
-	a = a.recordRecent(config.Connection{Host: msg.host, User: msg.user, Port: msg.port, Protocol: msg.protocol.String()})
+	a = a.recordRecent(config.Connection{Host: msg.host, User: msg.user, Port: msg.port, Protocol: msg.protocol.String(), IdentityFile: msg.identity})
 	if c, ok := msg.client.(interface{ AuthMethod() string }); ok {
 		a.log = a.log.Add("Authenticated with "+c.AuthMethod(), LogInfo)
 	}
