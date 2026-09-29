@@ -43,7 +43,7 @@ from the keyboard.
   full timestamp a keystroke away when the panel is too narrow to show them
 - Fuzzy filtering and jump-to-path, so a deep or specific file is a few keystrokes away
 - Create, rename and delete files and directories, on either panel
-- Toggle hidden (dot) file visibility per panel
+- Hidden (dot) files are hidden by default, with a per-panel toggle
 - `--highlight-diff` marks entries that differ between Local and Remote
 - Real-time transfer progress with direction indicators, including recursive directory
   upload/download
@@ -211,7 +211,7 @@ press `?`.
 | `s` / `S` | Cycle sort column / reverse sort direction |
 | `:` | Jump to a path by typing it — `Enter` to go, `Esc` to cancel |
 | `/` | Fuzzy-filter the listing — `Esc` to clear |
-| `Ctrl+H` | Toggle hidden (dot) file visibility |
+| `Ctrl+H` | Show / hide hidden (dot) files; hidden by default |
 | `Ctrl+N` | Create a directory — `Enter` to confirm, `Esc` to cancel |
 | `F2` | Rename the selected file or directory — `Enter` to confirm, `Esc` to cancel |
 | `d` | Delete the selected or marked files — `Enter` to confirm, `Esc` to cancel |

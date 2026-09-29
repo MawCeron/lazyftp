@@ -50,6 +50,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Hidden (dot) files are now hidden by default in both panels, and `Ctrl+H` shows them. They were
+  visible by default and `Ctrl+H` hid them.
 - SFTP no longer accepts any host key silently.
 
 ## [0.3.1] - 2026-09-07
