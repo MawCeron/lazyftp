@@ -43,6 +43,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Reloading a panel, which happens after every completed transfer and on refresh, no longer sends
+  the cursor back to the top. Reloading the same directory keeps it on the same file, or near its
+  row if the file is gone; entering another directory still starts at the top, and marks still
+  clear. With a filter active the cursor goes to the top of the results.
+  ([#93](https://github.com/MawCeron/lazyftp/issues/93))
 - A dropped SFTP session is reopened instead of leaving every operation failing until a manual
   reconnect. A keepalive every 30 seconds notices a session that died while idle, and an operation
   that hits a dead connection reopens it and, if it is safe to repeat (listings, transfers,
