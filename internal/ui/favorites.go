@@ -18,6 +18,7 @@ type barMode int
 const (
 	modeForm barMode = iota
 	modeList
+	modeHistory
 	modeSave
 	modeReplace
 )
@@ -76,6 +77,23 @@ func (c ConnectionBar) freeName(host string) string {
 	}
 }
 
+// items is what the list modes show: favorites, or the recent connections.
+func (c ConnectionBar) items() []config.Connection {
+	if c.mode == modeHistory {
+		return c.recent
+	}
+	return c.favorites
+}
+
+// SetRecent replaces the history the same way SetFavorites replaces favorites.
+func (c ConnectionBar) SetRecent(r []config.Connection) ConnectionBar {
+	c.recent = r
+	if len(r) == 0 && c.mode == modeHistory {
+		c.mode = modeForm
+	}
+	return c
+}
+
 func (c ConnectionBar) current() config.Connection {
 	port, err := strconv.Atoi(c.inputs[fieldPort].Value())
 	if err != nil || port <= 0 {
@@ -110,10 +128,10 @@ func (c ConnectionBar) updateList(msg tea.KeyPressMsg) (ConnectionBar, tea.Cmd) 
 	case key.Matches(msg, keyListUp):
 		c.cursor = max(0, c.cursor-1)
 	case key.Matches(msg, keyListDown):
-		c.cursor = min(len(c.favorites)-1, c.cursor+1)
+		c.cursor = min(len(c.items())-1, c.cursor+1)
 	case key.Matches(msg, keySubmit):
-		return c.fill(c.favorites[c.cursor]), nil
-	case key.Matches(msg, keyListDelete):
+		return c.fill(c.items()[c.cursor]), nil
+	case key.Matches(msg, keyListDelete) && c.mode == modeList:
 		name := c.favorites[c.cursor].Name
 		return c, func() tea.Msg { return deleteFavoriteMsg{Name: name} }
 	}
@@ -188,13 +206,17 @@ func (c ConnectionBar) listView(maxWidth int) string {
 	width := dialogWidth(maxWidth)
 	inner := borderInteriorWidth(width)
 
-	start := max(0, min(c.cursor-favoritesVisible+1, len(c.favorites)-favoritesVisible))
-	end := min(len(c.favorites), start+favoritesVisible)
+	items := c.items()
+	start := max(0, min(c.cursor-favoritesVisible+1, len(items)-favoritesVisible))
+	end := min(len(items), start+favoritesVisible)
 
 	rows := make([]string, 0, favoritesVisible+3)
 	for i := start; i < end; i++ {
-		f := c.favorites[i]
-		line := fmt.Sprintf("%s  %s://%s@%s:%d", f.Name, strings.ToLower(f.Protocol), f.User, f.Host, f.Port)
+		f := items[i]
+		line := describe(f)
+		if f.Name != "" {
+			line = f.Name + "  " + line
+		}
 		line = runewidth.Truncate(line, inner-2, "...")
 		if i == c.cursor {
 			line = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("> " + line)
@@ -204,9 +226,13 @@ func (c ConnectionBar) listView(maxWidth int) string {
 		rows = append(rows, line)
 	}
 
-	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter fill · d delete · Esc back")
+	title, keys := "Favorites", "Enter fill · d delete · Esc back"
+	if c.mode == modeHistory {
+		title, keys = "Recent", "Enter fill · Esc back"
+	}
+	hint := lipgloss.NewStyle().Foreground(colorMuted).Render(keys)
 	body := strings.Join(rows, "\n") + "\n\n" + hint
-	return borderWithTitle(body, "Favorites", width, lipgloss.Height(body)+2, colorAccent)
+	return borderWithTitle(body, title, width, lipgloss.Height(body)+2, colorAccent)
 }
 
 func (c ConnectionBar) saveView(maxWidth int) string {

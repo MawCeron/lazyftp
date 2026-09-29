@@ -191,11 +191,39 @@ func TestFooterFollowsTheDialogMode(t *testing.T) {
 	a := NewApp(nil, false, nil, "dev", false)
 	a.width = 100
 	a.focus = focusConnectionBar
-	for mode, want := range map[barMode]string{modeList: "fill", modeSave: "password", modeReplace: "replace"} {
+	for mode, want := range map[barMode]string{modeList: "fill", modeHistory: "fill", modeSave: "password", modeReplace: "replace"} {
 		a.connBar.mode = mode
 		got := a.hintsView()
 		if !strings.Contains(got, want) || strings.Contains(got, "close") {
 			t.Errorf("mode %d: footer %q, want %q and no \"close\"", mode, got, want)
 		}
+	}
+}
+
+func TestConnectingRecordsAndRecentFillsTheForm(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp(nil, false, nil, "dev", false)
+	a.connecting, a.connectSeq = true, 1
+	model, _ := a.Update(connectedMsg{seq: 1, client: &stubClient{}, host: "nas.lan", port: 2222, addr: "nas.lan:2222", user: "ana", protocol: client.SFTP})
+	a = model.(App)
+	if len(a.history) != 1 || len(a.connBar.recent) != 1 {
+		t.Fatalf("not recorded: %+v", a.history)
+	}
+
+	a.focus = focusConnectionBar
+	model, _ = a.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
+	model, _ = model.(App).Update(enter)
+	bar := model.(App).connBar
+	if bar.mode != modeForm || bar.inputs[fieldHost].Value() != "nas.lan" || bar.inputs[fieldPort].Value() != "2222" || bar.protocol != client.SFTP {
+		t.Fatalf("form not filled: %+v", bar.inputs)
+	}
+}
+
+func TestAnAbandonedConnectionIsNotRecorded(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	a.connectSeq = 2
+	model, _ := a.Update(connectedMsg{seq: 1, client: &stubClient{}, host: "x"})
+	if len(model.(App).history) != 0 {
+		t.Fatal("recorded an attempt nobody is waiting for")
 	}
 }

@@ -76,6 +76,7 @@ var (
 
 	// Ctrl chords, because the fields are text inputs; ctrl+f/d/k/... already belong to them.
 	keyFavorites    = key.NewBinding(key.WithKeys("ctrl+o"), key.WithHelp("^o", "favorites"))
+	keyHistory      = key.NewBinding(key.WithKeys("ctrl+r"), key.WithHelp("^r", "recent"))
 	keySaveFavorite = key.NewBinding(key.WithKeys("ctrl+s"), key.WithHelp("^s", "save"))
 
 	// esc means something different per context (abandon a connection
@@ -136,6 +137,8 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 		return []key.Binding{keyDeleteConfirm, keyDeleteCancel}
 	case k.focus == focusConnectionBar && k.barMode == modeList:
 		return []key.Binding{keyListMove, keyListFill, keyListRemove, keyBack}
+	case k.focus == focusConnectionBar && k.barMode == modeHistory:
+		return []key.Binding{keyListMove, keyListFill, keyBack}
 	case k.focus == focusConnectionBar && k.barMode == modeSave:
 		return []key.Binding{keySaveConfirm, keySavePass, keyBack}
 	case k.focus == focusConnectionBar && k.barMode == modeReplace:
@@ -162,6 +165,6 @@ func helpGroups() [][]key.Binding {
 		{keyQuit, keyHelp, keyConnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
 		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden, keyMkdir, keyRename, keyDelete},
 		{up, down, pageUp, pageDown},
-		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyFavorites, keySaveFavorite, keyCancelConnection},
+		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyFavorites, keyHistory, keySaveFavorite, keyCancelConnection},
 	}
 }

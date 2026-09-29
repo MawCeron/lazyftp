@@ -32,6 +32,7 @@ type ConnectionBar struct {
 
 	mode      barMode
 	favorites []config.Connection
+	recent    []config.Connection
 	cursor    int
 	name      textinput.Model
 	remember  bool
@@ -111,7 +112,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch c.mode {
-		case modeList:
+		case modeList, modeHistory:
 			return c.updateList(msg)
 		case modeSave:
 			return c.updateSave(msg)
@@ -123,6 +124,13 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 		case key.Matches(msg, keyFavorites):
 			if len(c.favorites) > 0 {
 				c.mode = modeList
+				c.cursor = 0
+			}
+			return c, nil
+
+		case key.Matches(msg, keyHistory):
+			if len(c.recent) > 0 {
+				c.mode = modeHistory
 				c.cursor = 0
 			}
 			return c, nil
@@ -194,7 +202,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 // at all while it holds focus.
 func (c ConnectionBar) View(maxWidth int) string {
 	switch c.mode {
-	case modeList:
+	case modeList, modeHistory:
 		return c.listView(maxWidth)
 	case modeSave:
 		return c.saveView(maxWidth)
@@ -235,8 +243,9 @@ func (c ConnectionBar) View(maxWidth int) string {
 		row("Pass", c.inputs[fieldPass]),
 	}
 
-	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · ^O favorites · ^S save · Esc cancel")
-	body := strings.Join(fields, "\n") + "\n\n\n" + hint
+	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
+	more := lipgloss.NewStyle().Foreground(colorMuted).Render("^O favorites · ^R recent · ^S save")
+	body := strings.Join(fields, "\n") + "\n\n\n" + hint + "\n" + more
 
 	// Exactly as tall as the content needs: this is a fixed-size dialog, not
 	// a panel truncating to fit whatever space is left.

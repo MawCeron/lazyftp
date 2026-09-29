@@ -46,6 +46,9 @@ type App struct {
 	cfg     config.Config
 	cfgPath string
 
+	history     []config.Connection
+	historyPath string
+
 	client  client.Client
 	manager *transfer.Manager
 	program func() *tea.Program
@@ -78,6 +81,8 @@ type App struct {
 type connectedMsg struct {
 	seq      int
 	client   client.Client
+	host     string
+	port     int
 	addr     string
 	user     string
 	protocol client.Protocol
@@ -882,7 +887,7 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
 			return connectFailedMsg{seq: seq, err: err}
 		}
-		return connectedMsg{seq: seq, client: c, addr: addr, user: msg.User, protocol: msg.Protocol}
+		return connectedMsg{seq: seq, client: c, host: msg.Host, port: port, addr: addr, user: msg.User, protocol: msg.Protocol}
 	}
 
 	// The spinner keeps the update loop turning, which advances the elapsed time
@@ -906,6 +911,7 @@ func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
 	a.connProtocol = msg.protocol
 	a.focus = focusLocal
 	a.log = a.log.Add("Connected to "+msg.addr, LogSuccess)
+	a = a.recordRecent(config.Connection{Host: msg.host, User: msg.user, Port: msg.port, Protocol: msg.protocol.String()})
 	if c, ok := msg.client.(interface{ AuthMethod() string }); ok {
 		a.log = a.log.Add("Authenticated with "+c.AuthMethod(), LogInfo)
 	}
@@ -1252,4 +1258,29 @@ func releaseSecret(gone config.Connection, kept []config.Connection) {
 		}
 	}
 	config.DeleteSecret(gone)
+}
+
+const maxRecent = 10
+
+// WithHistory installs the recent connections read at startup.
+func (a App) WithHistory(path string, h config.Config, loadErr error) App {
+	a.historyPath = path
+	a.history = h.Connections
+	a.connBar = a.connBar.SetRecent(a.history)
+	if loadErr != nil {
+		a.log = a.log.Add("Ignoring history file: "+loadErr.Error(), LogError)
+	}
+	return a
+}
+
+func (a App) recordRecent(c config.Connection) App {
+	a.history = config.Push(a.history, c, maxRecent)
+	a.connBar = a.connBar.SetRecent(a.history)
+	if a.historyPath == "" {
+		return a
+	}
+	if err := config.Save(a.historyPath, config.Config{Connections: a.history}); err != nil {
+		a.log = a.log.Add("Could not save history: "+err.Error(), LogError)
+	}
+	return a
 }

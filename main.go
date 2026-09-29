@@ -59,6 +59,10 @@ func main() {
 		cfg, loadErr := config.Load(path)
 		app = app.WithConfig(path, cfg, loadErr)
 	}
+	if path, err := config.HistoryPath(); err == nil {
+		h, loadErr := config.Load(path)
+		app = app.WithHistory(path, h, loadErr)
+	}
 	p = tea.NewProgram(app)
 
 	if _, err := p.Run(); err != nil {
