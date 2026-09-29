@@ -17,11 +17,15 @@ import (
 )
 
 type SFTPClient struct {
-	sshConn *ssh.Client
-	client  *sftp.Client
-	auth    string
-	prompt  HostKeyPrompt
+	sshConn  *ssh.Client
+	client   *sftp.Client
+	auth     string
+	prompt   HostKeyPrompt
+	identity string
 }
+
+// SetIdentityFile names a private key to try before the agent and the defaults.
+func (c *SFTPClient) SetIdentityFile(path string) { c.identity = path }
 
 func (c *SFTPClient) SetHostKeyPrompt(p HostKeyPrompt) { c.prompt = p }
 
@@ -54,7 +58,7 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to read known_hosts: %w", err)
 	}
 
-	auth := &sshAuth{pass: pass}
+	auth := &sshAuth{pass: pass, identity: c.identity}
 	defer auth.close()
 
 	config := &ssh.ClientConfig{

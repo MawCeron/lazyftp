@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -17,11 +18,13 @@ var defaultKeys = []string{"id_ed25519", "id_ecdsa", "id_rsa"}
 // remembers what it offered: ssh reports which method failed but never which
 // one succeeded.
 type sshAuth struct {
-	pass    string
-	sources []string
-	locked  []string
-	agent   net.Conn
-	method  string
+	pass        string
+	identity    string
+	identityErr error
+	sources     []string
+	locked      []string
+	agent       net.Conn
+	method      string
 }
 
 func (a *sshAuth) methods() []ssh.AuthMethod {
@@ -38,6 +41,22 @@ func (a *sshAuth) methods() []ssh.AuthMethod {
 
 func (a *sshAuth) signers() ([]ssh.Signer, error) {
 	var out []ssh.Signer
+
+	// A key the user named goes first, and failing to use it is reported: it
+	// was a choice, unlike a default key that simply is not there.
+	if a.identity != "" {
+		path := expandHome(a.identity)
+		s, err := a.loadKey(path)
+		switch {
+		case err == nil:
+			out = append(out, s)
+			a.sources = append(a.sources, filepath.Base(path))
+		case errors.Is(err, errPassphrase):
+			a.identityErr = fmt.Errorf("identity file %s is encrypted: put its passphrase in the password field", a.identity)
+		default:
+			a.identityErr = fmt.Errorf("identity file %s: %w", a.identity, err)
+		}
+	}
 
 	// Windows agents speak a named pipe, not a unix socket, and are not reached.
 	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
@@ -94,11 +113,25 @@ func (a *sshAuth) close() {
 	}
 }
 
+func expandHome(p string) string {
+	if p != "~" && !strings.HasPrefix(p, "~/") && !strings.HasPrefix(p, `~\`) {
+		return p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return p
+	}
+	return filepath.Join(home, p[1:])
+}
+
 // explain adds what the ssh error cannot know: keys that were skipped.
 func (a *sshAuth) explain(err error) error {
-	if len(a.locked) == 0 {
-		return err
+	msg := err.Error()
+	if a.identityErr != nil {
+		msg += "; " + a.identityErr.Error()
 	}
-	return errors.New(err.Error() + "; encrypted key " + strings.Join(a.locked, ", ") +
-		" needs its passphrase in the password field")
+	if len(a.locked) > 0 {
+		msg += "; encrypted key " + strings.Join(a.locked, ", ") + " needs its passphrase in the password field"
+	}
+	return errors.New(msg)
 }

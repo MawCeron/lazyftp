@@ -61,3 +61,40 @@ func TestPasswordMethodOnlyWhenGiven(t *testing.T) {
 		t.Fatalf("got %d methods with a password, want 2", n)
 	}
 }
+
+func TestIdentityFileAtAnyPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("SSH_AUTH_SOCK", "")
+	writeKey(t, home, "work_key", nil)
+	writeKey(t, home, "locked_key", []byte("s3cret"))
+	key := func(name string) string { return filepath.Join(home, ".ssh", name) }
+
+	a := &sshAuth{identity: key("work_key")}
+	if s, _ := a.signers(); len(s) != 1 || a.method != "public key (work_key)" || a.identityErr != nil {
+		t.Fatalf("plain key: %d signers, method %q, err %v", len(s), a.method, a.identityErr)
+	}
+
+	a = &sshAuth{identity: "~/.ssh/work_key"}
+	if s, _ := a.signers(); len(s) != 1 {
+		t.Fatalf("~ not expanded: %d signers, err %v", len(s), a.identityErr)
+	}
+
+	a = &sshAuth{identity: key("locked_key"), pass: "s3cret"}
+	if s, _ := a.signers(); len(s) != 1 {
+		t.Fatalf("passphrase: %d signers, err %v", len(s), a.identityErr)
+	}
+
+	a = &sshAuth{identity: key("locked_key")}
+	a.signers()
+	if err := a.explain(os.ErrPermission); !strings.Contains(err.Error(), "passphrase") {
+		t.Fatalf("locked key not explained: %v", err)
+	}
+
+	a = &sshAuth{identity: key("missing")}
+	a.signers()
+	if err := a.explain(os.ErrPermission); !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("missing key not named: %v", err)
+	}
+}
