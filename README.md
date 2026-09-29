@@ -125,6 +125,17 @@ long. Once connected, the status line shows the protocol, user, host and connect
 
 FTPS certificates are verified, so a server with a self-signed certificate is refused.
 
+### Favorites
+
+`Ctrl+S` in the dialog saves the current host, user, port and protocol under a name. `Ctrl+O`
+lists your favorites: `Enter` fills the form, `d` deletes one. Favorites live in `config.toml`
+under your config directory (`~/.config/lazyftp/` on Linux).
+
+The password is never written to that file. While saving, `Tab` toggles "remember password", which
+stores it in the system keyring (Secret Service, Keychain or Credential Manager) so the favorite
+connects without asking. Without a keyring the favorite is still saved and the password is asked
+each time; the Log says so.
+
 ### Transferring files
 
 1. Navigate to the file or directory you want to transfer
@@ -187,6 +198,7 @@ press `?`.
 | `Shift+Tab` | Previous field |
 | `←` / `→` | Change protocol (on the Proto field) |
 | `Enter` | Connect |
+| `Ctrl+S` / `Ctrl+O` | Save the connection as a favorite / open the favorites list |
 | `Esc` | Close, or abandon an attempt in progress |
 
 ---

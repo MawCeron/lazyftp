@@ -19,6 +19,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in the operating system keyring and never in the file.
   ([#36](https://github.com/MawCeron/lazyftp/issues/36))
 
+- Favorite connections: `Ctrl+S` in the connection dialog saves one under a name, `Ctrl+O` lists
+  and fills them, `d` deletes. The password is kept in the system keyring only if asked, and
+  never in `config.toml`. ([#4](https://github.com/MawCeron/lazyftp/issues/4))
+
 ### Changed
 
 - SFTP no longer accepts any host key silently.
