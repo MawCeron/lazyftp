@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
+	"github.com/MawCeron/lazyftp/internal/config"
 )
 
 type connField int
@@ -28,6 +29,12 @@ type ConnectionBar struct {
 	protocol client.Protocol
 	inputs   [fieldCount]textinput.Model
 	focused  connField
+
+	mode      barMode
+	favorites []config.Connection
+	cursor    int
+	name      textinput.Model
+	remember  bool
 }
 
 func NewConnectionBar() ConnectionBar {
@@ -51,7 +58,13 @@ func NewConnectionBar() ConnectionBar {
 	port.Prompt = ""
 	port.SetWidth(8)
 
+	name := textinput.New()
+	name.Prompt = ""
+	name.Placeholder = "Name"
+	name.SetWidth(32)
+
 	bar := ConnectionBar{
+		name: name,
 		inputs: [fieldCount]textinput.Model{
 			fieldHost: host,
 			fieldUser: user,
@@ -96,7 +109,31 @@ func (c ConnectionBar) blur() ConnectionBar {
 func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
+		switch c.mode {
+		case modeList:
+			return c.updateList(msg)
+		case modeSave:
+			return c.updateSave(msg)
+		}
+
 		switch {
+		case key.Matches(msg, keyFavorites):
+			if len(c.favorites) > 0 {
+				c.mode = modeList
+				c.cursor = 0
+			}
+			return c, nil
+
+		case key.Matches(msg, keySaveFavorite):
+			if c.inputs[fieldHost].Value() != "" {
+				c = c.blur()
+				c.mode = modeSave
+				c.name.SetValue(c.inputs[fieldHost].Value())
+				c.name.Focus()
+				c.remember = c.inputs[fieldPass].Value() != ""
+			}
+			return c, nil
+
 		case key.Matches(msg, keyNextField):
 			c = c.blur()
 			c.focused = (c.focused + 1) % fieldCount
@@ -153,6 +190,13 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 // wider than maxWidth. It is always shown focused: the app only renders it
 // at all while it holds focus.
 func (c ConnectionBar) View(maxWidth int) string {
+	switch c.mode {
+	case modeList:
+		return c.listView(maxWidth)
+	case modeSave:
+		return c.saveView(maxWidth)
+	}
+
 	width := 56
 	if width > maxWidth-2 {
 		width = maxWidth - 2
@@ -186,7 +230,7 @@ func (c ConnectionBar) View(maxWidth int) string {
 		row("Pass", c.inputs[fieldPass]),
 	}
 
-	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
+	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · ^O favorites · ^S save · Esc cancel")
 	body := strings.Join(fields, "\n") + "\n\n\n" + hint
 
 	// Exactly as tall as the content needs: this is a fixed-size dialog, not

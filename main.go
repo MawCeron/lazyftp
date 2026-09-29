@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/MawCeron/lazyftp/internal/config"
 	"github.com/MawCeron/lazyftp/internal/ui"
 )
 
@@ -54,6 +55,10 @@ func main() {
 
 	var p *tea.Program
 	app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter, version, *highlightDiff)
+	if path, err := config.Path(); err == nil {
+		cfg, loadErr := config.Load(path)
+		app = app.WithConfig(path, cfg, loadErr)
+	}
 	p = tea.NewProgram(app)
 
 	if _, err := p.Run(); err != nil {

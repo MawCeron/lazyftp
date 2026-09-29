@@ -16,6 +16,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
+	"github.com/MawCeron/lazyftp/internal/config"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
 	"github.com/MawCeron/lazyftp/internal/transfer"
@@ -41,6 +42,9 @@ type App struct {
 	fileInfoFile model.FileInfo
 
 	hostKey *hostKeyPromptMsg
+
+	cfg     config.Config
+	cfgPath string
 
 	client  client.Client
 	manager *transfer.Manager
@@ -411,8 +415,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// free text -- letters never reach Port's input at all -- so both
 		// have nothing to lose.
 		connBarTypingText := a.focus == focusConnectionBar &&
-			a.connBar.focused != fieldProtocol &&
-			a.connBar.focused != fieldPort
+			(a.connBar.mode != modeForm ||
+				a.connBar.focused != fieldProtocol && a.connBar.focused != fieldPort)
 		if key.Matches(msg, keyQuit) && !jumping && !filtering && !connBarTypingText {
 			if a.client != nil {
 				a.client.Disconnect()
@@ -481,11 +485,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.log = a.log.Add("Connection attempt abandoned", LogInfo)
 				return a, nil
 			}
-			if a.focus == focusConnectionBar {
+			if a.focus == focusConnectionBar && a.connBar.mode == modeForm {
 				a.focus = focusLocal
 				return a, nil
 			}
-			if !jumping && !a.focusedPanelHasFilter() {
+			if !jumping && !a.focusedPanelHasFilter() && a.focus != focusConnectionBar {
 				return a, nil
 			}
 			// jumping, or a filter is typing or applied: fall through so the
@@ -502,6 +506,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.spinner, cmd = a.spinner.Update(msg)
 		return a, cmd
+
+	case saveFavoriteMsg:
+		return a.handleSaveFavorite(msg)
+
+	case deleteFavoriteMsg:
+		return a.handleDeleteFavorite(msg)
 
 	case hostKeyPromptMsg:
 		a.hostKey = &msg
@@ -1163,3 +1173,74 @@ type deleteDoneMsg struct {
 }
 
 type TransferDoneMsg = shared.TransferDoneMsg
+
+// WithConfig installs the loaded configuration. A load error means defaults
+// are in use, and the Log is the only place to say so.
+func (a App) WithConfig(path string, c config.Config, loadErr error) App {
+	a.cfgPath = path
+	a.cfg = c
+	a.connBar = a.connBar.SetFavorites(c.Connections)
+	if loadErr != nil {
+		a.log = a.log.Add("Ignoring config file: "+loadErr.Error(), LogError)
+	}
+	return a
+}
+
+func (a App) persistConfig() App {
+	a.connBar = a.connBar.SetFavorites(a.cfg.Connections)
+	if a.cfgPath == "" {
+		return a
+	}
+	if err := config.Save(a.cfgPath, a.cfg); err != nil {
+		a.log = a.log.Add("Could not save config: "+err.Error(), LogError)
+	}
+	return a
+}
+
+func (a App) handleSaveFavorite(msg saveFavoriteMsg) (App, tea.Cmd) {
+	replaced := false
+	conns := append([]config.Connection(nil), a.cfg.Connections...)
+	for i, f := range conns {
+		if f.Name == msg.Conn.Name {
+			conns[i], replaced = msg.Conn, true
+		}
+	}
+	if !replaced {
+		conns = append(conns, msg.Conn)
+	}
+	a.cfg.Connections = conns
+	a = a.persistConfig()
+	a.log = a.log.Add("Saved favorite "+msg.Conn.Name, LogSuccess)
+
+	if msg.Remember && msg.Pass != "" {
+		if err := config.SetSecret(msg.Conn, msg.Pass); err != nil {
+			a.log = a.log.Add("Password not saved: no keyring available. It will be asked on connect", LogError)
+		}
+	}
+	return a, nil
+}
+
+func (a App) handleDeleteFavorite(msg deleteFavoriteMsg) (App, tea.Cmd) {
+	var gone config.Connection
+	var kept []config.Connection
+	for _, f := range a.cfg.Connections {
+		if f.Name == msg.Name {
+			gone = f
+		} else {
+			kept = append(kept, f)
+		}
+	}
+	a.cfg.Connections = kept
+	a = a.persistConfig()
+	a.log = a.log.Add("Deleted favorite "+msg.Name, LogInfo)
+
+	// Two favorites can name the same server and so share one keyring entry.
+	for _, f := range kept {
+		f.Name = gone.Name
+		if f == gone {
+			return a, nil
+		}
+	}
+	config.DeleteSecret(gone)
+	return a, nil
+}

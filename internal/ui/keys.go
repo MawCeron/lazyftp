@@ -74,6 +74,10 @@ var (
 	keyProtocol     = key.NewBinding(key.WithKeys("left", "right"), key.WithHelp("←/→", "protocol")) // display only
 	keySubmit       = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "connect"))
 
+	// Ctrl chords, because the fields are text inputs; ctrl+f/d/k/... already belong to them.
+	keyFavorites    = key.NewBinding(key.WithKeys("ctrl+o"), key.WithHelp("^o", "favorites"))
+	keySaveFavorite = key.NewBinding(key.WithKeys("ctrl+s"), key.WithHelp("^s", "save"))
+
 	// esc means something different per context (abandon a connection
 	// attempt, close the dialog, close help), so matching uses one shared
 	// binding while each context supplies its own help text below.
@@ -141,6 +145,6 @@ func helpGroups() [][]key.Binding {
 		{keyQuit, keyHelp, keyConnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
 		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden, keyMkdir, keyRename, keyDelete},
 		{up, down, pageUp, pageDown},
-		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection},
+		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyFavorites, keySaveFavorite, keyCancelConnection},
 	}
 }
