@@ -25,11 +25,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   port and identity file resolved the way `ssh` resolves them, `Include` included. The file is
   never written. ([#53](https://github.com/MawCeron/lazyftp/issues/53))
 - Favorite connections: `Ctrl+S` in the connection dialog saves one under a name, `Ctrl+O` lists
-  and fills them, `d` deletes. The password is kept in the system keyring only if asked, and
+  connects to them (`Enter`) or fills the form to edit (`e`), `d` deletes. The password is kept in the system keyring only if asked, and
   never in `config.toml`. ([#4](https://github.com/MawCeron/lazyftp/issues/4))
 
 - Recent connections: `Ctrl+R` in the connection dialog lists the last ten servers connected to,
-  kept in `history.toml`, and fills the form. ([#3](https://github.com/MawCeron/lazyftp/issues/3))
+  kept in `history.toml`, and connects, or fills the form with `e`. ([#3](https://github.com/MawCeron/lazyftp/issues/3))
 
 ### Changed
 

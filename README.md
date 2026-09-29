@@ -138,7 +138,7 @@ are not supported.
 ### Recent connections
 
 Every successful connection is remembered — protocol, host, port and user, never the password.
-`Ctrl+R` in the dialog lists the last ten, most recent first; `Enter` fills the form. They live
+`Ctrl+R` in the dialog lists the last ten, most recent first; `Enter` connects and `e` fills the form to edit it first. They live
 in `history.toml` next to `config.toml`. A server that is also a favorite gets its keyring
 password filled in too.
 
@@ -147,12 +147,13 @@ password filled in too.
 `Ctrl+S` in the dialog saves the current host, user, port and protocol under a name. The
 suggested name never collides with an existing one, and typing one that exists asks before
 replacing it, showing the old favorite next to the new. `Ctrl+O`
-lists your favorites: `Enter` fills the form, `d` deletes one. Favorites live in `config.toml`
+lists your favorites: `Enter` connects, `e` fills the form to edit it first, `d` deletes one. Favorites live in `config.toml`
 under your config directory (`~/.config/lazyftp/` on Linux).
 
 The password is never written to that file. While saving, `Tab` toggles "remember password", which
 stores it in the system keyring (Secret Service, Keychain or Credential Manager) so the favorite
-connects without asking. Without a keyring the favorite is still saved and the password is asked
+connects without asking. `Enter` on a favorite with no stored password opens the form on the Pass
+field, except for SFTP, which tries the agent and your keys first. Without a keyring the favorite is still saved and the password is asked
 each time; the Log says so.
 
 ### Transferring files
