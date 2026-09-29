@@ -1288,3 +1288,13 @@ func (a App) recordRecent(c config.Connection) App {
 	}
 	return a
 }
+
+// WithSSHHosts installs the servers found in ~/.ssh/config. A file that cannot
+// be parsed is worth a line in the Log and nothing more.
+func (a App) WithSSHHosts(hosts []config.Connection, loadErr error) App {
+	a.connBar = a.connBar.SetSSHHosts(hosts)
+	if loadErr != nil {
+		a.log = a.log.Add("Ignoring ~/.ssh/config: "+loadErr.Error(), LogError)
+	}
+	return a
+}

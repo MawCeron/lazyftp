@@ -7,6 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.8
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/BurntSushi/toml v1.6.0
+	github.com/kevinburke/ssh_config v1.6.0
 	github.com/mattn/go-runewidth v0.0.24
 	github.com/pkg/sftp v1.13.6
 	github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4
@@ -26,7 +27,6 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
-	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.1 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect

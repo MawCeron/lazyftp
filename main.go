@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/config"
+	"github.com/MawCeron/lazyftp/internal/sshconfig"
 	"github.com/MawCeron/lazyftp/internal/ui"
 )
 
@@ -62,6 +63,10 @@ func main() {
 	if path, err := config.HistoryPath(); err == nil {
 		h, loadErr := config.Load(path)
 		app = app.WithHistory(path, h, loadErr)
+	}
+	if path, err := sshconfig.DefaultPath(); err == nil {
+		hosts, loadErr := sshconfig.Load(path)
+		app = app.WithSSHHosts(hosts, loadErr)
 	}
 	p = tea.NewProgram(app)
 

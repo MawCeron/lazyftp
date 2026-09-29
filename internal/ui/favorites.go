@@ -47,12 +47,19 @@ type deleteFavoriteMsg struct{ Name string }
 // SetFavorites replaces the list; App owns it, the bar only shows it.
 func (c ConnectionBar) SetFavorites(f []config.Connection) ConnectionBar {
 	c.favorites = f
-	if c.cursor >= len(f) {
-		c.cursor = max(0, len(f)-1)
+	if n := len(c.items()); c.cursor >= n {
+		c.cursor = max(0, n-1)
 	}
-	if len(f) == 0 && c.mode == modeList {
+	if len(c.items()) == 0 && c.mode == modeList {
 		c.mode = modeForm
 	}
+	return c
+}
+
+// SetSSHHosts installs the servers read from ~/.ssh/config. They are listed
+// after the favorites and can be filled from but never edited or deleted.
+func (c ConnectionBar) SetSSHHosts(h []config.Connection) ConnectionBar {
+	c.sshHosts = h
 	return c
 }
 
@@ -82,7 +89,7 @@ func (c ConnectionBar) items() []config.Connection {
 	if c.mode == modeHistory {
 		return c.recent
 	}
-	return c.favorites
+	return append(append([]config.Connection(nil), c.favorites...), c.sshHosts...)
 }
 
 // SetRecent replaces the history the same way SetFavorites replaces favorites.
@@ -134,7 +141,7 @@ func (c ConnectionBar) updateList(msg tea.KeyPressMsg) (ConnectionBar, tea.Cmd) 
 		c.cursor = min(len(c.items())-1, c.cursor+1)
 	case key.Matches(msg, keySubmit):
 		return c.fill(c.items()[c.cursor]), nil
-	case key.Matches(msg, keyListDelete) && c.mode == modeList:
+	case key.Matches(msg, keyListDelete) && c.mode == modeList && c.cursor < len(c.favorites):
 		name := c.favorites[c.cursor].Name
 		return c, func() tea.Msg { return deleteFavoriteMsg{Name: name} }
 	}
@@ -220,11 +227,15 @@ func (c ConnectionBar) listView(maxWidth int) string {
 		if f.Name != "" {
 			line = f.Name + "  " + line
 		}
-		line = runewidth.Truncate(line, inner-2, "...")
+		tag := ""
+		if c.mode == modeList && i >= len(c.favorites) {
+			tag = "ssh "
+		}
+		line = runewidth.Truncate(line, inner-2-len(tag), "...")
 		if i == c.cursor {
-			line = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("> " + line)
+			line = lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("> " + tag + line)
 		} else {
-			line = "  " + line
+			line = "  " + lipgloss.NewStyle().Foreground(colorMuted).Render(tag) + line
 		}
 		rows = append(rows, line)
 	}

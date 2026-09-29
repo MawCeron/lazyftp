@@ -34,6 +34,7 @@ type ConnectionBar struct {
 	mode      barMode
 	favorites []config.Connection
 	recent    []config.Connection
+	sshHosts  []config.Connection
 	cursor    int
 	name      textinput.Model
 	remember  bool
@@ -129,7 +130,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 
 		switch {
 		case key.Matches(msg, keyFavorites):
-			if len(c.favorites) > 0 {
+			if len(c.favorites)+len(c.sshHosts) > 0 {
 				c.mode = modeList
 				c.cursor = 0
 			}

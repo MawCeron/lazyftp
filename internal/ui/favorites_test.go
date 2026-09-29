@@ -251,3 +251,31 @@ func TestConnectionDialogFitsTheMinimumTerminal(t *testing.T) {
 		t.Fatalf("dialog is %d rows, the canvas has %d", h, minHeight-2)
 	}
 }
+
+var sshHost = config.Connection{Name: "web", Host: "web.example.com", User: "deploy", Port: 22, Protocol: "SFTP", IdentityFile: "~/.ssh/web_key"}
+
+func TestSSHConfigHostsAreListedAfterFavoritesAndFillTheForm(t *testing.T) {
+	bar := NewConnectionBar().SetFavorites([]config.Connection{fav}).SetSSHHosts([]config.Connection{sshHost})
+	bar, _ = bar.Update(ctrlO)
+	if v := bar.View(80); strings.Count(v, "ssh") != 1 || strings.Index(v, "nas") > strings.Index(v, "ssh") {
+		t.Fatalf("exactly one tag, on the entry after the favorites:\n%s", v)
+	}
+
+	bar, _ = bar.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	bar, cmd := bar.Update(keyMsg("d"))
+	if cmd != nil {
+		t.Fatal("an ssh_config entry offered itself for deletion")
+	}
+	bar, _ = bar.Update(enter)
+	if bar.inputs[fieldHost].Value() != "web.example.com" || bar.inputs[fieldUser].Value() != "deploy" ||
+		bar.inputs[fieldKey].Value() != "~/.ssh/web_key" || bar.protocol != client.SFTP {
+		t.Fatalf("form not filled: %+v", bar.inputs)
+	}
+}
+
+func TestSSHConfigAloneOpensTheList(t *testing.T) {
+	bar := NewConnectionBar().SetSSHHosts([]config.Connection{sshHost})
+	if bar, _ = bar.Update(ctrlO); bar.mode != modeList {
+		t.Fatal("no favorites but ssh hosts, and ctrl+o did nothing")
+	}
+}
