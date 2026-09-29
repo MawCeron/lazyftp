@@ -17,6 +17,9 @@ type Connection struct {
 	User     string `toml:"user"`
 	Port     int    `toml:"port"`
 	Protocol string `toml:"protocol"`
+
+	// A path, not a secret: the key stays where it is.
+	IdentityFile string `toml:"identity_file,omitempty"`
 }
 
 type Config struct {
