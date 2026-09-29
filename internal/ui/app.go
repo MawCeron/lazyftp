@@ -454,6 +454,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, keyConnect):
 			a.focus = focusConnectionBar
 			return a, nil
+		case key.Matches(msg, keyDisconnect) && a.connected && !jumping && !filtering:
+			return a.handleDisconnect()
 		// Tab stays within whichever group has focus -- Local/Remote or
 		// Log/Processes; Shift+Tab is what moves between the two groups.
 		// Tab alone used to be reversible on its own when there were only
@@ -566,6 +568,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, filterCmd
 
 	case RemoteDirLoadedMsg:
+		if !a.connected {
+			return a, nil
+		}
 		var filterCmd tea.Cmd
 		a.remote, filterCmd = a.remote.WithFiles(msg.Files, msg.Path)
 		_, panelH, _ := a.heights()
@@ -743,6 +748,11 @@ func (a App) statusLine() string {
 	bar := lipgloss.NewStyle().Background(colorBarBg)
 	detailStyle := bar.Foreground(colorMuted)
 
+	var rightPill string
+	if marked := len(a.local.markedFiles()) + len(a.remote.markedFiles()); marked > 0 {
+		rightPill = pill(colorMarked, fmt.Sprintf("%d MARKED", marked))
+	}
+
 	var leftPill, detail string
 	switch {
 	case a.connecting:
@@ -754,15 +764,16 @@ func (a App) statusLine() string {
 		who := fmt.Sprintf("%s@%s", a.connUser, a.connAddr)
 		leftPill = pill(colorSuccess, a.connProtocol.String())
 		detail = detailStyle.Foreground(colorPrimary).Render(who)
+		// Only when there is room: the footer is capped at five keys, so the
+		// status line is where this one lives.
+		hinted := detail + detailStyle.Render("   Ctrl+X to disconnect")
+		if lipgloss.Width(leftPill)+lipgloss.Width(hinted)+lipgloss.Width(rightPill) < a.width {
+			detail = hinted
+		}
 
 	default:
 		leftPill = pill(colorMuted, "OFFLINE")
 		detail = detailStyle.Render("Ctrl+L to connect")
-	}
-
-	var rightPill string
-	if marked := len(a.local.markedFiles()) + len(a.remote.markedFiles()); marked > 0 {
-		rightPill = pill(colorMarked, fmt.Sprintf("%d MARKED", marked))
 	}
 
 	plainWidth := a.width - lipgloss.Width(leftPill) - lipgloss.Width(rightPill)
@@ -864,7 +875,11 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	}
 
 	if a.client != nil {
-		a.client.Disconnect()
+		if n := a.transfersRunning(); n > 0 {
+			a.log = a.log.Add(fmt.Sprintf("Not connecting elsewhere: %d transfer(s) still running on %s", n, a.connAddr), LogError)
+			return a, nil
+		}
+		a = a.closeConnection()
 	}
 
 	// A typed nil would satisfy the io.Writer interface and be written to.
@@ -903,6 +918,48 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	// The spinner keeps the update loop turning, which advances the elapsed time
 	// and drains buffered protocol lines into the log.
 	return a, tea.Batch(attempt, a.spinner.Tick)
+}
+
+func (a App) transfersRunning() int {
+	if a.manager == nil {
+		return 0
+	}
+	return a.manager.Active()
+}
+
+// closeConnection ends the current session and leaves the app OFFLINE with an
+// empty remote panel, logging the outcome instead of discarding it.
+func (a App) closeConnection() App {
+	if a.client == nil {
+		return a
+	}
+	if err := a.client.Disconnect(); err != nil {
+		a.log = a.log.Add("Error closing connection to "+a.connAddr+": "+err.Error(), LogError)
+	} else {
+		a.log = a.log.Add("Disconnected from "+a.connAddr, LogInfo)
+	}
+
+	a.client, a.manager, a.connected = nil, nil, false
+	a.connUser, a.connAddr = "", ""
+
+	hidden := a.remote.showHidden
+	_, panelH, _ := a.heights()
+	a.remote = NewPanel("Remote", false).SetSize(a.panelWidth(), panelH)
+	a.remote.showHidden = hidden
+	if a.focus == focusRemote {
+		a.focus = focusLocal
+	}
+	return a
+}
+
+// A transfer cannot be cancelled yet, so one still running would be left
+// writing to a closed connection; disconnecting waits for it instead.
+func (a App) handleDisconnect() (App, tea.Cmd) {
+	if n := a.transfersRunning(); n > 0 {
+		a.log = a.log.Add(fmt.Sprintf("Not disconnecting: %d transfer(s) still running. Wait for them to finish", n), LogError)
+		return a, nil
+	}
+	return a.closeConnection(), nil
 }
 
 func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {

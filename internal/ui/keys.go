@@ -22,6 +22,7 @@ var (
 	keyQuit       = key.NewBinding(key.WithKeys("q", "Q"), key.WithHelp("q", "quit"))
 	keyHelp       = key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help"))
 	keyConnect    = key.NewBinding(key.WithKeys("ctrl+l"), key.WithHelp("ctrl+l", "connection"))
+	keyDisconnect = key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("ctrl+x", "disconnect"))
 	keySwitch     = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "switch panel"))
 	keySwitchZone = key.NewBinding(key.WithKeys("shift+tab"), key.WithHelp("shift+tab", "switch group"))
 	keyUpload     = key.NewBinding(key.WithKeys("U"), key.WithHelp("U", "upload marked"))
@@ -163,7 +164,7 @@ var helpGroupTitles = []string{"Global", "File panels", "Log & Processes", "Conn
 func helpGroups() [][]key.Binding {
 	up, down, pageUp, pageDown := scrollKeys()
 	return [][]key.Binding{
-		{keyQuit, keyHelp, keyConnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
+		{keyQuit, keyHelp, keyConnect, keyDisconnect, keySwitch, keySwitchZone, keyUpload, keyDownload},
 		{keyOpen, keyUp, keyMark, keyTransfer, keyRefresh, keySortNext, keySortFlip, keyJump, keyToggleHidden, keyMkdir, keyRename, keyDelete},
 		{up, down, pageUp, pageDown},
 		{keyNextField, keyPrevField, keyProtocol, keySubmit, keyFavorites, keyHistory, keySaveFavorite, keyCancelConnection},
