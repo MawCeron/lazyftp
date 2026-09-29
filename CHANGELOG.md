@@ -5,6 +5,24 @@ All notable changes to lazyftp are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- SFTP authenticates with the ssh-agent and the default keys in `~/.ssh` before falling back to
+  the password, and the Log says which method worked. Encrypted keys take their passphrase from
+  the password field. ([#37](https://github.com/MawCeron/lazyftp/issues/37))
+- SFTP checks host keys against `~/.ssh/known_hosts`. An unknown host asks for confirmation,
+  showing its fingerprint, and a changed key refuses the connection.
+  ([#38](https://github.com/MawCeron/lazyftp/issues/38))
+- A configuration layer: `config.toml` in the per-platform config directory, with passwords kept
+  in the operating system keyring and never in the file.
+  ([#36](https://github.com/MawCeron/lazyftp/issues/36))
+
+### Changed
+
+- SFTP no longer accepts any host key silently.
+
 ## [0.3.1] - 2026-09-07
 
 Two Windows-consistency fixes and two layout/discoverability fixes, found in a post-release
