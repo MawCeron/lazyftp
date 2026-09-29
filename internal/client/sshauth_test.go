@@ -32,6 +32,7 @@ func writeKey(t *testing.T, home, name string, passphrase []byte) {
 func TestSignersDefaultKeysAndPassphrase(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	t.Setenv("SSH_AUTH_SOCK", "")
 	writeKey(t, home, "id_ed25519", nil)
 	writeKey(t, home, "id_rsa", []byte("s3cret"))
