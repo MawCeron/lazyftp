@@ -17,6 +17,14 @@ func iconMark() string {
 	return "✓"
 }
 
+// iconChecked is a ticked checkbox; the unticked one is "[ ]" either way.
+func iconChecked() string {
+	if nerdFonts {
+		return "[" + iconMark() + "]"
+	}
+	return "[x]"
+}
+
 func iconDone() string {
 	if nerdFonts {
 		return "" // nf-fa-check

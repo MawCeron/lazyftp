@@ -263,7 +263,7 @@ func (c ConnectionBar) saveView(maxWidth int) string {
 	labelStyle := lipgloss.NewStyle().Foreground(colorEmphasis).Bold(true).Width(10)
 	box := "[ ]"
 	if c.remember {
-		box = "[x]"
+		box = iconChecked()
 	}
 	pass := "no password typed"
 	if c.inputs[fieldPass].Value() != "" {

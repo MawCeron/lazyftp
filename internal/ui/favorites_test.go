@@ -361,3 +361,19 @@ func TestNoFooterShowsMoreThanFiveKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestRememberPasswordTickFollowsTheFontSetting(t *testing.T) {
+	t.Cleanup(func() { SetNerdFonts(true) })
+	bar := fillField(NewConnectionBar(), fieldHost, "nas.lan")
+	bar = fillField(bar, fieldPass, "hunter2")
+	bar, _ = bar.Update(ctrlS)
+
+	SetNerdFonts(true)
+	if v := bar.View(80); strings.Contains(v, "[x]") || !strings.Contains(v, iconMark()) {
+		t.Errorf("with Nerd Fonts the tick is the check glyph:\n%s", v)
+	}
+	SetNerdFonts(false)
+	if v := bar.View(80); !strings.Contains(v, "[x]") {
+		t.Errorf("without Nerd Fonts the tick stays [x]:\n%s", v)
+	}
+}
