@@ -36,6 +36,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Recent connections: `Ctrl+R` in the connection dialog lists the last ten servers connected to,
   kept in `history.toml`, and connects, or fills the form with `e`. ([#3](https://github.com/MawCeron/lazyftp/issues/3))
 
+- `Ctrl+X` disconnects without quitting: the app goes OFFLINE with an empty remote panel, and the
+  status line shows the key while connected. It is refused while a transfer is running, since
+  transfers cannot be cancelled yet and would keep writing to a closed connection. Connecting to
+  another server is refused the same way. ([#80](https://github.com/MawCeron/lazyftp/issues/80))
+
+### Fixed
+
+- Connecting while already connected closed the old session without a word, and any error from
+  closing it was thrown away. Both are now logged, and the SFTP client reports the error it used to
+  swallow. ([#89](https://github.com/MawCeron/lazyftp/issues/89))
+- A remote listing arriving after a disconnect no longer repopulates the remote panel.
+
 ### Changed
 
 - SFTP no longer accepts any host key silently.

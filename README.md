@@ -191,6 +191,7 @@ press `?`.
 | Key | Action |
 |-----|--------|
 | `Ctrl+L` | Open the connection dialog |
+| `Ctrl+X` | Disconnect without quitting; refused while a transfer is running |
 | `?` | Help screen |
 | `Tab` | Switch panel within the current group (Local/Remote, or Log/Processes) |
 | `Shift+Tab` | Switch between the Local/Remote group and the Log/Processes group |
