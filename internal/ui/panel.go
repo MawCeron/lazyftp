@@ -299,7 +299,6 @@ func NewPanel(title string, local bool) Panel {
 		jumpInput:   jump,
 		createInput: create,
 		renameInput: rename,
-		showHidden:  true,
 	}
 }
 

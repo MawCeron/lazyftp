@@ -811,38 +811,34 @@ func TestToggleHiddenFilesShowsAndHidesDotfiles(t *testing.T) {
 	}
 	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
 
+	if len(p.list.Items()) != 1 || p.list.Items()[0].(fileItem).file.Name != "visible.txt" {
+		t.Fatalf("hidden files should be hidden by default, got %d items", len(p.list.Items()))
+	}
+
+	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
 	if len(p.list.Items()) != 2 {
-		t.Fatalf("hidden files should be visible by default, got %d items", len(p.list.Items()))
+		t.Fatalf("ctrl+h should show dotfiles, got %d items", len(p.list.Items()))
 	}
 
 	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
 	if len(p.list.Items()) != 1 {
-		t.Fatalf("ctrl+h should hide dotfiles, got %d items", len(p.list.Items()))
-	}
-	if p.list.Items()[0].(fileItem).file.Name != "visible.txt" {
-		t.Error("the remaining item after hiding dotfiles should be the non-hidden file")
-	}
-
-	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
-	if len(p.list.Items()) != 2 {
-		t.Fatalf("a second ctrl+h should show dotfiles again, got %d items", len(p.list.Items()))
+		t.Fatalf("a second ctrl+h should hide dotfiles again, got %d items", len(p.list.Items()))
 	}
 }
 
-// Toggling hidden files while the cursor sits on a file that remains visible
-// must not move the cursor -- only files() shrinking should ever do that.
+// Toggling hidden files while the cursor sits on a file that stays visible
+// must not move the cursor, even though showing dotfiles shifts its index.
 func TestToggleHiddenKeepsCursorOnTheSameFile(t *testing.T) {
 	files := []model.FileInfo{
 		{Name: ".hidden", IsHidden: true},
 		{Name: "kept.txt"},
 	}
 	p, _ := NewPanel("Local", true).WithFiles(files, "/tmp")
-	p.list.Select(1) // "kept.txt"
 
 	p, _ = p.Update(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
 	item, ok := p.list.SelectedItem().(fileItem)
 	if !ok || item.file.Name != "kept.txt" {
-		t.Errorf("selection after hiding dotfiles = %+v, want kept.txt", item.file)
+		t.Errorf("selection after showing dotfiles = %+v, want kept.txt", item.file)
 	}
 }
 
