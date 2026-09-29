@@ -20,7 +20,10 @@ type SFTPClient struct {
 	sshConn *ssh.Client
 	client  *sftp.Client
 	auth    string
+	prompt  HostKeyPrompt
 }
+
+func (c *SFTPClient) SetHostKeyPrompt(p HostKeyPrompt) { c.prompt = p }
 
 // AuthMethod names how the last successful Connect authenticated.
 func (c *SFTPClient) AuthMethod() string { return c.auth }
@@ -30,17 +33,6 @@ func NewSFTPClient() *SFTPClient {
 }
 
 func (c *SFTPClient) Connect(host, user, pass string, port int) error {
-	auth := &sshAuth{pass: pass}
-	defer auth.close()
-
-	config := &ssh.ClientConfig{
-		User: user,
-		Auth: auth.methods(),
-		// TODO: verificar host key en versiones futuras
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         dialTimeout,
-	}
-
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 
 	// ssh.Dial bounds the TCP dial only. A host that accepts without speaking
@@ -50,6 +42,27 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 		return fmt.Errorf("unable to connect to %s: %w", addr, err)
 	}
 	tcpConn.SetDeadline(time.Now().Add(dialTimeout))
+
+	path, err := knownHostsPath()
+	if err != nil {
+		tcpConn.Close()
+		return err
+	}
+	hostKeys, err := hostKeyCallback(path, c.prompt, tcpConn)
+	if err != nil {
+		tcpConn.Close()
+		return fmt.Errorf("unable to read known_hosts: %w", err)
+	}
+
+	auth := &sshAuth{pass: pass}
+	defer auth.close()
+
+	config := &ssh.ClientConfig{
+		User:            user,
+		Auth:            auth.methods(),
+		HostKeyCallback: hostKeys,
+		Timeout:         dialTimeout,
+	}
 
 	conn, chans, reqs, err := ssh.NewClientConn(tcpConn, addr, config)
 	if err != nil {
