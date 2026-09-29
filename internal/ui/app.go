@@ -40,6 +40,8 @@ type App struct {
 	fileInfoOpen bool
 	fileInfoFile model.FileInfo
 
+	hostKey *hostKeyPromptMsg
+
 	client  client.Client
 	manager *transfer.Manager
 	program func() *tea.Program
@@ -75,6 +77,12 @@ type connectedMsg struct {
 	addr     string
 	user     string
 	protocol client.Protocol
+}
+
+// reply is buffered so answering never blocks the update loop.
+type hostKeyPromptMsg struct {
+	host, keyType, fingerprint string
+	reply                      chan bool
 }
 
 type connectFailedMsg struct {
@@ -355,6 +363,20 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 
+		// The host key question holds the connection attempt open, so nothing
+		// else may take the keyboard until it is answered.
+		if a.hostKey != nil {
+			switch {
+			case key.Matches(msg, keyHostKeyTrust):
+				a.hostKey.reply <- true
+				a.hostKey = nil
+			case key.Matches(msg, keyHostKeyReject):
+				a.hostKey.reply <- false
+				a.hostKey = nil
+			}
+			return a, nil
+		}
+
 		// The help screen is modal: while it's open, every key either closes
 		// it or is swallowed, same as the connection dialog owning the
 		// keyboard while it has focus.
@@ -480,6 +502,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.spinner, cmd = a.spinner.Update(msg)
 		return a, cmd
+
+	case hostKeyPromptMsg:
+		a.hostKey = &msg
+		return a, nil
 
 	case connectedMsg:
 		return a.handleConnected(msg)
@@ -637,6 +663,9 @@ func (a App) render() string {
 	if a.fileInfoOpen {
 		return a.withOverlay(base, fileInfoView(a.fileInfoFile, a.width))
 	}
+	if a.hostKey != nil {
+		return a.withOverlay(base, hostKeyView(*a.hostKey, a.width))
+	}
 
 	return base
 }
@@ -750,6 +779,7 @@ func (a App) hintsView() string {
 		connecting:   a.connecting,
 		helpOpen:     a.helpOpen,
 		fileInfoOpen: a.fileInfoOpen,
+		hostKey:      a.hostKey != nil,
 		jumping:      a.focusedPanelJumping(),
 		creatingDir:  a.focusedPanelCreatingDir(),
 		renaming:     a.focusedPanelRenaming(),
@@ -821,6 +851,14 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 		logger = a.protoLog
 	}
 	c := client.New(msg.Protocol, logger)
+	if s, ok := c.(interface{ SetHostKeyPrompt(client.HostKeyPrompt) }); ok {
+		program := a.program
+		s.SetHostKeyPrompt(func(host, keyType, fingerprint string) bool {
+			reply := make(chan bool, 1)
+			program().Send(hostKeyPromptMsg{host: host, keyType: keyType, fingerprint: fingerprint, reply: reply})
+			return <-reply
+		})
+	}
 	addr := net.JoinHostPort(msg.Host, strconv.Itoa(port))
 
 	a.connecting = true

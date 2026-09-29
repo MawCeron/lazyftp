@@ -82,6 +82,9 @@ var (
 	keyCancelConnection = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close"))
 	keyCancelHelp       = key.NewBinding(key.WithKeys("esc", "?"), key.WithHelp("esc", "close"))
 	keyCancelFileInfo   = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close"))
+
+	keyHostKeyTrust  = key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "trust host"))
+	keyHostKeyReject = key.NewBinding(key.WithKeys("n", "esc"), key.WithHelp("n/esc", "reject"))
 )
 
 // footerKeyMap drives the always-visible footer: only what's actionable
@@ -91,6 +94,7 @@ type footerKeyMap struct {
 	connecting   bool
 	helpOpen     bool
 	fileInfoOpen bool
+	hostKey      bool
 	jumping      bool
 	creatingDir  bool
 	renaming     bool
@@ -101,6 +105,8 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 	switch {
 	case k.connecting:
 		return []key.Binding{keyCancelConnecting}
+	case k.hostKey:
+		return []key.Binding{keyHostKeyTrust, keyHostKeyReject}
 	case k.helpOpen:
 		return []key.Binding{keyCancelHelp}
 	case k.fileInfoOpen:
