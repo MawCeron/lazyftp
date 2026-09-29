@@ -127,7 +127,9 @@ FTPS certificates are verified, so a server with a self-signed certificate is re
 
 ### Favorites
 
-`Ctrl+S` in the dialog saves the current host, user, port and protocol under a name. `Ctrl+O`
+`Ctrl+S` in the dialog saves the current host, user, port and protocol under a name. The
+suggested name never collides with an existing one, and typing one that exists asks before
+replacing it, showing the old favorite next to the new. `Ctrl+O`
 lists your favorites: `Enter` fills the form, `d` deletes one. Favorites live in `config.toml`
 under your config directory (`~/.config/lazyftp/` on Linux).
 
