@@ -36,7 +36,12 @@ type Job struct {
 type Manager struct {
 	client  client.Client
 	program func() *tea.Program
+	active  atomic.Int32
 }
+
+// Active counts jobs still running, a recursive directory transfer being one
+// job for its whole tree, including the moments between its files.
+func (m *Manager) Active() int { return int(m.active.Load()) }
 
 func NewManager(c client.Client, p func() *tea.Program) *Manager {
 	return &Manager{
@@ -47,6 +52,7 @@ func NewManager(c client.Client, p func() *tea.Program) *Manager {
 
 func (m *Manager) Enqueue(jobs []Job) {
 	for _, job := range jobs {
+		m.active.Add(1)
 		switch {
 		case job.File.IsDir() && job.Direction == Upload:
 			go m.guard(job, m.runDir)
@@ -62,6 +68,7 @@ func (m *Manager) Enqueue(jobs []Job) {
 // them. Recursive directory transfers share these frames, so one guard covers
 // the whole tree.
 func (m *Manager) guard(job Job, run func(Job)) {
+	defer m.active.Add(-1)
 	defer func() {
 		r := recover()
 		if r == nil {
