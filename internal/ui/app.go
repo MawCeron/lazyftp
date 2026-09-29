@@ -790,6 +790,7 @@ func (a App) hintsView() string {
 		helpOpen:     a.helpOpen,
 		fileInfoOpen: a.fileInfoOpen,
 		hostKey:      a.hostKey != nil,
+		barMode:      a.connBar.mode,
 		jumping:      a.focusedPanelJumping(),
 		creatingDir:  a.focusedPanelCreatingDir(),
 		renaming:     a.focusedPanelRenaming(),

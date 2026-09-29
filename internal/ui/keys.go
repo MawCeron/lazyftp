@@ -87,6 +87,16 @@ var (
 	keyCancelHelp       = key.NewBinding(key.WithKeys("esc", "?"), key.WithHelp("esc", "close"))
 	keyCancelFileInfo   = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "close"))
 
+	// Display copies for the connection dialog's favorites modes; the matching
+	// bindings live in favorites.go.
+	keyListMove    = key.NewBinding(key.WithKeys("up", "down"), key.WithHelp("↑/↓", "select"))
+	keyListFill    = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "fill"))
+	keyListRemove  = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete"))
+	keySaveConfirm = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "save"))
+	keySavePass    = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "password"))
+	keyReplaceOK   = key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "replace"))
+	keyBack        = key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back"))
+
 	keyHostKeyTrust  = key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "trust host"))
 	keyHostKeyReject = key.NewBinding(key.WithKeys("n", "esc"), key.WithHelp("n/esc", "reject"))
 )
@@ -99,6 +109,7 @@ type footerKeyMap struct {
 	helpOpen     bool
 	fileInfoOpen bool
 	hostKey      bool
+	barMode      barMode
 	jumping      bool
 	creatingDir  bool
 	renaming     bool
@@ -123,6 +134,12 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 		return []key.Binding{keyRenameConfirm, keyRenameCancel}
 	case k.deleting:
 		return []key.Binding{keyDeleteConfirm, keyDeleteCancel}
+	case k.focus == focusConnectionBar && k.barMode == modeList:
+		return []key.Binding{keyListMove, keyListFill, keyListRemove, keyBack}
+	case k.focus == focusConnectionBar && k.barMode == modeSave:
+		return []key.Binding{keySaveConfirm, keySavePass, keyBack}
+	case k.focus == focusConnectionBar && k.barMode == modeReplace:
+		return []key.Binding{keyReplaceOK, keyBack}
 	case k.focus == focusConnectionBar:
 		return []key.Binding{keyNextField, keyPrevField, keyProtocol, keySubmit, keyCancelConnection}
 	case k.focus == focusLog || k.focus == focusProcesses:

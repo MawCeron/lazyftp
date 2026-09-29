@@ -186,3 +186,16 @@ func TestReplacingChangesServerReleasesItsPassword(t *testing.T) {
 		t.Fatalf("%d favorites, want 1", n)
 	}
 }
+
+func TestFooterFollowsTheDialogMode(t *testing.T) {
+	a := NewApp(nil, false, nil, "dev", false)
+	a.width = 100
+	a.focus = focusConnectionBar
+	for mode, want := range map[barMode]string{modeList: "fill", modeSave: "password", modeReplace: "replace"} {
+		a.connBar.mode = mode
+		got := a.hintsView()
+		if !strings.Contains(got, want) || strings.Contains(got, "close") {
+			t.Errorf("mode %d: footer %q, want %q and no \"close\"", mode, got, want)
+		}
+	}
+}
