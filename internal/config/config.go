@@ -25,12 +25,32 @@ type Config struct {
 
 // Path is os.UserConfigDir per platform: $XDG_CONFIG_HOME or ~/.config on
 // Linux, %AppData% on Windows, ~/Library/Application Support on macOS.
-func Path() (string, error) {
+func Path() (string, error) { return inConfigDir("config.toml") }
+
+// HistoryPath is a file of its own: the app rewrites it after every
+// connection, and config.toml is the one the user edits by hand.
+func HistoryPath() (string, error) { return inConfigDir("history.toml") }
+
+func inConfigDir(name string) (string, error) {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "lazyftp", "config.toml"), nil
+	return filepath.Join(dir, "lazyftp", name), nil
+}
+
+// Push puts c first, dropping an earlier copy of the same server and whatever
+// falls past max. The name is ignored: history entries are servers, not favorites.
+func Push(list []Connection, c Connection, max int) []Connection {
+	c.Name = ""
+	out := []Connection{c}
+	for _, x := range list {
+		x.Name = ""
+		if x != c && len(out) < max {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // Load never fails the caller: a missing file is the first run, and a

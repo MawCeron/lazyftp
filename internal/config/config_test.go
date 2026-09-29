@@ -56,3 +56,17 @@ func TestSecretRoundTrip(t *testing.T) {
 		t.Fatalf("want ErrNoSecret after delete, got %v", err)
 	}
 }
+
+func TestPushIsMostRecentFirstWithoutDuplicates(t *testing.T) {
+	a, b, c := conn, conn, conn
+	a.Host, b.Host, c.Host = "a", "b", "c"
+	list := Push(nil, a, 2)
+	list = Push(list, b, 2)
+	list = Push(list, a, 2)
+	if len(list) != 2 || list[0].Host != "a" || list[1].Host != "b" {
+		t.Fatalf("got %v", list)
+	}
+	if list = Push(list, c, 2); len(list) != 2 || list[1].Host != "a" {
+		t.Fatalf("oldest not dropped: %v", list)
+	}
+}
