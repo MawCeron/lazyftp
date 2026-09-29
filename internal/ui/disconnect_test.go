@@ -175,3 +175,39 @@ func TestStatusLineHintsTheDisconnectKeyOnlyWhenItFits(t *testing.T) {
 		t.Error("hint crowded a narrow status line")
 	}
 }
+
+func TestAReopenedSessionIsLoggedAndNothingElseChanges(t *testing.T) {
+	stub := &stubClient{}
+	a := connectedTo(stub, nil)
+	a.focus = focusRemote
+	got, _ := a.Update(sessionMsg{client: stub})
+	a = got.(App)
+	if !a.connected || a.focus != focusRemote || !strings.Contains(lastLog(a), "reopened") {
+		t.Fatalf("connected=%v focus=%v log=%q", a.connected, a.focus, lastLog(a))
+	}
+}
+
+func TestASessionThatCannotBeReopenedGoesOfflineWithTheDialogReady(t *testing.T) {
+	stub := &stubClient{}
+	a := connectedTo(stub, nil)
+	a.connBar = fillField(a.connBar, fieldHost, "nas.lan")
+	a.focus = focusRemote
+
+	got, _ := a.Update(sessionMsg{client: stub, err: errors.New("connection refused")})
+	a = got.(App)
+	if a.connected || a.focus != focusConnectionBar || a.connBar.inputs[fieldHost].Value() != "nas.lan" {
+		t.Fatalf("connected=%v focus=%v host=%q", a.connected, a.focus, a.connBar.inputs[fieldHost].Value())
+	}
+	if l := lastLog(a); !strings.Contains(l, "connection refused") || !strings.Contains(l, "Enter") {
+		t.Errorf("log %q", l)
+	}
+}
+
+func TestAReportFromAnOldConnectionIsIgnored(t *testing.T) {
+	old, current := &stubClient{}, &stubClient{}
+	a := connectedTo(current, nil)
+	got, _ := a.Update(sessionMsg{client: old, err: errors.New("late")})
+	if !got.(App).connected {
+		t.Fatal("a dead connection the user already left took the live one down")
+	}
+}

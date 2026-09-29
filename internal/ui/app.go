@@ -97,6 +97,13 @@ type hostKeyPromptMsg struct {
 	reply                      chan bool
 }
 
+// sessionMsg reports what the SFTP client did about a dropped session: nil err
+// means it was reopened.
+type sessionMsg struct {
+	client client.Client
+	err    error
+}
+
 type connectFailedMsg struct {
 	seq int
 	err error
@@ -521,6 +528,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.spinner, cmd = a.spinner.Update(msg)
 		return a, cmd
 
+	case sessionMsg:
+		return a.handleSession(msg)
+
 	case saveFavoriteMsg:
 		return a.handleSaveFavorite(msg)
 
@@ -892,6 +902,14 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	if s, ok := c.(interface{ SetIdentityFile(string) }); ok {
 		s.SetIdentityFile(strings.TrimSpace(msg.Identity))
 	}
+	if s, ok := c.(interface{ SetSessionNotifier(func(error)) }); ok {
+		program := a.program
+		s.SetSessionNotifier(func(err error) {
+			if p := program(); p != nil {
+				p.Send(sessionMsg{client: c, err: err})
+			}
+		})
+	}
 	if s, ok := c.(interface{ SetHostKeyPrompt(client.HostKeyPrompt) }); ok {
 		program := a.program
 		s.SetHostKeyPrompt(func(host, keyType, fingerprint string) bool {
@@ -960,6 +978,23 @@ func (a App) handleDisconnect() (App, tea.Cmd) {
 		return a, nil
 	}
 	return a.closeConnection(), nil
+}
+
+func (a App) handleSession(msg sessionMsg) (App, tea.Cmd) {
+	if msg.client != a.client {
+		return a, nil
+	}
+	if msg.err == nil {
+		a.log = a.log.Add("The SFTP session was lost and has been reopened", LogInfo)
+		return a, nil
+	}
+
+	// The dialog still holds what was typed, so Enter is the whole recovery.
+	addr := a.connAddr
+	a = a.closeConnection()
+	a.log = a.log.Add("Connection to "+addr+" lost and could not be reopened: "+msg.err.Error()+". Press Enter to reconnect", LogError)
+	a.focus = focusConnectionBar
+	return a, nil
 }
 
 func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
