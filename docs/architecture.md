@@ -283,6 +283,19 @@ unusable for IPv6 hosts, and `go vet` will tell you so.
 - **The control dialogue goes to an injected `io.Writer`**, which `--verbose` points at a
   `shared.LineBuffer`. SFTP has no equivalent dialogue and ignores the writer.
 
+## Configuration and secrets
+
+`internal/config` owns everything persisted between runs.
+
+- **Location:** `config.toml` under `os.UserConfigDir()/lazyftp/`, so `$XDG_CONFIG_HOME` or
+  `~/.config` on Linux, `%AppData%` on Windows, `~/Library/Application Support` on macOS.
+- **Format:** TOML, hand-editable. A missing file is the first run and a malformed one yields
+  the defaults plus an error for the Log; neither stops startup.
+- **Secrets never touch the file.** `Connection` has no password field. Passwords live in the
+  operating system keyring (Secret Service, Keychain, Credential Manager), keyed by
+  `protocol://user@host:port`, so a favorite connects without asking. With no keyring available,
+  `Secret` returns `ErrNoSecret` and the caller asks for the password as it does today.
+
 ## Rules that are easy to break
 
 Each of these was learned by breaking it. Some restate, as a rule you can scan, what earlier
