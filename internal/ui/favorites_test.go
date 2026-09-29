@@ -124,7 +124,11 @@ func TestDialogsFitTheirBox(t *testing.T) {
 	bar := fillField(NewConnectionBar(), fieldHost, "nas.lan").SetFavorites([]config.Connection{fav})
 	saving, _ := bar.Update(ctrlS)
 	listing, _ := bar.Update(ctrlO)
-	for name, v := range map[string]string{"form": bar.View(80), "save": saving.View(80), "list": listing.View(80)} {
+	replacing := bar.SetFavorites([]config.Connection{{Name: "nas.lan", Host: "nas.lan", User: "ana", Port: 22, Protocol: "FTP"}})
+	replacing, _ = replacing.Update(ctrlS)
+	replacing.name.SetValue("nas.lan")
+	replacing, _ = replacing.Update(enter)
+	for name, v := range map[string]string{"form": bar.View(80), "save": saving.View(80), "list": listing.View(80), "replace": replacing.View(80)} {
 		for i, line := range strings.Split(v, "\n") {
 			if w := lipgloss.Width(line); w != 56 {
 				t.Errorf("%s line %d is %d wide, want 56: %q", name, i, w, line)
@@ -133,5 +137,52 @@ func TestDialogsFitTheirBox(t *testing.T) {
 	}
 	if !strings.Contains(bar.View(80), "Esc cancel") {
 		t.Error("form hint was cut")
+	}
+}
+
+func TestSavingOverAnExistingNameAsksFirst(t *testing.T) {
+	bar := NewConnectionBar().SetFavorites([]config.Connection{fav})
+	bar = fillField(bar, fieldHost, "nas.lan")
+	bar, _ = bar.Update(ctrlS)
+	if got := bar.name.Value(); got != "nas.lan" {
+		t.Fatalf("suggested %q", got)
+	}
+
+	bar.name.SetValue("nas")
+	bar, cmd := bar.Update(enter)
+	if bar.mode != modeReplace || cmd != nil {
+		t.Fatalf("mode=%v, sent=%v: overwrote without asking", bar.mode, cmd != nil)
+	}
+	back, _ := bar.Update(esc)
+	if back.mode != modeSave {
+		t.Fatal("n/esc did not return to the name")
+	}
+	bar, cmd = bar.Update(keyMsg("y"))
+	if bar.mode != modeForm || cmd == nil {
+		t.Fatal("y did not replace")
+	}
+}
+
+func TestSuggestedNameNeverCollides(t *testing.T) {
+	bar := NewConnectionBar().SetFavorites([]config.Connection{{Name: "nas.lan"}, {Name: "nas.lan (2)"}})
+	bar = fillField(bar, fieldHost, "nas.lan")
+	bar, _ = bar.Update(ctrlS)
+	if got := bar.name.Value(); got != "nas.lan (3)" {
+		t.Fatalf("suggested %q", got)
+	}
+}
+
+func TestReplacingChangesServerReleasesItsPassword(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp(func() *tea.Program { return nil }, false, nil, "dev", false)
+	model, _ := a.Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2", Remember: true})
+	moved := fav
+	moved.Host = "other.lan"
+	model, _ = model.(App).Update(saveFavoriteMsg{Conn: moved})
+	if _, err := config.Secret(fav); err == nil {
+		t.Fatal("the old server's password outlived the favorite that owned it")
+	}
+	if n := len(model.(App).cfg.Connections); n != 1 {
+		t.Fatalf("%d favorites, want 1", n)
 	}
 }

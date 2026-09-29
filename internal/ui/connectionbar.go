@@ -35,6 +35,7 @@ type ConnectionBar struct {
 	cursor    int
 	name      textinput.Model
 	remember  bool
+	pending   saveFavoriteMsg
 }
 
 func NewConnectionBar() ConnectionBar {
@@ -114,6 +115,8 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 			return c.updateList(msg)
 		case modeSave:
 			return c.updateSave(msg)
+		case modeReplace:
+			return c.updateReplace(msg)
 		}
 
 		switch {
@@ -128,7 +131,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 			if c.inputs[fieldHost].Value() != "" {
 				c = c.blur()
 				c.mode = modeSave
-				c.name.SetValue(c.inputs[fieldHost].Value())
+				c.name.SetValue(c.freeName(c.inputs[fieldHost].Value()))
 				c.name.Focus()
 				c.remember = c.inputs[fieldPass].Value() != ""
 			}
@@ -195,6 +198,8 @@ func (c ConnectionBar) View(maxWidth int) string {
 		return c.listView(maxWidth)
 	case modeSave:
 		return c.saveView(maxWidth)
+	case modeReplace:
+		return c.replaceView(maxWidth)
 	}
 
 	width := 56

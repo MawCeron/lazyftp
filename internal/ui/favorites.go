@@ -19,6 +19,7 @@ const (
 	modeForm barMode = iota
 	modeList
 	modeSave
+	modeReplace
 )
 
 const favoritesVisible = 8
@@ -28,6 +29,8 @@ var (
 	keyListDown    = key.NewBinding(key.WithKeys("down", "j"))
 	keyListDelete  = key.NewBinding(key.WithKeys("d", "delete"))
 	keyToggleStore = key.NewBinding(key.WithKeys("tab"))
+	keyReplaceYes  = key.NewBinding(key.WithKeys("y"))
+	keyReplaceNo   = key.NewBinding(key.WithKeys("n", "esc"))
 )
 
 // saveFavoriteMsg carries the password only so App can hand it to the keyring;
@@ -50,6 +53,27 @@ func (c ConnectionBar) SetFavorites(f []config.Connection) ConnectionBar {
 		c.mode = modeForm
 	}
 	return c
+}
+
+func (c ConnectionBar) favorite(name string) (config.Connection, bool) {
+	for _, f := range c.favorites {
+		if f.Name == name {
+			return f, true
+		}
+	}
+	return config.Connection{}, false
+}
+
+// freeName suggests the host, or host (2), (3)... so the default never
+// overwrites anything.
+func (c ConnectionBar) freeName(host string) string {
+	name := host
+	for n := 2; ; n++ {
+		if _, taken := c.favorite(name); !taken {
+			return name
+		}
+		name = fmt.Sprintf("%s (%d)", host, n)
+	}
 }
 
 func (c ConnectionBar) current() config.Connection {
@@ -109,13 +133,51 @@ func (c ConnectionBar) updateSave(msg tea.KeyPressMsg) (ConnectionBar, tea.Cmd) 
 		if conn.Name == "" {
 			return c, nil
 		}
-		out := saveFavoriteMsg{Conn: conn, Pass: c.inputs[fieldPass].Value(), Remember: c.remember}
-		c.mode = modeForm
-		return c.focus(), func() tea.Msg { return out }
+		c.pending = saveFavoriteMsg{Conn: conn, Pass: c.inputs[fieldPass].Value(), Remember: c.remember}
+		if _, taken := c.favorite(conn.Name); taken {
+			c.mode = modeReplace
+			return c, nil
+		}
+		return c.send()
 	}
 	var cmd tea.Cmd
 	c.name, cmd = c.name.Update(msg)
 	return c, cmd
+}
+
+func (c ConnectionBar) send() (ConnectionBar, tea.Cmd) {
+	out := c.pending
+	c.mode = modeForm
+	return c.focus(), func() tea.Msg { return out }
+}
+
+func (c ConnectionBar) updateReplace(msg tea.KeyPressMsg) (ConnectionBar, tea.Cmd) {
+	switch {
+	case key.Matches(msg, keyReplaceYes):
+		return c.send()
+	case key.Matches(msg, keyReplaceNo):
+		c.mode = modeSave
+	}
+	return c, nil
+}
+
+func describe(f config.Connection) string {
+	return fmt.Sprintf("%s://%s@%s:%d", strings.ToLower(f.Protocol), f.User, f.Host, f.Port)
+}
+
+func (c ConnectionBar) replaceView(maxWidth int) string {
+	width := dialogWidth(maxWidth)
+	inner := borderInteriorWidth(width)
+	old, _ := c.favorite(c.pending.Conn.Name)
+
+	label := lipgloss.NewStyle().Foreground(colorMuted)
+	line := func(l string, f config.Connection) string {
+		return label.Render(l) + runewidth.Truncate(describe(f), inner-len(l), "...")
+	}
+	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("y replace · n back")
+	body := fmt.Sprintf("A favorite named %q already exists.", c.pending.Conn.Name) + "\n\n" +
+		line("Current: ", old) + "\n" + line("New:     ", c.pending.Conn) + "\n\n" + hint
+	return borderWithTitle(body, "Replace Favorite", width, lipgloss.Height(body)+2, colorAccent)
 }
 
 func dialogWidth(maxWidth int) int {

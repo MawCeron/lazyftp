@@ -1198,20 +1198,24 @@ func (a App) persistConfig() App {
 }
 
 func (a App) handleSaveFavorite(msg saveFavoriteMsg) (App, tea.Cmd) {
-	replaced := false
+	verb := "Saved"
 	conns := append([]config.Connection(nil), a.cfg.Connections...)
+	var old config.Connection
 	for i, f := range conns {
 		if f.Name == msg.Conn.Name {
-			conns[i], replaced = msg.Conn, true
+			old, conns[i], verb = f, msg.Conn, "Replaced"
 		}
 	}
-	if !replaced {
+	if verb == "Saved" {
 		conns = append(conns, msg.Conn)
 	}
 	a.cfg.Connections = conns
 	a = a.persistConfig()
-	a.log = a.log.Add("Saved favorite "+msg.Conn.Name, LogSuccess)
+	a.log = a.log.Add(verb+" favorite "+msg.Conn.Name, LogSuccess)
 
+	if verb == "Replaced" {
+		releaseSecret(old, conns)
+	}
 	if msg.Remember && msg.Pass != "" {
 		if err := config.SetSecret(msg.Conn, msg.Pass); err != nil {
 			a.log = a.log.Add("Password not saved: no keyring available. It will be asked on connect", LogError)
@@ -1233,14 +1237,18 @@ func (a App) handleDeleteFavorite(msg deleteFavoriteMsg) (App, tea.Cmd) {
 	a.cfg.Connections = kept
 	a = a.persistConfig()
 	a.log = a.log.Add("Deleted favorite "+msg.Name, LogInfo)
+	releaseSecret(gone, kept)
+	return a, nil
+}
 
-	// Two favorites can name the same server and so share one keyring entry.
+// releaseSecret drops a keyring entry once no favorite names its server: two
+// favorites can point at the same one and so share it.
+func releaseSecret(gone config.Connection, kept []config.Connection) {
 	for _, f := range kept {
 		f.Name = gone.Name
 		if f == gone {
-			return a, nil
+			return
 		}
 	}
 	config.DeleteSecret(gone)
-	return a, nil
 }
