@@ -296,7 +296,7 @@ func TestFooterAnchorsAppIdentityRegardlessOfFocus(t *testing.T) {
 	firstHint := map[focus]string{
 		focusLocal:         "l/enter",
 		focusRemote:        "l/enter",
-		focusConnectionBar: "tab",
+		focusConnectionBar: "connect",
 	}
 
 	for _, focus := range []focus{focusLocal, focusRemote, focusConnectionBar} {

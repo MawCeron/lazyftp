@@ -212,9 +212,8 @@ func (c ConnectionBar) replaceView(maxWidth int) string {
 	line := func(l string, f config.Connection) string {
 		return label.Render(l) + runewidth.Truncate(describe(f), inner-len(l), "...")
 	}
-	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("y replace · n back")
 	body := fmt.Sprintf("A favorite named %q already exists.", c.pending.Conn.Name) + "\n\n" +
-		line("Current: ", old) + "\n" + line("New:     ", c.pending.Conn) + "\n\n" + hint
+		line("Current: ", old) + "\n" + line("New:     ", c.pending.Conn)
 	return borderWithTitle(body, "Replace Favorite", width, lipgloss.Height(body)+2, colorAccent)
 }
 
@@ -250,12 +249,11 @@ func (c ConnectionBar) listView(maxWidth int) string {
 		rows = append(rows, line)
 	}
 
-	title, keys := "Favorites", "Enter connect · e edit · d delete · Esc back"
+	title := "Favorites"
 	if c.mode == modeHistory {
-		title, keys = "Recent", "Enter connect · e edit · Esc back"
+		title = "Recent"
 	}
-	hint := lipgloss.NewStyle().Foreground(colorMuted).Render(keys)
-	body := strings.Join(rows, "\n") + "\n\n" + hint
+	body := strings.Join(rows, "\n")
 	return borderWithTitle(body, title, width, lipgloss.Height(body)+2, colorAccent)
 }
 
@@ -272,7 +270,6 @@ func (c ConnectionBar) saveView(maxWidth int) string {
 		pass = "remember password " + box
 	}
 
-	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter save · Tab password · Esc back")
-	body := labelStyle.Render("Name:") + " " + c.name.View() + "\n\n" + pass + "\n\n" + hint
+	body := labelStyle.Render("Name:") + " " + c.name.View() + "\n\n" + pass
 	return borderWithTitle(body, "Save Favorite", width, lipgloss.Height(body)+2, colorAccent)
 }

@@ -246,8 +246,7 @@ func (c ConnectionBar) View(maxWidth int) string {
 	}
 
 	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
-	more := lipgloss.NewStyle().Foreground(colorMuted).Render("^O favorites · ^R recent · ^S save")
-	body := strings.Join(fields, "\n") + "\n\n\n" + hint + "\n" + more
+	body := strings.Join(fields, "\n") + "\n\n\n" + hint
 
 	// Exactly as tall as the content needs: this is a fixed-size dialog, not
 	// a panel truncating to fit whatever space is left.

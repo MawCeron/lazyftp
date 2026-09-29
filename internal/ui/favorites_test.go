@@ -321,3 +321,23 @@ func TestEnterOnAnSFTPFavoriteConnectsWithoutAPassword(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+// The footer is where keys are shown; a dialog repeating them is noise.
+func TestDialogsDoNotRepeatTheFooterKeys(t *testing.T) {
+	bar := fillField(NewConnectionBar(), fieldHost, "nas.lan").SetFavorites([]config.Connection{fav})
+	saving, _ := bar.Update(ctrlS)
+	listing, _ := bar.Update(ctrlO)
+	for name, v := range map[string]string{"save": saving.View(80), "list": listing.View(80)} {
+		if strings.Contains(v, "Esc") {
+			t.Errorf("%s dialog carries its own key hints:\n%s", name, v)
+		}
+	}
+	a := NewApp(nil, false, nil, "dev", false)
+	a.width, a.focus = 120, focusConnectionBar
+	got := a.hintsView()
+	for _, want := range []string{"favorites", "recent", "save"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("form footer %q is missing %q", got, want)
+		}
+	}
+}
