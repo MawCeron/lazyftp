@@ -24,6 +24,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Servers from `~/.ssh/config` appear in the favorites list, tagged `ssh`, with hostname, user,
   port and identity file resolved the way `ssh` resolves them, `Include` included. The file is
   never written. ([#53](https://github.com/MawCeron/lazyftp/issues/53))
+- Connect from the command line: `lazyftp [destination]`, where the destination is a favorite, a
+  `~/.ssh/config` Host, or `[ftp|ftps|sftp://][user@]host[:port]`, with `-i` for a key and
+  `--protocol`. It connects at once when a password is stored or the protocol is SFTP, and opens the
+  filled-in dialog otherwise. Passwords are refused as arguments, and an invalid destination prints
+  the usage and exits with status 2. ([#39](https://github.com/MawCeron/lazyftp/issues/39))
 - Favorite connections: `Ctrl+S` in the connection dialog saves one under a name, `Ctrl+O` lists
   connects to them (`Enter`) or fills the form to edit (`e`), `d` deletes. The password is kept in the system keyring only if asked, and
   never in `config.toml`. ([#4](https://github.com/MawCeron/lazyftp/issues/4))

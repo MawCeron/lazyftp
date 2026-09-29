@@ -95,10 +95,21 @@ go install github.com/MawCeron/lazyftp@latest
 ## Usage
 
 ```bash
-lazyftp
+lazyftp                              # opens the connection dialog
+lazyftp nas                          # a favorite, or a Host from ~/.ssh/config
+lazyftp ana@nas.lan                  # user@host, FTP unless the port or scheme says otherwise
+lazyftp ana@nas.lan:22               # port 22 means SFTP, 990 means FTPS
+lazyftp sftp://ana@nas.lan:2222      # the scheme is explicit: ftp, ftps or sftp
+lazyftp -i ~/.ssh/work sftp://nas    # a private key for this connection
 ```
 
 The local panel opens in the directory you ran it from.
+
+A destination connects at once when nothing more is needed: a stored password, or SFTP with an
+agent or key. Otherwise the connection dialog opens filled in, on the Pass field. The password is
+never accepted on the command line, so it stays out of your shell history: `user:pass@host` is
+refused. A saved name wins over a host of the same name. Flags go before the destination, and an
+invalid one prints the usage and exits with status 2.
 
 | Flag | What it does |
 |------|--------------|
@@ -106,6 +117,8 @@ The local panel opens in the directory you ran it from.
 | `--log-file <path>` | Write the log to a file as well, appending to it |
 | `--no-nerd-fonts` | Use plain Unicode symbols instead of Nerd Font icons |
 | `--highlight-diff` | Mark files that differ between Local and Remote (by name, and by size when both share a name) |
+| `-i`, `--identity <path>` | SFTP private key to try first |
+| `--protocol <ftp\|ftps\|sftp>` | Protocol for the destination, when it has no scheme |
 | `--version` | Print the version and exit |
 
 ### Connecting

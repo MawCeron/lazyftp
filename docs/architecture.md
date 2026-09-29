@@ -204,7 +204,9 @@ flowchart TD
 the application holds a `Client` and never a concrete type. The individual constructors are
 exported as well, but going through `New` is what keeps the choice in one place. The protocol comes from the
 user's choice in the connection bar, never from the port: a server is free to sit on a
-non-standard port, and guessing from the port is what made plain FTP unreachable before v0.1.2.
+non-standard port, and guessing from the port is what made plain FTP unreachable before v0.1.2. The one exception is a
+destination typed on the command line, where nothing was chosen: `config.ParseTarget` takes the
+scheme, then `--protocol`, and only then the port (22 is SFTP, 990 is FTPS, else FTP).
 Adding a fourth protocol means a constant in `Protocol`, an entry in `protocolNames`, a case in
 `New`, and a default port — the connection bar picks it up on its own.
 
