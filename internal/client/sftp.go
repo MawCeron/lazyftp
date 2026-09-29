@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -95,13 +96,21 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 }
 
 func (c *SFTPClient) Disconnect() error {
+	var err error
 	if c.client != nil {
-		c.client.Close()
+		err = c.client.Close()
 	}
 	if c.sshConn != nil {
-		c.sshConn.Close()
+		if e := c.sshConn.Close(); err == nil {
+			err = e
+		}
 	}
-	return nil
+	// A session the server already dropped answers "closed" or EOF, which is
+	// not news to someone who asked to disconnect.
+	if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+		return nil
+	}
+	return err
 }
 
 func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
