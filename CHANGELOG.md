@@ -43,6 +43,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- A dropped SFTP session is reopened instead of leaving every operation failing until a manual
+  reconnect. A keepalive every 30 seconds notices a session that died while idle, and an operation
+  that hits a dead connection reopens it and, if it is safe to repeat (listings, transfers,
+  `mkdir`), runs again; a rename or delete reports the loss and leaves the session ready. The
+  credentials are reused and the remote directory is untouched. If the server cannot be reached
+  again the app goes offline with the connection dialog ready, so Enter reconnects.
+  ([#41](https://github.com/MawCeron/lazyftp/issues/41))
 - Connecting while already connected closed the old session without a word, and any error from
   closing it was thrown away. Both are now logged, and the SFTP client reports the error it used to
   swallow. ([#89](https://github.com/MawCeron/lazyftp/issues/89))

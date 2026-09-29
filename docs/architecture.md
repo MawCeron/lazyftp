@@ -231,7 +231,7 @@ one round trip of its own so the failure lands where it happened.
 **The pool heals itself.** Connections flagged as broken are dropped and replaced on the next
 call, so plain FTP survives an idle timeout with nothing on our side to handle. SFTP holds a
 single SSH connection and one session, and has no equivalent — which is why reconnection work is
-scoped to SFTP alone.
+scoped to SFTP alone, in `SFTPClient` itself (see "A dropped SFTP session" below).
 
 **Uploads resume, conditionally.** goftp restarts an interrupted upload with `REST STREAM`, but
 only after asserting the source to an `io.Seeker`. `shared.ProgressReader` consequently wraps an
@@ -270,6 +270,28 @@ just the first — left in place any longer it would expire in the middle of a t
 
 Addresses are assembled with `net.JoinHostPort`. `fmt.Sprintf("%s:%d", …)` produces something
 unusable for IPv6 hosts, and `go vet` will tell you so.
+
+### A dropped SFTP session
+
+`SFTPClient` gives itself what FTP's pool gives for free. Two things find a dead session: a
+`keepalive@openssh.com` request every 30 seconds, which also keeps idle timeouts away, and any
+operation failing with a connection-lost error (`sftp.ErrSSHFxConnectionLost`, EOF, a closed or
+reset socket). Either one calls `reconnect`, which dials again from the host, user and credentials
+kept in the client, so nothing is asked twice, and swaps the session in.
+
+Operations run through `do`. One that is safe to repeat — a listing, a transfer that starts over,
+`MkdirAll` — runs again on the new session. One that is not — a rename or a delete, which the
+server may have finished before the drop — reports the loss instead and leaves the session ready
+for the next try. Remote paths are absolute, so the panel's current directory survives untouched.
+
+Several goroutines usually see the same failure, since every transfer is its own goroutine.
+`recMu` lets the first dial while the rest wait and then find the new session already installed;
+a session is told apart by its `*ssh.Client`. `Disconnect` sets `closed`, so a keepalive that fires
+afterwards does not dial.
+
+The client never logs, so `SetSessionNotifier` reports each outcome. Reopened is a line in the Log.
+Not reopened takes the app offline and puts the connection dialog up with what was typed still in
+it: Enter is the whole recovery. FTP is not touched.
 
 ### How SFTP authenticates and who it trusts
 
