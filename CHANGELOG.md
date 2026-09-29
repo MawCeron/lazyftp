@@ -23,6 +23,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   and fills them, `d` deletes. The password is kept in the system keyring only if asked, and
   never in `config.toml`. ([#4](https://github.com/MawCeron/lazyftp/issues/4))
 
+- Recent connections: `Ctrl+R` in the connection dialog lists the last ten servers connected to,
+  kept in `history.toml`, and fills the form. ([#3](https://github.com/MawCeron/lazyftp/issues/3))
+
 ### Changed
 
 - SFTP no longer accepts any host key silently.

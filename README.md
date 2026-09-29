@@ -125,6 +125,13 @@ long. Once connected, the status line shows the protocol, user, host and connect
 
 FTPS certificates are verified, so a server with a self-signed certificate is refused.
 
+### Recent connections
+
+Every successful connection is remembered — protocol, host, port and user, never the password.
+`Ctrl+R` in the dialog lists the last ten, most recent first; `Enter` fills the form. They live
+in `history.toml` next to `config.toml`. A server that is also a favorite gets its keyring
+password filled in too.
+
 ### Favorites
 
 `Ctrl+S` in the dialog saves the current host, user, port and protocol under a name. The
@@ -201,6 +208,7 @@ press `?`.
 | `←` / `→` | Change protocol (on the Proto field) |
 | `Enter` | Connect |
 | `Ctrl+S` / `Ctrl+O` | Save the connection as a favorite / open the favorites list |
+| `Ctrl+R` | Open the recent connections |
 | `Esc` | Close, or abandon an attempt in progress |
 
 ---

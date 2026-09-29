@@ -308,6 +308,9 @@ handshake deadline is lifted while the question is open, because the user is rea
   `~/.config` on Linux, `%AppData%` on Windows, `~/Library/Application Support` on macOS.
 - **Format:** TOML, hand-editable. A missing file is the first run and a malformed one yields
   the defaults plus an error for the Log; neither stops startup.
+- **History is a separate file.** `history.toml` holds the last ten connections, rewritten after
+  every successful connect; `config.toml` is the one people edit, and an app rewriting it that
+  often would fight them. Both use the same `Config` type.
 - **Secrets never touch the file.** `Connection` has no password field. Passwords live in the
   operating system keyring (Secret Service, Keychain, Credential Manager), keyed by
   `protocol://user@host:port`, so a favorite connects without asking. With no keyring available,
