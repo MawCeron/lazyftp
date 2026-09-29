@@ -91,7 +91,8 @@ var (
 	// Display copies for the connection dialog's favorites modes; the matching
 	// bindings live in favorites.go.
 	keyListMove    = key.NewBinding(key.WithKeys("up", "down"), key.WithHelp("↑/↓", "select"))
-	keyListFill    = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "fill"))
+	keyListFill    = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "connect"))
+	keyListChange  = key.NewBinding(key.WithKeys("e"), key.WithHelp("e", "edit"))
 	keyListRemove  = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "delete"))
 	keySaveConfirm = key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "save"))
 	keySavePass    = key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "password"))
@@ -136,9 +137,9 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 	case k.deleting:
 		return []key.Binding{keyDeleteConfirm, keyDeleteCancel}
 	case k.focus == focusConnectionBar && k.barMode == modeList:
-		return []key.Binding{keyListMove, keyListFill, keyListRemove, keyBack}
+		return []key.Binding{keyListMove, keyListFill, keyListChange, keyListRemove, keyBack}
 	case k.focus == focusConnectionBar && k.barMode == modeHistory:
-		return []key.Binding{keyListMove, keyListFill, keyBack}
+		return []key.Binding{keyListMove, keyListFill, keyListChange, keyBack}
 	case k.focus == focusConnectionBar && k.barMode == modeSave:
 		return []key.Binding{keySaveConfirm, keySavePass, keyBack}
 	case k.focus == focusConnectionBar && k.barMode == modeReplace:

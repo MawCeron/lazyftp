@@ -59,7 +59,7 @@ func TestPickingAFavoriteFillsTheFormAndKeyringPassword(t *testing.T) {
 	if bar.mode != modeList {
 		t.Fatal("favorites did not open")
 	}
-	bar, _ = bar.Update(enter)
+	bar, _ = bar.Update(keyMsg("e"))
 	if bar.mode != modeForm || bar.protocol != client.SFTP ||
 		bar.inputs[fieldHost].Value() != "nas.lan" || bar.inputs[fieldPort].Value() != "2222" ||
 		bar.inputs[fieldPass].Value() != "hunter2" {
@@ -191,7 +191,7 @@ func TestFooterFollowsTheDialogMode(t *testing.T) {
 	a := NewApp(nil, false, nil, "dev", false)
 	a.width = 100
 	a.focus = focusConnectionBar
-	for mode, want := range map[barMode]string{modeList: "fill", modeHistory: "fill", modeSave: "password", modeReplace: "replace"} {
+	for mode, want := range map[barMode]string{modeList: "edit", modeHistory: "edit", modeSave: "password", modeReplace: "replace"} {
 		a.connBar.mode = mode
 		got := a.hintsView()
 		if !strings.Contains(got, want) || strings.Contains(got, "close") {
@@ -212,7 +212,7 @@ func TestConnectingRecordsAndRecentFillsTheForm(t *testing.T) {
 
 	a.focus = focusConnectionBar
 	model, _ = a.Update(tea.KeyPressMsg{Code: 'r', Mod: tea.ModCtrl})
-	model, _ = model.(App).Update(enter)
+	model, _ = model.(App).Update(keyMsg("e"))
 	bar := model.(App).connBar
 	if bar.mode != modeForm || bar.inputs[fieldHost].Value() != "nas.lan" || bar.inputs[fieldPort].Value() != "2222" || bar.protocol != client.SFTP {
 		t.Fatalf("form not filled: %+v", bar.inputs)
@@ -234,7 +234,7 @@ func TestIdentityFileTravelsWithTheConnection(t *testing.T) {
 	f.IdentityFile = "~/.ssh/work"
 	bar := NewConnectionBar().SetFavorites([]config.Connection{f})
 	bar, _ = bar.Update(ctrlO)
-	bar, _ = bar.Update(enter)
+	bar, _ = bar.Update(keyMsg("e"))
 	if got := bar.inputs[fieldKey].Value(); got != "~/.ssh/work" {
 		t.Fatalf("key field %q", got)
 	}
@@ -266,7 +266,7 @@ func TestSSHConfigHostsAreListedAfterFavoritesAndFillTheForm(t *testing.T) {
 	if cmd != nil {
 		t.Fatal("an ssh_config entry offered itself for deletion")
 	}
-	bar, _ = bar.Update(enter)
+	bar, _ = bar.Update(keyMsg("e"))
 	if bar.inputs[fieldHost].Value() != "web.example.com" || bar.inputs[fieldUser].Value() != "deploy" ||
 		bar.inputs[fieldKey].Value() != "~/.ssh/web_key" || bar.protocol != client.SFTP {
 		t.Fatalf("form not filled: %+v", bar.inputs)
@@ -277,5 +277,47 @@ func TestSSHConfigAloneOpensTheList(t *testing.T) {
 	bar := NewConnectionBar().SetSSHHosts([]config.Connection{sshHost})
 	if bar, _ = bar.Update(ctrlO); bar.mode != modeList {
 		t.Fatal("no favorites but ssh hosts, and ctrl+o did nothing")
+	}
+}
+
+func openList(t *testing.T, f config.Connection) ConnectionBar {
+	t.Helper()
+	bar, _ := NewConnectionBar().SetFavorites([]config.Connection{f}).Update(ctrlO)
+	return bar
+}
+
+func TestEnterOnAFavoriteWithAStoredPasswordConnects(t *testing.T) {
+	keyring.MockInit()
+	ftp := config.Connection{Name: "old", Host: "ftp.lan", User: "ana", Port: 21, Protocol: "FTP"}
+	config.SetSecret(ftp, "hunter2")
+
+	_, cmd := openList(t, ftp).Update(enter)
+	if cmd == nil {
+		t.Fatal("did not connect")
+	}
+	got := cmd().(ConnectMsg)
+	if got.Host != "ftp.lan" || got.Pass != "hunter2" || got.Protocol != client.FTP {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestEnterOnAnFTPFavoriteWithoutAPasswordAsksForIt(t *testing.T) {
+	keyring.MockInit()
+	ftp := config.Connection{Name: "old", Host: "ftp.lan", User: "ana", Port: 21, Protocol: "FTP"}
+
+	bar, cmd := openList(t, ftp).Update(enter)
+	if cmd != nil || bar.mode != modeForm || bar.focused != fieldPass {
+		t.Fatalf("cmd=%v mode=%v focus=%v: connecting with no password would just fail", cmd != nil, bar.mode, bar.focused)
+	}
+}
+
+func TestEnterOnAnSFTPFavoriteConnectsWithoutAPassword(t *testing.T) {
+	keyring.MockInit()
+	_, cmd := openList(t, fav).Update(enter)
+	if cmd == nil {
+		t.Fatal("SFTP has the agent and the keys, it should connect")
+	}
+	if got := cmd().(ConnectMsg); got.Port != "2222" || got.User != "ana" {
+		t.Fatalf("%+v", got)
 	}
 }

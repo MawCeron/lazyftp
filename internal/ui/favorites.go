@@ -29,6 +29,7 @@ var (
 	keyListUp      = key.NewBinding(key.WithKeys("up", "k"))
 	keyListDown    = key.NewBinding(key.WithKeys("down", "j"))
 	keyListDelete  = key.NewBinding(key.WithKeys("d", "delete"))
+	keyListEdit    = key.NewBinding(key.WithKeys("e"))
 	keyToggleStore = key.NewBinding(key.WithKeys("tab"))
 	keyReplaceYes  = key.NewBinding(key.WithKeys("y"))
 	keyReplaceNo   = key.NewBinding(key.WithKeys("n", "esc"))
@@ -139,8 +140,17 @@ func (c ConnectionBar) updateList(msg tea.KeyPressMsg) (ConnectionBar, tea.Cmd) 
 		c.cursor = max(0, c.cursor-1)
 	case key.Matches(msg, keyListDown):
 		c.cursor = min(len(c.items())-1, c.cursor+1)
-	case key.Matches(msg, keySubmit):
+	case key.Matches(msg, keyListEdit):
 		return c.fill(c.items()[c.cursor]), nil
+	case key.Matches(msg, keySubmit):
+		// An empty Pass would read as "type it here", so a connection that
+		// still needs one goes to the form instead. SFTP can do without: the
+		// agent and the keys are tried first.
+		c = c.fill(c.items()[c.cursor])
+		if c.inputs[fieldPass].Value() != "" || c.protocol == client.SFTP {
+			return c, c.connect()
+		}
+		return c, nil
 	case key.Matches(msg, keyListDelete) && c.mode == modeList && c.cursor < len(c.favorites):
 		name := c.favorites[c.cursor].Name
 		return c, func() tea.Msg { return deleteFavoriteMsg{Name: name} }
@@ -240,9 +250,9 @@ func (c ConnectionBar) listView(maxWidth int) string {
 		rows = append(rows, line)
 	}
 
-	title, keys := "Favorites", "Enter fill · d delete · Esc back"
+	title, keys := "Favorites", "Enter connect · e edit · d delete · Esc back"
 	if c.mode == modeHistory {
-		title, keys = "Recent", "Enter fill · Esc back"
+		title, keys = "Recent", "Enter connect · e edit · Esc back"
 	}
 	hint := lipgloss.NewStyle().Foreground(colorMuted).Render(keys)
 	body := strings.Join(rows, "\n") + "\n\n" + hint

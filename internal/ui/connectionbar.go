@@ -168,16 +168,7 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 			return c.focus(), nil
 
 		case key.Matches(msg, keySubmit):
-			return c, func() tea.Msg {
-				return ConnectMsg{
-					Protocol: c.protocol,
-					Host:     c.inputs[fieldHost].Value(),
-					User:     c.inputs[fieldUser].Value(),
-					Pass:     c.inputs[fieldPass].Value(),
-					Identity: c.inputs[fieldKey].Value(),
-					Port:     c.inputs[fieldPort].Value(),
-				}
-			}
+			return c, c.connect()
 		}
 
 		if c.focused == fieldProtocol {
@@ -262,6 +253,18 @@ func (c ConnectionBar) View(maxWidth int) string {
 	// a panel truncating to fit whatever space is left.
 	height := lipgloss.Height(body) + 2
 	return borderWithTitle(body, "Connection", width, height, colorAccent)
+}
+
+func (c ConnectionBar) connect() tea.Cmd {
+	msg := ConnectMsg{
+		Protocol: c.protocol,
+		Host:     c.inputs[fieldHost].Value(),
+		User:     c.inputs[fieldUser].Value(),
+		Pass:     c.inputs[fieldPass].Value(),
+		Identity: c.inputs[fieldKey].Value(),
+		Port:     c.inputs[fieldPort].Value(),
+	}
+	return func() tea.Msg { return msg }
 }
 
 type ConnectMsg struct {
