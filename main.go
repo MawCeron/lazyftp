@@ -23,6 +23,10 @@ func main() {
 	logFile := flag.String("log-file", "", "also write the log to this file, appending to it")
 	noNerdFonts := flag.Bool("no-nerd-fonts", false, "use plain Unicode symbols instead of Nerd Font icons")
 	highlightDiff := flag.Bool("highlight-diff", false, "mark files present on only one side, comparing Local and Remote by name")
+	identity := flag.String("identity", "", "SFTP private key `path` to try first")
+	flag.StringVar(identity, "i", "", "shorthand for --identity")
+	protocolFlag := flag.String("protocol", "", "`ftp`, ftps or sftp; by default the destination's scheme, else its port decides")
+	flag.Usage = usage
 	flag.Parse()
 
 	if *showVersion {
@@ -31,6 +35,42 @@ func main() {
 	}
 
 	ui.SetNerdFonts(!*noNerdFonts)
+
+	if flag.NArg() > 1 {
+		usageError("expected at most one destination, got %d (flags go before it)", flag.NArg())
+	}
+	forced, err := config.ParseProtocolFlag(*protocolFlag)
+	if err != nil {
+		usageError("%v", err)
+	}
+
+	var cfg, history config.Config
+	var sshHosts []config.Connection
+	var cfgErr, historyErr, sshErr error
+	cfgPath, cfgPathErr := config.Path()
+	if cfgPathErr == nil {
+		cfg, cfgErr = config.Load(cfgPath)
+	}
+	historyPath, historyPathErr := config.HistoryPath()
+	if historyPathErr == nil {
+		history, historyErr = config.Load(historyPath)
+	}
+	sshPath, sshPathErr := sshconfig.DefaultPath()
+	if sshPathErr == nil {
+		sshHosts, sshErr = sshconfig.Load(sshPath)
+	}
+
+	var target *config.Connection
+	if flag.NArg() == 1 {
+		c, err := config.Resolve(flag.Arg(0), forced, cfg.Connections, sshHosts)
+		if err != nil {
+			usageError("%v", err)
+		}
+		if *identity != "" {
+			c.IdentityFile = *identity
+		}
+		target = &c
+	}
 
 	// A typed nil would satisfy the io.Writer interface and be written to.
 	var logWriter io.Writer
@@ -56,17 +96,17 @@ func main() {
 
 	var p *tea.Program
 	app := ui.NewApp(func() *tea.Program { return p }, *verbose, logWriter, version, *highlightDiff)
-	if path, err := config.Path(); err == nil {
-		cfg, loadErr := config.Load(path)
-		app = app.WithConfig(path, cfg, loadErr)
+	if cfgPathErr == nil {
+		app = app.WithConfig(cfgPath, cfg, cfgErr)
 	}
-	if path, err := config.HistoryPath(); err == nil {
-		h, loadErr := config.Load(path)
-		app = app.WithHistory(path, h, loadErr)
+	if historyPathErr == nil {
+		app = app.WithHistory(historyPath, history, historyErr)
 	}
-	if path, err := sshconfig.DefaultPath(); err == nil {
-		hosts, loadErr := sshconfig.Load(path)
-		app = app.WithSSHHosts(hosts, loadErr)
+	if sshPathErr == nil {
+		app = app.WithSSHHosts(sshHosts, sshErr)
+	}
+	if target != nil {
+		app = app.WithTarget(*target)
 	}
 	p = tea.NewProgram(app)
 
@@ -74,4 +114,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func usage() {
+	fmt.Fprint(os.Stderr, `usage: lazyftp [flags] [destination]
+
+destination is a saved connection (a favorite or a Host from ~/.ssh/config) or
+[ftp|ftps|sftp://][user@]host[:port]. Without a scheme or --protocol the port
+decides: 22 is SFTP, 990 is FTPS, anything else FTP. Passwords are never taken
+from the command line; lazyftp asks for them.
+
+flags:
+`)
+	flag.PrintDefaults()
+}
+
+func usageError(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "lazyftp: "+format+"\n\n", args...)
+	usage()
+	os.Exit(2)
 }

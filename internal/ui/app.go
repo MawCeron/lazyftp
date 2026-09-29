@@ -75,6 +75,8 @@ type App struct {
 	highlightDiff bool
 
 	themeResolved bool
+
+	autoConnect bool
 }
 
 // seq identifies the attempt, so an abandoned one's result can be dropped.
@@ -141,7 +143,11 @@ func (a App) drainProtoLog() App {
 }
 
 func (a App) Init() tea.Cmd {
-	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor, themeFallbackTimeout(), themePollTick())
+	var connect tea.Cmd
+	if a.autoConnect {
+		connect = a.connBar.connect()
+	}
+	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor, themeFallbackTimeout(), themePollTick(), connect)
 }
 
 // themeFallbackTimeout guards tea.RequestBackgroundColor: bubbletea sends the
@@ -1296,5 +1302,14 @@ func (a App) WithSSHHosts(hosts []config.Connection, loadErr error) App {
 	if loadErr != nil {
 		a.log = a.log.Add("Ignoring ~/.ssh/config: "+loadErr.Error(), LogError)
 	}
+	return a
+}
+
+// WithTarget starts from a destination given on the command line: it fills the
+// dialog and connects at once when nothing more is needed, exactly as Enter on
+// a saved connection does.
+func (a App) WithTarget(c config.Connection) App {
+	a.connBar = a.connBar.fill(c)
+	a.autoConnect = a.connBar.canConnect()
 	return a
 }

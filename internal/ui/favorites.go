@@ -132,6 +132,13 @@ func (c ConnectionBar) fill(f config.Connection) ConnectionBar {
 	return c.showDefaultPort().focus()
 }
 
+// canConnect is false for a connection that still needs a password: an empty
+// Pass would read as "type it here", so those go to the form instead. SFTP can
+// do without, since the agent and the keys are tried first.
+func (c ConnectionBar) canConnect() bool {
+	return c.inputs[fieldPass].Value() != "" || c.protocol == client.SFTP
+}
+
 func (c ConnectionBar) updateList(msg tea.KeyPressMsg) (ConnectionBar, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keyEsc):
@@ -143,11 +150,8 @@ func (c ConnectionBar) updateList(msg tea.KeyPressMsg) (ConnectionBar, tea.Cmd) 
 	case key.Matches(msg, keyListEdit):
 		return c.fill(c.items()[c.cursor]), nil
 	case key.Matches(msg, keySubmit):
-		// An empty Pass would read as "type it here", so a connection that
-		// still needs one goes to the form instead. SFTP can do without: the
-		// agent and the keys are tried first.
 		c = c.fill(c.items()[c.cursor])
-		if c.inputs[fieldPass].Value() != "" || c.protocol == client.SFTP {
+		if c.canConnect() {
 			return c, c.connect()
 		}
 		return c, nil

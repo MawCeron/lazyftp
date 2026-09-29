@@ -377,3 +377,27 @@ func TestRememberPasswordTickFollowsTheFontSetting(t *testing.T) {
 		t.Errorf("without Nerd Fonts the tick stays [x]:\n%s", v)
 	}
 }
+
+func TestTargetFromTheCommandLine(t *testing.T) {
+	keyring.MockInit()
+	newApp := func() App { return NewApp(nil, false, nil, "dev", false) }
+	ftp := config.Connection{Host: "ftp.lan", User: "ana", Port: 21, Protocol: "FTP"}
+
+	if a := newApp().WithTarget(fav); !a.autoConnect {
+		t.Error("an SFTP destination should connect at once")
+	}
+
+	a := newApp().WithTarget(ftp)
+	if a.autoConnect || a.connBar.focused != fieldPass || a.connBar.inputs[fieldHost].Value() != "ftp.lan" {
+		t.Errorf("FTP with no stored password: auto=%v focus=%v, want the form on Pass", a.autoConnect, a.connBar.focused)
+	}
+
+	config.SetSecret(ftp, "hunter2")
+	a = newApp().WithTarget(ftp)
+	if !a.autoConnect {
+		t.Fatal("a stored password should be enough to connect")
+	}
+	if got := a.connBar.connect()().(ConnectMsg); got.Pass != "hunter2" || got.Host != "ftp.lan" {
+		t.Errorf("%+v", got)
+	}
+}

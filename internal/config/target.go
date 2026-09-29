@@ -9,11 +9,12 @@ import (
 
 var schemes = map[string]string{"ftp": "FTP", "ftps": "FTPS", "sftp": "SFTP"}
 
-// ParseTarget reads [scheme://][user@]host[:port]. Without a scheme the port
-// decides: 22 is SFTP, 990 is FTPS, anything else FTP, which is also where the
-// connection dialog starts. A password is refused: it would end up in the
-// shell history and in the process list.
-func ParseTarget(arg string) (Connection, error) {
+// ParseTarget reads [scheme://][user@]host[:port]. The protocol is the scheme,
+// else the one asked for by --protocol, else decided by the port: 22 is SFTP,
+// 990 is FTPS, anything else FTP, which is also where the connection dialog
+// starts. A password is refused: it would end up in the shell history and in
+// the process list.
+func ParseTarget(arg, protocol string) (Connection, error) {
 	raw := arg
 	if !strings.Contains(raw, "://") {
 		raw = "//" + raw
@@ -34,10 +35,14 @@ func ParseTarget(arg string) (Connection, error) {
 
 	c := Connection{Host: u.Hostname(), User: u.User.Username()}
 
+	c.Protocol = protocol
 	if u.Scheme != "" {
 		proto, ok := schemes[strings.ToLower(u.Scheme)]
 		if !ok {
 			return Connection{}, fmt.Errorf("unknown protocol %q, expected ftp, ftps or sftp", u.Scheme)
+		}
+		if protocol != "" && protocol != proto {
+			return Connection{}, fmt.Errorf("%q says %s but --protocol says %s", arg, proto, protocol)
 		}
 		c.Protocol = proto
 	}
@@ -77,16 +82,20 @@ func defaultPort(protocol string) int {
 }
 
 // Resolve takes a saved name, from favorites or ssh_config, before treating
-// the argument as a destination: a name the user chose beats a guess.
-func Resolve(arg string, saved ...[]Connection) (Connection, error) {
+// the argument as a destination: a name the user chose beats a guess. A
+// protocol asked for on the command line wins over a saved one.
+func Resolve(arg, protocol string, saved ...[]Connection) (Connection, error) {
 	for _, list := range saved {
 		for _, c := range list {
 			if c.Name == arg {
+				if protocol != "" {
+					c.Protocol = protocol
+				}
 				return c, nil
 			}
 		}
 	}
-	return ParseTarget(arg)
+	return ParseTarget(arg, protocol)
 }
 
 // ParseProtocolFlag validates a --protocol value; empty means "not given".

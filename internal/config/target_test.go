@@ -17,7 +17,7 @@ func TestParseTarget(t *testing.T) {
 		"ana@nas.lan/":            {Host: "nas.lan", User: "ana", Port: 21, Protocol: "FTP"},
 	}
 	for arg, want := range ok {
-		got, err := ParseTarget(arg)
+		got, err := ParseTarget(arg, "")
 		if err != nil || got != want {
 			t.Errorf("%q = %+v, %v; want %+v", arg, got, err, want)
 		}
@@ -25,7 +25,7 @@ func TestParseTarget(t *testing.T) {
 
 	for _, arg := range []string{"", "ana:secret@nas.lan", "sftp://ana:secret@nas.lan", "nas.lan:0", "nas.lan:99999",
 		"nas.lan:http", "http://nas.lan", "sftp://nas.lan/home/ana", "@nas.lan", "sftp://"} {
-		if got, err := ParseTarget(arg); err == nil {
+		if got, err := ParseTarget(arg, ""); err == nil {
 			t.Errorf("%q accepted as %+v", arg, got)
 		}
 	}
@@ -35,13 +35,13 @@ func TestResolvePrefersSavedNames(t *testing.T) {
 	fav := Connection{Name: "nas.lan", Host: "10.0.0.5", Port: 22, Protocol: "SFTP"}
 	ssh := Connection{Name: "web", Host: "web.example.com", Port: 22, Protocol: "SFTP"}
 
-	if got, _ := Resolve("nas.lan", []Connection{fav}, []Connection{ssh}); got != fav {
+	if got, _ := Resolve("nas.lan", "", []Connection{fav}, []Connection{ssh}); got != fav {
 		t.Errorf("a favorite named like a host lost to the host: %+v", got)
 	}
-	if got, _ := Resolve("web", []Connection{fav}, []Connection{ssh}); got != ssh {
+	if got, _ := Resolve("web", "", []Connection{fav}, []Connection{ssh}); got != ssh {
 		t.Errorf("ssh_config name not found: %+v", got)
 	}
-	if got, err := Resolve("other.lan", []Connection{fav}); err != nil || got.Host != "other.lan" {
+	if got, err := Resolve("other.lan", "", []Connection{fav}); err != nil || got.Host != "other.lan" {
 		t.Errorf("unsaved name not parsed as a host: %+v, %v", got, err)
 	}
 }
@@ -54,5 +54,23 @@ func TestParseProtocolFlag(t *testing.T) {
 	}
 	if _, err := ParseProtocolFlag("scp"); err == nil {
 		t.Error("scp accepted")
+	}
+}
+
+func TestProtocolFlagDecidesWhenThereIsNoScheme(t *testing.T) {
+	if got, _ := ParseTarget("nas.lan", "SFTP"); got.Protocol != "SFTP" || got.Port != 22 {
+		t.Errorf("--protocol sftp with no port: %+v", got)
+	}
+	if got, _ := ParseTarget("nas.lan:2121", "FTPS"); got.Protocol != "FTPS" || got.Port != 2121 {
+		t.Errorf("--protocol ftps with a port: %+v", got)
+	}
+	if got, err := ParseTarget("sftp://nas.lan", "FTP"); err == nil {
+		t.Errorf("scheme and flag disagree but %+v was accepted", got)
+	}
+	if got, _ := ParseTarget("sftp://nas.lan", "SFTP"); got.Protocol != "SFTP" {
+		t.Errorf("scheme and flag agree: %+v", got)
+	}
+	if got, _ := Resolve("nas", "FTPS", []Connection{{Name: "nas", Host: "h", Port: 2222, Protocol: "SFTP"}}); got.Protocol != "FTPS" || got.Port != 2222 {
+		t.Errorf("flag over a saved connection: %+v", got)
 	}
 }
