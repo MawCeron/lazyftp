@@ -145,7 +145,7 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 	case k.focus == focusConnectionBar && k.barMode == modeReplace:
 		return []key.Binding{keyReplaceOK, keyBack}
 	case k.focus == focusConnectionBar:
-		return []key.Binding{keySubmit, keyFavorites, keyHistory, keySaveFavorite, keyCancelConnection, keyNextField, keyPrevField, keyProtocol}
+		return []key.Binding{keySubmit, keyFavorites, keyHistory, keySaveFavorite, keyCancelConnection}
 	case k.focus == focusLog || k.focus == focusProcesses:
 		up, down, pageUp, pageDown := scrollKeys()
 		return []key.Binding{up, down, pageUp, pageDown, keySwitch}

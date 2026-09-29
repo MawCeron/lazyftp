@@ -335,9 +335,29 @@ func TestDialogsDoNotRepeatTheFooterKeys(t *testing.T) {
 	a := NewApp(nil, false, nil, "dev", false)
 	a.width, a.focus = 120, focusConnectionBar
 	got := a.hintsView()
-	for _, want := range []string{"favorites", "recent", "save"} {
+	for _, want := range []string{"connect", "favorites", "recent", "save", "close"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("form footer %q is missing %q", got, want)
+		}
+	}
+}
+
+// A footer with more than five keys stops being glanceable; the rest belong on
+// the help screen.
+func TestNoFooterShowsMoreThanFiveKeys(t *testing.T) {
+	var states []footerKeyMap
+	for _, f := range []focus{focusLocal, focusRemote, focusLog, focusProcesses, focusConnectionBar} {
+		for _, m := range []barMode{modeForm, modeList, modeHistory, modeSave, modeReplace} {
+			states = append(states, footerKeyMap{focus: f, barMode: m})
+		}
+	}
+	states = append(states,
+		footerKeyMap{connecting: true}, footerKeyMap{hostKey: true}, footerKeyMap{helpOpen: true},
+		footerKeyMap{fileInfoOpen: true}, footerKeyMap{jumping: true}, footerKeyMap{creatingDir: true},
+		footerKeyMap{renaming: true}, footerKeyMap{deleting: true})
+	for _, k := range states {
+		if n := len(k.ShortHelp()); n > 5 {
+			t.Errorf("%+v shows %d keys", k, n)
 		}
 	}
 }
