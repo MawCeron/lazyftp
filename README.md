@@ -119,11 +119,21 @@ Press `Ctrl+L` to open the connection dialog:
 | User | Username |
 | Pass | Password |
 | Port | Leave empty for the protocol's default: `21` for FTP and FTPS, `22` for SFTP |
+| Key | Optional, SFTP only: path to a private key (`~` works). Tried before the agent and the default keys. If it is encrypted, type its passphrase in Pass |
 
 Press `Enter` to connect, `Esc` to close the dialog or give up on an attempt that is taking too
 long. Once connected, the status line shows the protocol, user, host and connection state.
 
 FTPS certificates are verified, so a server with a self-signed certificate is refused.
+
+### Servers from `~/.ssh/config`
+
+Every concrete `Host` entry in `~/.ssh/config` shows up in the `Ctrl+O` list after your favorites,
+tagged `ssh`, with its `HostName`, `User`, `Port` and `IdentityFile` filled in. `Include` is
+followed and wildcard blocks such as `Host *` apply the way `ssh` applies them. The file is only
+read, never written, and a missing or broken one is ignored. These entries cannot be deleted from
+lazyftp; `Ctrl+S` after filling one saves your own copy. `ProxyJump`, `ProxyCommand` and `Match`
+are not supported.
 
 ### Recent connections
 

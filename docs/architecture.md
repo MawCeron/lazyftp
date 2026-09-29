@@ -271,7 +271,9 @@ unusable for IPv6 hosts, and `go vet` will tell you so.
 
 ### How SFTP authenticates and who it trusts
 
-**Authentication** (`internal/client/sshauth.go`) offers the ssh-agent and the default keys
+**Authentication** (`internal/client/sshauth.go`) offers a key the user named in the Key field
+first, and reports it when it cannot be used, since that was a choice and not a default that
+happens to be missing. Then the ssh-agent and the default keys
 (`id_ed25519`, `id_ecdsa`, `id_rsa` under `~/.ssh`) first, then the password if one was typed.
 `ssh` tries one `publickey` method per connection, so the agent's signers and the key files are
 handed over together. It reports which methods failed but never which one succeeded, so
@@ -285,6 +287,11 @@ and names the line that disagrees. An unknown host is never trusted silently: th
 `HostKeyPrompt`, the UI shows the fingerprint and blocks the handshake until `y` or `n`, and
 accepting appends the key to the file. With no prompt installed an unknown host is refused. The
 handshake deadline is lifted while the question is open, because the user is reading, not stalling.
+
+**`~/.ssh/config`** (`internal/sshconfig`) is read with `kevinburke/ssh_config`, which resolves
+wildcards and first-value-wins. It resolves values through `Include` but does not list the hosts
+an included file defines, so `aliases` reads those files again to enumerate them. Only concrete
+`Host` names become entries; patterns with `*`, `?` or `!` are not servers.
 
 ### Choices that look arbitrary
 

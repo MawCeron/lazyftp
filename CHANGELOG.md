@@ -19,6 +19,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   in the operating system keyring and never in the file.
   ([#36](https://github.com/MawCeron/lazyftp/issues/36))
 
+- SFTP can use a private key at any path: a new Key field in the connection dialog, saved with
+  favorites and history. ([#37](https://github.com/MawCeron/lazyftp/issues/37))
+- Servers from `~/.ssh/config` appear in the favorites list, tagged `ssh`, with hostname, user,
+  port and identity file resolved the way `ssh` resolves them, `Include` included. The file is
+  never written. ([#53](https://github.com/MawCeron/lazyftp/issues/53))
 - Favorite connections: `Ctrl+S` in the connection dialog saves one under a name, `Ctrl+O` lists
   and fills them, `d` deletes. The password is kept in the system keyring only if asked, and
   never in `config.toml`. ([#4](https://github.com/MawCeron/lazyftp/issues/4))
