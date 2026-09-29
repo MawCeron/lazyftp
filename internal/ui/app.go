@@ -857,6 +857,9 @@ func (a App) handleConnected(msg connectedMsg) (App, tea.Cmd) {
 	a.connProtocol = msg.protocol
 	a.focus = focusLocal
 	a.log = a.log.Add("Connected to "+msg.addr, LogSuccess)
+	if c, ok := msg.client.(interface{ AuthMethod() string }); ok {
+		a.log = a.log.Add("Authenticated with "+c.AuthMethod(), LogInfo)
+	}
 
 	return a, loadRemoteDir(msg.client, "/")
 }

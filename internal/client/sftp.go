@@ -19,18 +19,23 @@ import (
 type SFTPClient struct {
 	sshConn *ssh.Client
 	client  *sftp.Client
+	auth    string
 }
+
+// AuthMethod names how the last successful Connect authenticated.
+func (c *SFTPClient) AuthMethod() string { return c.auth }
 
 func NewSFTPClient() *SFTPClient {
 	return &SFTPClient{}
 }
 
 func (c *SFTPClient) Connect(host, user, pass string, port int) error {
+	auth := &sshAuth{pass: pass}
+	defer auth.close()
+
 	config := &ssh.ClientConfig{
 		User: user,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(pass),
-		},
+		Auth: auth.methods(),
 		// TODO: verificar host key en versiones futuras
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         dialTimeout,
@@ -49,7 +54,7 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 	conn, chans, reqs, err := ssh.NewClientConn(tcpConn, addr, config)
 	if err != nil {
 		tcpConn.Close()
-		return fmt.Errorf("unable to connect to %s: %w", addr, err)
+		return fmt.Errorf("unable to connect to %s: %w", addr, auth.explain(err))
 	}
 
 	sshConn := ssh.NewClient(conn, chans, reqs)
@@ -68,6 +73,7 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 
 	c.sshConn = sshConn
 	c.client = client
+	c.auth = auth.method
 	return nil
 }
 
