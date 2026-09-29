@@ -12,6 +12,7 @@ import (
 // Connection holds everything about a server except its secret. There is no
 // password field on purpose: secrets live in the keyring, see Secret.
 type Connection struct {
+	Name     string `toml:"name"`
 	Host     string `toml:"host"`
 	User     string `toml:"user"`
 	Port     int    `toml:"port"`

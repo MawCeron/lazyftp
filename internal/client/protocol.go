@@ -19,6 +19,16 @@ func (p Protocol) String() string {
 	return protocolNames[p]
 }
 
+// ParseProtocol is String's inverse; an unknown name is FTP, like an out-of-range Protocol.
+func ParseProtocol(name string) Protocol {
+	for p, n := range protocolNames {
+		if n == name {
+			return Protocol(p)
+		}
+	}
+	return FTP
+}
+
 // DefaultPort applies when the port field is left blank.
 func (p Protocol) DefaultPort() int {
 	if p == SFTP {
