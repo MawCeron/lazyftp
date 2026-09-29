@@ -986,3 +986,95 @@ func TestLocalPathsFollowTheHost(t *testing.T) {
 		t.Errorf("parentPath = %q, want %q", got, filepath.Dir(base))
 	}
 }
+
+func fileList(fs ...string) []model.FileInfo {
+	out := make([]model.FileInfo, len(fs))
+	for i, n := range fs {
+		out[i] = model.FileInfo{Name: n}
+	}
+	return out
+}
+
+func selectedName(p Panel) string {
+	item, _ := p.list.SelectedItem().(fileItem)
+	return item.file.Name
+}
+
+func TestReloadingTheSameDirectoryKeepsTheCursorOnTheFile(t *testing.T) {
+	p, _ := NewPanel("Remote", false).WithFiles(fileList("b.txt", "c.txt", "d.txt"), "/data")
+	p.list.Select(2) // d.txt
+
+	// A new file sorts in above the cursor, so the row of d.txt moves.
+	p, _ = p.WithFiles(fileList("a.txt", "b.txt", "c.txt", "d.txt"), "/data")
+	if got := selectedName(p); got != "d.txt" {
+		t.Fatalf("cursor on %q after a same-directory reload, want d.txt", got)
+	}
+}
+
+func TestReloadingWithTheFileGoneKeepsTheCursorNearItsRow(t *testing.T) {
+	p, _ := NewPanel("Remote", false).WithFiles(fileList("a", "b", "c", "d"), "/data")
+	p.list.Select(2) // c
+
+	p, _ = p.WithFiles(fileList("a", "b", "d"), "/data")
+	if got := selectedName(p); got != "d" {
+		t.Fatalf("cursor on %q, want d (the file that took c's row)", got)
+	}
+
+	p.list.Select(2)
+	p, _ = p.WithFiles(fileList("a"), "/data")
+	if got := selectedName(p); got != "a" {
+		t.Fatalf("cursor on %q after the listing shrank past its row, want the last file", got)
+	}
+
+	if p, _ = p.WithFiles(nil, "/data"); p.list.Index() != 0 {
+		t.Fatal("an emptied directory left the cursor off row 0")
+	}
+}
+
+func TestEnteringAnotherDirectoryStartsAtTheTop(t *testing.T) {
+	p, _ := NewPanel("Remote", false).WithFiles(fileList("a", "b", "c"), "/data")
+	p.list.Select(2)
+
+	p, _ = p.WithFiles(fileList("x", "y", "z"), "/other")
+	if got := selectedName(p); got != "x" {
+		t.Fatalf("cursor on %q in a new directory, want x", got)
+	}
+}
+
+func TestReloadStillClearsTheMarks(t *testing.T) {
+	p, _ := NewPanel("Remote", false).WithFiles(fileList("a", "b"), "/data")
+	p.marked["a"] = true
+
+	p, _ = p.WithFiles(fileList("a", "b"), "/data")
+	if len(p.marked) != 0 {
+		t.Fatalf("marks survived a reload: %v", p.marked)
+	}
+}
+
+func TestTheCursorIgnoresHiddenFilesWhenKeepingItsPlace(t *testing.T) {
+	files := []model.FileInfo{{Name: ".a", IsHidden: true}, {Name: "b"}, {Name: "c"}}
+	p, _ := NewPanel("Remote", false).WithFiles(files, "/data")
+	p.list.Select(1) // c, among the visible b and c
+
+	p, _ = p.WithFiles(files, "/data")
+	if got := selectedName(p); got != "c" {
+		t.Fatalf("cursor on %q, want c", got)
+	}
+}
+
+// With a filter active the cursor goes to the top of the results, a deliberate
+// limit: the filtered view is rebuilt by the returned command, after WithFiles.
+func TestReloadWithAFilterActiveStartsAtTheTopOfTheResults(t *testing.T) {
+	p, _ := NewPanel("Remote", false).WithFiles(fileList("apple", "apricot", "banana"), "/data")
+	p, cmd := p.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	p = runFilterCmd(p, cmd)
+	p, cmd = p.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
+	p = runFilterCmd(p, cmd)
+	p.list.Select(1)
+
+	p, cmd = p.WithFiles(fileList("apple", "apricot", "banana"), "/data")
+	p = runFilterCmd(p, cmd)
+	if p.list.Index() != 0 || len(p.list.VisibleItems()) == 0 {
+		t.Fatalf("index %d with %d visible items", p.list.Index(), len(p.list.VisibleItems()))
+	}
+}

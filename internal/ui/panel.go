@@ -307,14 +307,41 @@ func NewPanel(title string, local bool) Panel {
 // filtered view against the new items, or a panel reloaded while a filter is
 // active (via refresh, navigation, or a completed transfer) would show no
 // files at all.
+//
+// Reloading the directory the panel already shows keeps the cursor on the same
+// file, or near its old row if the file is gone; entering another directory
+// starts at the top. With a filter active the cursor also goes to the top: the
+// filtered view is rebuilt by the returned command, after this has returned,
+// so there is nothing to place the cursor in yet.
 func (p Panel) WithFiles(files []model.FileInfo, dir string) (Panel, tea.Cmd) {
+	sameDir := p.cleanPath(dir) == p.path
+	selected, hadSelection := p.list.SelectedItem().(fileItem)
+	row := p.list.Index()
+	unfiltered := p.list.FilterState() == list.Unfiltered
+
 	p.files = files
 	p.path = p.cleanPath(dir)
 	p.marked = make(map[string]bool)
 	p, cmd := p.applySort()
-	p.list.Select(0)
 	p.list.SetDelegate(fileDelegate{marked: p.marked})
+
+	if sameDir && hadSelection && unfiltered {
+		return p.keepCursor(selected.file.Name, row), cmd
+	}
+	p.list.Select(0)
 	return p, cmd
+}
+
+func (p Panel) keepCursor(name string, row int) Panel {
+	visible := p.visibleFiles()
+	for i, f := range visible {
+		if f.Name == name {
+			p.list.Select(i)
+			return p
+		}
+	}
+	p.list.Select(max(0, min(row, len(visible)-1)))
+	return p
 }
 
 // applySort re-sorts p.files by the panel's current sort settings and
