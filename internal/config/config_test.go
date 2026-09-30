@@ -138,6 +138,9 @@ func TestALoadedThemeFallsBackToTheShippedOneAndTheUsersFileWins(t *testing.T) {
 	if err != nil || th.Dark.Background != "#1E1E2E" {
 		t.Fatalf("built-in: %+v, %v", th, err)
 	}
+	if th, err := LoadTheme("catppuccin-latte"); err != nil || th.Light.Background != "#EFF1F5" || th.Dark.Background != "" {
+		t.Fatalf("built-in latte: %+v, %v", th, err)
+	}
 
 	path, _ := ThemePath("catppuccin-mocha")
 	os.MkdirAll(filepath.Dir(path), 0o755)

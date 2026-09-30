@@ -1,0 +1,20 @@
+# Catppuccin Latte, https://github.com/catppuccin/catppuccin (MIT).
+# Selected with: theme = "catppuccin-latte"
+# The colors are Latte's own, which are pastel by design: several read below the
+# 4.5:1 lazyftp's default palette holds itself to. A theme is a matter of taste.
+name = "catppuccin-latte"
+
+[light]
+background   = "#EFF1F5"   # base
+primary      = "#4C4F69"   # text
+emphasis     = "#11111B"   # crust of Mocha, the darkest shade across the flavors
+muted        = "#6C6F85"   # subtext0
+border       = "#9CA0B0"   # overlay0
+accent       = "#8839EF"   # mauve
+success      = "#40A02B"   # green
+error        = "#D20F39"   # red
+directory    = "#1E66F5"   # blue
+marked       = "#DF8E1D"   # yellow
+bar_bg       = "#CCD0DA"   # surface0
+diff_only    = "#FE640B"   # peach
+size_differs = "#EA76CB"   # pink

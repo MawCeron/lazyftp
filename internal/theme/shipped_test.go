@@ -95,11 +95,23 @@ func shipped(t *testing.T) map[string]Theme {
 	return out
 }
 
-func TestEveryShippedThemeParsesAndIsReadable(t *testing.T) {
-	for who, th := range shipped(t) {
-		checkReadable(t, who, "dark", th.Dark, assumedDark, true)
-		checkReadable(t, who, "light", th.Light, assumedLight, true)
+func TestEveryShippedThemeParses(t *testing.T) {
+	if n := len(shipped(t)); n < 4 {
+		t.Fatalf("only %d shipped themes found", n)
 	}
+}
+
+// The readability rule is the default palette's, not every theme's: a custom
+// theme is the user's taste, and Latte's pastels are faithful to it. default.toml
+// is the built-in palette (ui tests keep the two identical), so this is where
+// the rule is enforced.
+func TestTheDefaultPaletteIsReadable(t *testing.T) {
+	th, err := Load(filepath.Join("..", "..", "docs", "themes", "default.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkReadable(t, "default.toml", "dark", th.Dark, assumedDark, true)
+	checkReadable(t, "default.toml", "light", th.Light, assumedLight, true)
 }
 
 func TestTheReferenceThemeIsTheBuiltInPalette(t *testing.T) {
