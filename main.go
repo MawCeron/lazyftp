@@ -19,7 +19,7 @@ var version = "dev"
 
 func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
-	verbose := flag.Bool("verbose", false, "log the FTP control dialogue to the Log panel")
+	verbose := flag.Bool("verbose", false, "log the FTP control dialogue to the Log panel; for SFTP, one line per request instead")
 	logFile := flag.String("log-file", "", "also write the log to this file, appending to it")
 	noNerdFonts := flag.Bool("no-nerd-fonts", false, "use plain Unicode symbols instead of Nerd Font icons")
 	highlightDiff := flag.Bool("highlight-diff", false, "mark files present on only one side, comparing Local and Remote by name")

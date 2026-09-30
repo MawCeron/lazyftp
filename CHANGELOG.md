@@ -44,6 +44,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Creating a directory and renaming now log a confirmation on success, and a delete logs how many
   went through (`Remote: 2 of 3 deleted`), on both panels. ([#90](https://github.com/MawCeron/lazyftp/issues/90))
 
+- `--verbose` now says something for SFTP: one line per request (connect, host key, authentication,
+  `READDIR`, `PUT`, `GET`, `MKDIR`, `RENAME`, `REMOVE`, a session being reopened) with its result.
+  Verbose lines, FTP's control dialogue included, are marked `DEBUG` and dimmed so they read apart
+  from the app's own entries. ([#92](https://github.com/MawCeron/lazyftp/issues/92))
+
 ### Fixed
 
 - The help screen scrolls. It was one fixed box cut off at the terminal's height, so at small

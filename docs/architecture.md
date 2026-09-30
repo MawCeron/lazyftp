@@ -329,7 +329,10 @@ an included file defines, so `aliases` reads those files again to enumerate them
   `530`, the same reply they give a bad login, and the two cannot be told apart from the reply.
   Naming only one would send people to check a password that was never wrong.
 - **The control dialogue goes to an injected `io.Writer`**, which `--verbose` points at a
-  `shared.LineBuffer`. SFTP has no equivalent dialogue and ignores the writer.
+  `shared.LineBuffer`. SFTP has no control dialogue to capture, so `SFTPClient` writes one line
+  per request to the same writer (`> READDIR /x`, then `< READDIR /x ok` or `failed: …`): verbose
+  is request-level there, wire-level for FTP. The UI drains both as `LogVerbose`, shown as `DEBUG`
+  and dimmed, so neither reads like the app's own entries.
 
 ## Configuration and secrets
 
@@ -414,7 +417,7 @@ CI runs those three on Linux and Windows for every pull request and for pushes t
 matrix deliberately: path handling differs there, and the crash that put it in the matrix was
 reachable on the first keystroke of a fresh install.
 
-`--verbose` puts the FTP control dialogue in the Log panel, and `--log-file <path>` writes
+`--verbose` puts the FTP control dialogue, or SFTP's request lines, in the Log panel, and `--log-file <path>` writes
 everything the panel shows to a file as well. Together they are how a connection problem becomes
 something readable, including one against a server you cannot reach yourself.
 

@@ -113,7 +113,7 @@ invalid one prints the usage and exits with status 2.
 
 | Flag | What it does |
 |------|--------------|
-| `--verbose` | Show the FTP control dialogue in the Log panel |
+| `--verbose` | Show the FTP control dialogue in the Log panel. SFTP has no such dialogue, so it shows one line per request instead (see Troubleshooting) |
 | `--log-file <path>` | Write the log to a file as well, appending to it |
 | `--no-nerd-fonts` | Use plain Unicode symbols instead of Nerd Font icons |
 | `--highlight-diff` | Mark files that differ between Local and Remote (by name, and by size when both share a name) |
@@ -246,6 +246,12 @@ file you can attach to an issue. Passwords are masked.
 ```bash
 lazyftp --verbose --log-file lazyftp.log
 ```
+
+Verbose lines are marked `DEBUG` and drawn dimmer than the app's own entries. For FTP and FTPS they
+are the raw control dialogue, command by command. SFTP has no equivalent, since it runs as a
+subsystem inside an encrypted SSH channel, so its verbose output is at the level of requests, not
+of the wire: connecting, the host key and authentication method, then `READDIR`, `PUT`, `GET`,
+`MKDIR`, `RENAME` and `REMOVE` each with its result, and a lost session being reopened.
 
 **FTPS is refused and the credentials are right.** The server most likely does not offer TLS.
 Connect over `FTP` instead.
