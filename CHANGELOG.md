@@ -18,7 +18,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A configuration layer: `config.toml` in the per-platform config directory, with passwords kept
   in the operating system keyring and never in the file.
   ([#36](https://github.com/MawCeron/lazyftp/issues/36))
-
 - SFTP can use a private key at any path: a new Key field in the connection dialog, saved with
   favorites and history. ([#37](https://github.com/MawCeron/lazyftp/issues/37))
 - Servers from `~/.ssh/config` appear in the favorites list, tagged `ssh`, with hostname, user,
@@ -26,37 +25,37 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   never written. ([#53](https://github.com/MawCeron/lazyftp/issues/53))
 - Connect from the command line: `lazyftp [destination]`, where the destination is a favorite, a
   `~/.ssh/config` Host, or `[ftp|ftps|sftp://][user@]host[:port]`, with `-i` for a key and
-  `--protocol`. It connects at once when a password is stored or the protocol is SFTP, and opens the
-  filled-in dialog otherwise. Passwords are refused as arguments, and an invalid destination prints
-  the usage and exits with status 2. ([#39](https://github.com/MawCeron/lazyftp/issues/39))
-- Favorite connections: `Ctrl+S` in the connection dialog saves one under a name, `Ctrl+O` lists
-  connects to them (`Enter`) or fills the form to edit (`e`), `d` deletes. The password is kept in the system keyring only if asked, and
-  never in `config.toml`. ([#4](https://github.com/MawCeron/lazyftp/issues/4))
-
+  `--protocol`. It connects at once when a password is stored or the protocol is SFTP, and opens
+  the filled-in dialog otherwise. Passwords are refused as arguments, and an invalid destination
+  prints the usage and exits with status 2.
+  ([#39](https://github.com/MawCeron/lazyftp/issues/39))
+- Favorite connections: `Ctrl+S` in the connection dialog saves one under a name, and `Ctrl+O`
+  lists them. `Enter` connects to one, `e` fills the form to edit it first, and `d` deletes it.
+  The password is kept in the system keyring only if asked, and never in `config.toml`. Saving
+  over an existing name asks first. ([#4](https://github.com/MawCeron/lazyftp/issues/4))
 - Recent connections: `Ctrl+R` in the connection dialog lists the last ten servers connected to,
-  kept in `history.toml`, and connects, or fills the form with `e`. ([#3](https://github.com/MawCeron/lazyftp/issues/3))
-
+  kept in `history.toml`. `Enter` connects, and `e` fills the form to edit it first.
+  ([#3](https://github.com/MawCeron/lazyftp/issues/3))
 - `Ctrl+X` disconnects without quitting: the app goes OFFLINE with an empty remote panel, and the
   status line shows the key while connected. It is refused while a transfer is running, since
   transfers cannot be cancelled yet and would keep writing to a closed connection. Connecting to
   another server is refused the same way. ([#80](https://github.com/MawCeron/lazyftp/issues/80))
-
 - Creating a directory and renaming now log a confirmation on success, and a delete logs how many
-  went through (`Remote: 2 of 3 deleted`), on both panels. ([#90](https://github.com/MawCeron/lazyftp/issues/90))
-
-- `--verbose` now says something for SFTP: one line per request (connect, host key, authentication,
-  `READDIR`, `PUT`, `GET`, `MKDIR`, `RENAME`, `REMOVE`, a session being reopened) with its result.
-  Verbose lines, FTP's control dialogue included, are marked `DEBUG` and dimmed so they read apart
-  from the app's own entries. ([#92](https://github.com/MawCeron/lazyftp/issues/92))
-
+  went through (`Remote: 2 of 3 deleted`), on both panels.
+  ([#90](https://github.com/MawCeron/lazyftp/issues/90))
+- `--verbose` now says something for SFTP: one line per request (connect, host key,
+  authentication, `READDIR`, `PUT`, `GET`, `MKDIR`, `RENAME`, `REMOVE`, a session being reopened)
+  with its result. Verbose lines, FTP's control dialogue included, are marked `DEBUG` and dimmed
+  so they read apart from the app's own entries.
+  ([#92](https://github.com/MawCeron/lazyftp/issues/92))
 - Loadable color themes. A TOML file in the `themes` directory next to `config.toml`, chosen with
   `theme = "name"`, replaces any of the interface's colors, with separate `[dark]` and `[light]`
-  palettes and a `background` token for themes that need a specific terminal background. Catppuccin
-  Mocha and Latte are built in, and `docs/themes/` has a reference of every token and a Borland example. Adding
-  a theme needs no code; one that cannot be loaded is explained on the console, which waits three
-  seconds and then starts with the default colors;
-  `NO_COLOR` wins over any theme. A palette that sets `background` stops the terminal being asked
-  whether it is light or dark. ([#42](https://github.com/MawCeron/lazyftp/issues/42))
+  palettes and a `background` token for themes that need a specific terminal background.
+  Catppuccin Mocha and Latte are built in, and `docs/themes/` has a reference of every token and
+  a Borland example. Adding a theme needs no code; one that cannot be loaded is explained on the
+  console, which waits three seconds and then starts with the default colors. `NO_COLOR` wins
+  over any theme, and a palette that sets `background` stops the terminal being asked whether it
+  is light or dark. ([#42](https://github.com/MawCeron/lazyftp/issues/42))
 
 ### Fixed
 
