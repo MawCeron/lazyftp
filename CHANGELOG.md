@@ -41,6 +41,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   transfers cannot be cancelled yet and would keep writing to a closed connection. Connecting to
   another server is refused the same way. ([#80](https://github.com/MawCeron/lazyftp/issues/80))
 
+- Creating a directory and renaming now log a confirmation on success, and a delete logs how many
+  went through (`Remote: 2 of 3 deleted`), on both panels. ([#90](https://github.com/MawCeron/lazyftp/issues/90))
+
 ### Fixed
 
 - The help screen scrolls. It was one fixed box cut off at the terminal's height, so at small
@@ -66,6 +69,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Log lines say what was being attempted. `No active connection` now names the blocked action
+  (`No active connection: cannot rename`), and directory, rename and listing errors include the
+  path or paths involved. ([#91](https://github.com/MawCeron/lazyftp/issues/91))
 - Hidden (dot) files are now hidden by default in both panels, and `Ctrl+H` shows them. They were
   visible by default and `Ctrl+H` hid them.
 - SFTP no longer accepts any host key silently.
