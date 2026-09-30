@@ -145,7 +145,7 @@ func (a App) drainProtoLog() App {
 		return a
 	}
 	for _, line := range a.protoLog.Drain() {
-		a.log = a.log.Add(line, LogInfo)
+		a.log = a.log.Add(line, LogVerbose)
 	}
 	return a
 }

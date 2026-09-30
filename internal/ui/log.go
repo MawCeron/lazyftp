@@ -20,6 +20,7 @@ const (
 	LogInfo    = shared.LogInfo
 	LogSuccess = shared.LogSuccess
 	LogError   = shared.LogError
+	LogVerbose = shared.LogVerbose
 )
 
 type LogEntry struct {
@@ -44,6 +45,7 @@ var levelNames = map[LogLevel]string{
 	LogInfo:    "INFO",
 	LogSuccess: "OK",
 	LogError:   "ERROR",
+	LogVerbose: "DEBUG",
 }
 
 func (l LogPanel) Add(msg string, level LogLevel) LogPanel {
@@ -141,6 +143,8 @@ func renderLogEntry(e LogEntry, width int) string {
 		color = colorSuccess
 	case LogError:
 		color = colorError
+	case LogVerbose:
+		color = colorMuted
 	}
 
 	timeStyle := lipgloss.NewStyle().Foreground(colorMuted)

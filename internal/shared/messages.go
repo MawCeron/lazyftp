@@ -53,6 +53,8 @@ const (
 	LogInfo LogLevel = iota
 	LogSuccess
 	LogError
+	// LogVerbose is what --verbose adds: protocol traffic, never an outcome.
+	LogVerbose
 )
 
 type LogMsg struct {

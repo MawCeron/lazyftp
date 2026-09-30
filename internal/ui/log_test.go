@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/MawCeron/lazyftp/internal/shared"
 )
 
 func TestLogWritesEveryEntryToTheFile(t *testing.T) {
@@ -119,5 +120,32 @@ func TestLogStopsFollowingOnceScrolledUp(t *testing.T) {
 	}
 	if strings.Contains(log.viewport.View(), "entry 20") {
 		t.Error("the new entry is visible even though the view is scrolled up, away from it")
+	}
+}
+
+// --verbose output is protocol traffic, not an outcome: it gets its own level
+// so it reads differently from the app's own lines, for FTP and SFTP alike.
+func TestVerboseLinesAreMarkedAndStyledApartFromNormalEntries(t *testing.T) {
+	a := NewApp(nil, true, nil, "dev", false)
+	a.protoLog = &shared.LineBuffer{}
+	a.protoLog.Write([]byte("SFTP > READDIR /\nSFTP < READDIR / ok\n"))
+	a = a.drainProtoLog()
+
+	if len(a.log.entries) != 2 {
+		t.Fatalf("%d entries drained", len(a.log.entries))
+	}
+	for _, e := range a.log.entries {
+		if e.Level != LogVerbose {
+			t.Errorf("%q drained as level %v", e.Message, e.Level)
+		}
+	}
+
+	verbose := renderLogEntry(LogEntry{Message: "x", Level: LogVerbose}, 80)
+	info := renderLogEntry(LogEntry{Message: "x", Level: LogInfo}, 80)
+	if !strings.Contains(verbose, "DEBUG") || strings.Contains(info, "DEBUG") {
+		t.Errorf("labels: verbose %q, info %q", verbose, info)
+	}
+	if verbose == info {
+		t.Error("a verbose entry renders exactly like an info one")
 	}
 }
