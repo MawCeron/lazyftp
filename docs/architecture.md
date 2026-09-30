@@ -431,12 +431,6 @@ the loop keeps whatever `Update` returned rather than whatever you modified.
 Defects that exist today, listed because building on top of one is expensive to undo. Each has an
 issue; when it is fixed, its entry here goes with it.
 
-**SSH host keys are not verified.** `SFTPClient.Connect` uses `ssh.InsecureIgnoreHostKey()`, so
-lazyftp connects to whatever answers and never warns that the key changed. Password authentication
-over an unverified connection is exactly the shape a machine-in-the-middle needs. Documented rather
-than buried because a user should be able to find it out before trusting it with a password.
-([#38](https://github.com/MawCeron/lazyftp/issues/38))
-
 **Transfers are unbounded and cannot be stopped.** `Manager.Enqueue` starts one goroutine per job
 with no concurrency limit and no way to cancel, so marking a hundred files opens a hundred
 transfers. ([#44](https://github.com/MawCeron/lazyftp/issues/44))
