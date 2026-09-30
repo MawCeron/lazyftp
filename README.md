@@ -45,6 +45,7 @@ from the keyboard.
 - Create, rename and delete files and directories, on either panel
 - Hidden (dot) files are hidden by default, with a per-panel toggle
 - `--highlight-diff` marks entries that differ between Local and Remote
+- Color themes from a file, with Catppuccin Mocha built in
 - Real-time transfer progress with direction indicators, including recursive directory
   upload/download
 - Multiple file selection and batch transfers, with direction-independent `U`/`D` shortcuts
@@ -178,6 +179,32 @@ each time; the Log says so.
 
 If you are in the **local panel**, the file will be uploaded to the current remote path. If you are
 in the **remote panel**, it will be downloaded to the current local path.
+
+### Themes
+
+Colors can be replaced by a theme: a TOML file in a `themes` directory next to `config.toml`
+(`~/.config/lazyftp/themes/` on Linux). Pick one by name in `config.toml`, without the extension,
+and restart:
+
+```toml
+theme = "catppuccin-mocha"   # built in; a file of the same name in your themes directory replaces it
+```
+
+Adding a theme is adding a file, no code involved. A theme has a `[dark]` and a `[light]` table,
+used according to your terminal's background, and each names any of the 13 tokens as `#RGB` or
+`#RRGGBB`; one it leaves out keeps the built-in color, and it may define only one table.
+[`docs/themes/default.toml`](docs/themes/default.toml) lists every token with its current value and
+what it colors, and [`docs/themes/borland.toml`](docs/themes/borland.toml) is a complete example.
+
+`background` is the one token that is not a color lazyftp draws with: it asks the terminal for that
+background while lazyftp runs, for themes that need one (Borland's blue). When a palette sets it,
+lazyftp stops asking the terminal whether it is light or dark, since the theme has already chosen;
+if both palettes set it, the terminal is asked once to pick between them. Terminals that ignore
+the request keep their own background.
+
+A theme that cannot be loaded, because it is missing or has a bad color or a misspelled key, leaves
+the default colors and a line in the Log saying why. `NO_COLOR` wins over any theme, background
+included.
 
 ---
 

@@ -350,6 +350,34 @@ an included file defines, so `aliases` reads those files again to enumerate them
   `protocol://user@host:port`, so a favorite connects without asking. With no keyring available,
   `Secret` returns `ErrNoSecret` and the caller asks for the password as it does today.
 
+## Themes
+
+Colors are semantic tokens in `internal/ui/theme.go`, resolved against the terminal's light or dark
+background by `SetTheme`. A user theme (`internal/theme`, loaded by `config.LoadTheme`) is laid over
+that result token by token, so nothing a theme leaves out is lost, and every theme file is data:
+adding one touches no code. `LoadTheme` looks for `<config dir>/lazyftp/themes/<name>.toml` first
+and then at the themes embedded in the binary (`internal/theme/builtin`), so a user's file replaces
+a shipped one of the same name.
+
+`Parse` rejects what would otherwise do nothing silently: an unknown key, a color that is not
+`#RGB` or `#RRGGBB`, a theme with no colors. A theme name becomes a file name, so `ThemePath`
+refuses anything but letters, digits, `.`, `_` and `-`, and a leading dot, which keeps `theme =
+"../config"` inside the directory.
+
+`background` is applied through `tea.View.BackgroundColor`, which asks the terminal to change its
+own background: the app still paints no background, and a terminal that ignores the request is not
+an error. Two things depend on it. Light/dark detection re-asks the terminal on a 200 ms poll, and a
+theme that changes the background would answer its own question, so a palette that names one stops
+the detection (`themeFixed`); a theme naming a background in both palettes asks once to choose
+(`themeOnce`), never again, so it cannot flip. And `NO_COLOR` is checked in `terminalBackground`,
+because the renderer strips color escapes for it but the background is a terminal setting that
+would slip past that.
+
+`internal/theme/shipped_test.go` holds every shipped theme, the embedded ones and `docs/themes/`, to
+the contrast rule the built-in palette was chosen by: 4.5:1 for text and 3:1 for borders.
+`default.toml`, which reproduces the built-in palette, is exempt from the status-bar check: muted
+text on the dark bar is 3.99:1, a shortfall that predates themes.
+
 ## Rules that are easy to break
 
 Each of these was learned by breaking it. Some restate, as a rule you can scan, what earlier

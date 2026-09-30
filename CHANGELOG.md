@@ -49,6 +49,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Verbose lines, FTP's control dialogue included, are marked `DEBUG` and dimmed so they read apart
   from the app's own entries. ([#92](https://github.com/MawCeron/lazyftp/issues/92))
 
+- Loadable color themes. A TOML file in the `themes` directory next to `config.toml`, chosen with
+  `theme = "name"`, replaces any of the interface's colors, with separate `[dark]` and `[light]`
+  palettes and a `background` token for themes that need a specific terminal background. Catppuccin
+  Mocha is built in, and `docs/themes/` has a reference of every token and a Borland example. Adding
+  a theme needs no code; one that cannot be loaded leaves the default colors and a line in the Log;
+  `NO_COLOR` wins over any theme. A palette that sets `background` stops the terminal being asked
+  whether it is light or dark. ([#42](https://github.com/MawCeron/lazyftp/issues/42))
+
 ### Fixed
 
 - The help screen scrolls. It was one fixed box cut off at the terminal's height, so at small
