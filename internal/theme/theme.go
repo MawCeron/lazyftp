@@ -16,6 +16,9 @@ import (
 // Colors holds one palette as hex strings. Every token is optional: one left
 // empty keeps the built-in color, so a theme can change only what it cares about.
 type Colors struct {
+	// Background is the terminal's own background while the app runs, for
+	// themes that need a specific one. The app draws no background of its own.
+	Background  string `toml:"background"`
 	Primary     string `toml:"primary"`
 	Emphasis    string `toml:"emphasis"`
 	Muted       string `toml:"muted"`
@@ -82,7 +85,7 @@ func Load(path string) (Theme, error) {
 
 func (c Colors) entries() []struct{ key, value string } {
 	return []struct{ key, value string }{
-		{"primary", c.Primary}, {"emphasis", c.Emphasis}, {"muted", c.Muted},
+		{"background", c.Background}, {"primary", c.Primary}, {"emphasis", c.Emphasis}, {"muted", c.Muted},
 		{"border", c.Border}, {"accent", c.Accent}, {"success", c.Success},
 		{"error", c.Error}, {"directory", c.Directory}, {"marked", c.Marked},
 		{"bar_bg", c.BarBg}, {"diff_only", c.DiffOnly}, {"size_differs", c.SizeDiffers},

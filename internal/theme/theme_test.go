@@ -11,6 +11,7 @@ const full = `
 name = "example"
 
 [dark]
+background = "#1E1E2E"
 primary = "#D4D4D4"
 accent = "#5DCAA5"
 bar_bg = "#282828"
@@ -25,7 +26,7 @@ func TestParseReadsBothPalettes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if th.Name != "example" || th.Dark.Accent != "#5DCAA5" || th.Dark.BarBg != "#282828" || th.Light.Primary != "#2C2C2A" {
+	if th.Name != "example" || th.Dark.Accent != "#5DCAA5" || th.Dark.BarBg != "#282828" || th.Dark.Background != "#1E1E2E" || th.Light.Primary != "#2C2C2A" {
 		t.Fatalf("%+v", th)
 	}
 	if th.Dark.Muted != "" {
@@ -52,6 +53,7 @@ func TestParseRejectsWhatWouldQuietlyDoNothing(t *testing.T) {
 		"name not hex":   "[dark]\naccent = \"green\"\n",
 		"hash missing":   "[dark]\naccent = \"5DCAA5\"\n",
 		"wrong length":   "[light]\nerror = \"#12345\"\n",
+		"bad background": "[dark]\nbackground = \"black\"\n",
 		"not hex digits": "[dark]\nerror = \"#GGGGGG\"\n",
 	}
 	for name, src := range cases {
@@ -88,5 +90,15 @@ func TestLoad(t *testing.T) {
 
 	if _, err := Load(filepath.Join(dir, "missing.toml")); !os.IsNotExist(err) {
 		t.Fatalf("a missing file should stay recognisable as one: %v", err)
+	}
+}
+
+func TestABackgroundAloneIsAValidTheme(t *testing.T) {
+	th, err := Parse([]byte("[dark]\nbackground = \"#0000AA\"\n"))
+	if err != nil || th.Dark.Background != "#0000AA" {
+		t.Fatalf("%+v, %v", th, err)
+	}
+	if th.Light.Background != "" {
+		t.Error("the light palette should stay empty")
 	}
 }
