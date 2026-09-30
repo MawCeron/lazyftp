@@ -97,12 +97,8 @@ func shipped(t *testing.T) map[string]Theme {
 
 func TestEveryShippedThemeParsesAndIsReadable(t *testing.T) {
 	for who, th := range shipped(t) {
-		// The built-in palette itself is 3.99:1 for muted text on the dark bar, a
-		// shortfall that predates themes; default.toml reproduces it faithfully, so
-		// it is not held to the bar rule until the palette is changed.
-		bar := who != "default.toml"
-		checkReadable(t, who, "dark", th.Dark, assumedDark, bar)
-		checkReadable(t, who, "light", th.Light, assumedLight, bar)
+		checkReadable(t, who, "dark", th.Dark, assumedDark, true)
+		checkReadable(t, who, "light", th.Light, assumedLight, true)
 	}
 }
 

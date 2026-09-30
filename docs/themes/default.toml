@@ -13,7 +13,7 @@
 #                         # keep theirs, and NO_COLOR disables it.
 primary      = "#D4D4D4"  # default text
 emphasis     = "#F5F5F0"  # footer key hints, the "connected" detail
-muted        = "#808592"  # secondary text: dates, paths, placeholders
+muted        = "#8A8F9B"  # secondary text: dates, paths, placeholders
 border       = "#7A7F8C"  # inactive borders and separators
 accent       = "#5DCAA5"  # focus, cursor, active border
 success      = "#97C459"

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"path/filepath"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -154,3 +155,40 @@ func TestAThemeThatFailedToLoadIsALogLineAndNothingElse(t *testing.T) {
 type errTest string
 
 func (e errTest) Error() string { return string(e) }
+
+// docs/themes/default.toml is the reference people copy from, and the file the
+// contrast test holds to the readability rule; it is only worth that if it says
+// exactly what the built-in palette says.
+func TestTheReferenceThemeFileIsTheBuiltInPalette(t *testing.T) {
+	resetTheme(t)
+	ref, err := theme.Load(filepath.Join("..", "..", "docs", "themes", "default.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tokens := func() []color.Color {
+		return []color.Color{colorPrimary, colorEmphasis, colorMuted, colorBorder, colorAccent, colorSuccess,
+			colorError, colorDirectory, colorMarked, colorBarBg, colorDiffOnly, colorSizeDiffers}
+	}
+	file := func(c theme.Colors) []color.Color {
+		var out []color.Color
+		for _, hex := range []string{c.Primary, c.Emphasis, c.Muted, c.Border, c.Accent, c.Success,
+			c.Error, c.Directory, c.Marked, c.BarBg, c.DiffOnly, c.SizeDiffers} {
+			out = append(out, lipgloss.Color(hex))
+		}
+		return out
+	}
+
+	for name, mode := range map[string]struct {
+		dark bool
+		file theme.Colors
+	}{"dark": {true, ref.Dark}, "light": {false, ref.Light}} {
+		SetTheme(mode.dark)
+		got, want := tokens(), file(mode.file)
+		for i := range got {
+			if got[i] != want[i] {
+				t.Errorf("%s token %d: the palette has %v, default.toml says %v", name, i, got[i], want[i])
+			}
+		}
+	}
+}

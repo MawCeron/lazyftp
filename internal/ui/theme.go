@@ -17,11 +17,13 @@ import (
 // Every value below was chosen against a representative dark (#1e1e1e) and
 // light (#fafafa) background and checked for WCAG contrast: >=4.5:1 for
 // anything that carries readable text, >=3:1 for colorBorder, which only
-// draws structural lines and separators.
+// draws structural lines and separators. Text on the status bar (colorBarBg)
+// is held to the same 4.5:1. A test keeps docs/themes/default.toml identical
+// to this palette, and holds that file to the rule.
 var (
 	colorPrimary     color.Color = lipgloss.Color("#D4D4D4") // default text
 	colorEmphasis    color.Color = lipgloss.Color("#F5F5F0") // footer key hints, "connected" detail
-	colorMuted       color.Color = lipgloss.Color("#808592") // readable secondary text: dates, paths, placeholders
+	colorMuted       color.Color = lipgloss.Color("#8A8F9B") // readable secondary text: dates, paths, placeholders
 	colorBorder      color.Color = lipgloss.Color("#7A7F8C") // inactive borders, separators -- structure only
 	colorAccent      color.Color = lipgloss.Color("#5DCAA5") // focus, cursor, active border
 	colorSuccess     color.Color = lipgloss.Color("#97C459")
@@ -82,7 +84,7 @@ func SetTheme(isDark bool) {
 	ld := lipgloss.LightDark(isDark)
 	colorPrimary = ld(lipgloss.Color("#2C2C2A"), lipgloss.Color("#D4D4D4"))
 	colorEmphasis = ld(lipgloss.Color("#141414"), lipgloss.Color("#F5F5F0"))
-	colorMuted = ld(lipgloss.Color("#57554C"), lipgloss.Color("#808592"))
+	colorMuted = ld(lipgloss.Color("#57554C"), lipgloss.Color("#8A8F9B"))
 	colorBorder = ld(lipgloss.Color("#8A897F"), lipgloss.Color("#7A7F8C"))
 	colorAccent = ld(lipgloss.Color("#0F6E56"), lipgloss.Color("#5DCAA5"))
 	colorSuccess = ld(lipgloss.Color("#3B6D11"), lipgloss.Color("#97C459"))
