@@ -1,0 +1,5 @@
+Host demo
+  HostName 127.0.0.1
+  Port 2022
+  User demo
+  IdentityFile ~/.ssh/id_ed25519
