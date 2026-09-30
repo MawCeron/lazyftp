@@ -21,19 +21,21 @@ import (
 // is held to the same 4.5:1. A test keeps docs/themes/default.toml identical
 // to this palette, and holds that file to the rule.
 var (
-	colorPrimary     color.Color = lipgloss.Color("#D4D4D4") // default text
-	colorEmphasis    color.Color = lipgloss.Color("#F5F5F0") // footer key hints, "connected" detail
-	colorMuted       color.Color = lipgloss.Color("#8A8F9B") // readable secondary text: dates, paths, placeholders
-	colorBorder      color.Color = lipgloss.Color("#7A7F8C") // inactive borders, separators -- structure only
-	colorAccent      color.Color = lipgloss.Color("#5DCAA5") // focus, cursor, active border
-	colorSuccess     color.Color = lipgloss.Color("#97C459")
-	colorError       color.Color = lipgloss.Color("#E8615F")
-	colorDirectory   color.Color = lipgloss.Color("#85B7EB")
-	colorMarked      color.Color = lipgloss.Color("#EFB050")
-	colorBarBg       color.Color = lipgloss.Color("#282828") // status line / footer background
-	colorDiffOnly    color.Color = lipgloss.Color("#E28560") // entries present on only one side (--highlight-diff)
-	colorSizeDiffers color.Color = lipgloss.Color("#E080A0") // same name, different size (--highlight-diff)
+	colorPrimary     color.Color // default text
+	colorEmphasis    color.Color // footer key hints, "connected" detail
+	colorMuted       color.Color // readable secondary text: dates, paths, placeholders
+	colorBorder      color.Color // inactive borders, separators -- structure only
+	colorAccent      color.Color // focus, cursor, active border
+	colorSuccess     color.Color
+	colorError       color.Color
+	colorDirectory   color.Color
+	colorMarked      color.Color
+	colorBarBg       color.Color // status line / footer background
+	colorDiffOnly    color.Color // entries present on only one side (--highlight-diff)
+	colorSizeDiffers color.Color // same name, different size (--highlight-diff)
 )
+
+func init() { SetTheme(true) }
 
 // activeTheme is the user's theme file, if any. It overrides the built-in
 // tokens one by one, so a theme only has to name the colors it changes.
