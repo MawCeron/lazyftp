@@ -373,10 +373,11 @@ the detection (`themeFixed`); a theme naming a background in both palettes asks 
 because the renderer strips color escapes for it but the background is a terminal setting that
 would slip past that.
 
-`internal/theme/shipped_test.go` holds every shipped theme, the embedded ones and `docs/themes/`, to
-the contrast rule the built-in palette was chosen by: 4.5:1 for text and 3:1 for borders.
-`default.toml`, which reproduces the built-in palette, is exempt from the status-bar check: muted
-text on the dark bar is 3.99:1, a shortfall that predates themes.
+`internal/theme/shipped_test.go` parses every shipped theme, the embedded ones and `docs/themes/`,
+and holds `default.toml` to the contrast rule the built-in palette was chosen by: 4.5:1 for text,
+also on the status bar, and 3:1 for borders. A ui test keeps that file identical to the palette in
+`theme.go`, which makes the rule the palette's. Other themes are not held to it: a custom theme is
+the user's taste, and Catppuccin Latte keeps its own pastels.
 
 ## Rules that are easy to break
 

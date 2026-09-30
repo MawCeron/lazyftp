@@ -52,7 +52,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Loadable color themes. A TOML file in the `themes` directory next to `config.toml`, chosen with
   `theme = "name"`, replaces any of the interface's colors, with separate `[dark]` and `[light]`
   palettes and a `background` token for themes that need a specific terminal background. Catppuccin
-  Mocha is built in, and `docs/themes/` has a reference of every token and a Borland example. Adding
+  Mocha and Latte are built in, and `docs/themes/` has a reference of every token and a Borland example. Adding
   a theme needs no code; one that cannot be loaded leaves the default colors and a line in the Log;
   `NO_COLOR` wins over any theme. A palette that sets `background` stops the terminal being asked
   whether it is light or dark. ([#42](https://github.com/MawCeron/lazyftp/issues/42))

@@ -45,7 +45,7 @@ from the keyboard.
 - Create, rename and delete files and directories, on either panel
 - Hidden (dot) files are hidden by default, with a per-panel toggle
 - `--highlight-diff` marks entries that differ between Local and Remote
-- Color themes from a file, with Catppuccin Mocha built in
+- Color themes from a file, with Catppuccin Mocha and Latte built in
 - Real-time transfer progress with direction indicators, including recursive directory
   upload/download
 - Multiple file selection and batch transfers, with direction-independent `U`/`D` shortcuts
@@ -187,7 +187,8 @@ Colors can be replaced by a theme: a TOML file in a `themes` directory next to `
 and restart:
 
 ```toml
-theme = "catppuccin-mocha"   # built in; a file of the same name in your themes directory replaces it
+theme = "catppuccin-mocha"   # built in, like "catppuccin-latte"; a file of the same name in your
+                             # themes directory replaces it
 ```
 
 Adding a theme is adding a file, no code involved. A theme has a `[dark]` and a `[light]` table,
