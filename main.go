@@ -136,12 +136,27 @@ func usageError(format string, args ...any) {
 	os.Exit(2)
 }
 
+// themeNoticeWait is how long a theme that failed to load stays on the console
+// before the interface takes the screen over.
+const themeNoticeWait = 3 * time.Second
+
 // applyTheme loads the theme named in config.toml. No name is the built-in
-// palette; a name that cannot be loaded is the same, plus a line in the Log.
+// palette. A name that cannot be loaded is the same palette too, but the reason
+// goes to the console first, where it can be read, and only then does the
+// interface start: once it does, a startup dialog covers the Log. The Log keeps
+// the line as well.
 func applyTheme(app ui.App, name string) ui.App {
 	if name == "" {
 		return app
 	}
 	th, err := config.LoadTheme(name)
+	if err != nil {
+		warnTheme(os.Stderr, err, themeNoticeWait)
+	}
 	return app.WithTheme(th, err)
+}
+
+func warnTheme(w io.Writer, err error, wait time.Duration) {
+	fmt.Fprintf(w, "lazyftp: %v\nlazyftp: starting with the default theme in %s (Ctrl+C to quit)\n", err, wait)
+	time.Sleep(wait)
 }
