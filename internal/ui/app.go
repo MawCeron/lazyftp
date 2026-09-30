@@ -19,6 +19,7 @@ import (
 	"github.com/MawCeron/lazyftp/internal/config"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
+	"github.com/MawCeron/lazyftp/internal/theme"
 	"github.com/MawCeron/lazyftp/internal/transfer"
 )
 
@@ -76,6 +77,13 @@ type App struct {
 	highlightDiff bool
 
 	themeResolved bool
+	// themeFixed stops asking the terminal what its background is: a theme
+	// that names one has already said which palette it wants.
+	themeFixed bool
+	// themeOnce is a theme that names a background in both palettes: the
+	// terminal is asked once to choose between them, and never again, since
+	// our own background change would otherwise feed back into the answer.
+	themeOnce bool
 
 	autoConnect bool
 }
@@ -155,7 +163,19 @@ func (a App) Init() tea.Cmd {
 	if a.autoConnect {
 		connect = a.connBar.connect()
 	}
-	return tea.Batch(loadLocalDir(a.local.path), tea.RequestBackgroundColor, themeFallbackTimeout(), themePollTick(), connect)
+	return tea.Batch(append(a.detectionCmds(), loadLocalDir(a.local.path), connect)...)
+}
+
+// detectionCmds is everything that finds out the terminal's light/dark mode.
+func (a App) detectionCmds() []tea.Cmd {
+	if a.themeFixed {
+		return nil
+	}
+	cmds := []tea.Cmd{tea.RequestBackgroundColor, themeFallbackTimeout()}
+	if !a.themeOnce {
+		cmds = append(cmds, themePollTick())
+	}
+	return cmds
 }
 
 // themeFallbackTimeout guards tea.RequestBackgroundColor: bubbletea sends the
@@ -362,18 +382,25 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tea.BackgroundColorMsg:
+		if a.themeFixed {
+			return a, nil
+		}
 		a.themeResolved = true
 		SetTheme(msg.IsDark())
+		a.themeFixed = a.themeOnce
 		return a, nil
 
 	case themeFallbackMsg:
-		if !a.themeResolved {
+		if !a.themeFixed && !a.themeResolved {
 			a.themeResolved = true
 			SetTheme(true)
 		}
 		return a, nil
 
 	case themePollMsg:
+		if a.themeFixed {
+			return a, nil
+		}
 		return a, tea.Batch(tea.RequestBackgroundColor, themePollTick())
 
 	case tea.KeyPressMsg:
@@ -633,6 +660,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a App) View() tea.View {
 	v := tea.NewView(a.render())
 	v.AltScreen = true
+	v.BackgroundColor = terminalBackground()
 	return v
 }
 
@@ -1442,5 +1470,31 @@ func (a App) WithSSHHosts(hosts []config.Connection, loadErr error) App {
 func (a App) WithTarget(c config.Connection) App {
 	a.connBar = a.connBar.fill(c)
 	a.autoConnect = a.connBar.canConnect()
+	return a
+}
+
+// WithTheme installs the user's theme. A theme that could not be loaded is a
+// line in the Log and the built-in colors, never a reason not to start.
+func (a App) WithTheme(th *theme.Theme, loadErr error) App {
+	if loadErr != nil {
+		a.log = a.log.Add("Using the default theme: "+loadErr.Error(), LogError)
+	}
+	if th == nil {
+		return a
+	}
+
+	activeTheme = th
+	dark, light := th.Dark.Background != "", th.Light.Background != ""
+	switch {
+	case dark != light:
+		// One palette names a background, so it is the palette: nothing to ask.
+		SetTheme(dark)
+		a.themeResolved, a.themeFixed = true, true
+	case dark && light:
+		a.themeOnce = true
+		SetTheme(true)
+	default:
+		SetTheme(true)
+	}
 	return a
 }

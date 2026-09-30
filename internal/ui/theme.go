@@ -2,8 +2,10 @@ package ui
 
 import (
 	"image/color"
+	"os"
 
 	"charm.land/lipgloss/v2"
+	"github.com/MawCeron/lazyftp/internal/theme"
 )
 
 // Semantic color tokens, defaulting to the dark palette (the common case)
@@ -31,9 +33,51 @@ var (
 	colorSizeDiffers color.Color = lipgloss.Color("#E080A0") // same name, different size (--highlight-diff)
 )
 
+// activeTheme is the user's theme file, if any. It overrides the built-in
+// tokens one by one, so a theme only has to name the colors it changes.
+var activeTheme *theme.Theme
+
+// colorBackground is the terminal background a theme asks for while the app
+// runs; nil, the usual case, leaves the terminal's own. The app paints no
+// background of its own.
+var colorBackground color.Color
+
+// terminalBackground is what View hands to Bubble Tea. NO_COLOR wins over any
+// theme: the renderer already drops color escapes for it, but the background is
+// a terminal setting and would slip past that.
+func terminalBackground() color.Color {
+	if os.Getenv("NO_COLOR") != "" {
+		return nil
+	}
+	return colorBackground
+}
+
+func override(token *color.Color, hex string) {
+	if hex != "" {
+		*token = lipgloss.Color(hex)
+	}
+}
+
+func applyPalette(c theme.Colors) {
+	override(&colorPrimary, c.Primary)
+	override(&colorEmphasis, c.Emphasis)
+	override(&colorMuted, c.Muted)
+	override(&colorBorder, c.Border)
+	override(&colorAccent, c.Accent)
+	override(&colorSuccess, c.Success)
+	override(&colorError, c.Error)
+	override(&colorDirectory, c.Directory)
+	override(&colorMarked, c.Marked)
+	override(&colorBarBg, c.BarBg)
+	override(&colorDiffOnly, c.DiffOnly)
+	override(&colorSizeDiffers, c.SizeDiffers)
+	override(&colorBackground, c.Background)
+}
+
 // SetTheme resolves every token against the terminal's actual background.
 // Called once from App.Update on tea.BackgroundColorMsg, or on the fallback
-// timeout with isDark forced true.
+// timeout with isDark forced true. The user's theme, if there is one, is laid
+// over the built-in palette for the same mode.
 func SetTheme(isDark bool) {
 	ld := lipgloss.LightDark(isDark)
 	colorPrimary = ld(lipgloss.Color("#2C2C2A"), lipgloss.Color("#D4D4D4"))
@@ -48,4 +92,13 @@ func SetTheme(isDark bool) {
 	colorBarBg = ld(lipgloss.Color("#EFEDE6"), lipgloss.Color("#282828"))
 	colorDiffOnly = ld(lipgloss.Color("#993C1D"), lipgloss.Color("#E28560"))
 	colorSizeDiffers = ld(lipgloss.Color("#993556"), lipgloss.Color("#E080A0"))
+
+	colorBackground = nil
+	if activeTheme != nil {
+		if isDark {
+			applyPalette(activeTheme.Dark)
+		} else {
+			applyPalette(activeTheme.Light)
+		}
+	}
 }
