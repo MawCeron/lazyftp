@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-30
+
+A fix for the question lazyftp asks the first time it sees an SFTP server, which was never on
+screen when a connection started from the connection dialog.
+
+### Fixed
+
+- The "Unknown Host" question, with the server's fingerprint and the `y` and `n` to answer it,
+  was not drawn while the connection dialog was open, which is how every connection starts. The
+  screen showed `CONNECTING` while the connection waited, with no time limit, on an answer nobody
+  knew was wanted. It is now drawn over the dialog, and the footer shows the keys that answer it.
+  ([#97](https://github.com/MawCeron/lazyftp/issues/97), [#38](https://github.com/MawCeron/lazyftp/issues/38))
+
 ## [0.4.0] - 2026-09-30
 
 Connections and authentication. lazyftp now remembers the servers you use, reads the ones in
@@ -387,7 +400,8 @@ First working release.
 - Keyboard navigation, vim-style keys and arrows.
 - A hints bar reflecting the focused panel, and a panel logging transfers and connections.
 
-[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/MawCeron/lazyftp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/MawCeron/lazyftp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MawCeron/lazyftp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/MawCeron/lazyftp/compare/v0.2.1...v0.3.0
