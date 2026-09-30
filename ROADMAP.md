@@ -66,6 +66,13 @@ Requires extending the client interface with rename and remove operations.
 - [#41](https://github.com/MawCeron/lazyftp/issues/41) Recover a dropped SFTP session. FTP already survives idle timeouts through goftp's
   connection pool; SFTP holds a single session with no equivalent.
 - [#42](https://github.com/MawCeron/lazyftp/issues/42) Loadable community themes, on top of the tokens from #25.
+- [#80](https://github.com/MawCeron/lazyftp/issues/80) Disconnect without quitting, and [#89](https://github.com/MawCeron/lazyftp/issues/89) log
+  the old connection closing when connecting elsewhere.
+- [#90](https://github.com/MawCeron/lazyftp/issues/90), [#91](https://github.com/MawCeron/lazyftp/issues/91) and
+  [#92](https://github.com/MawCeron/lazyftp/issues/92) Log lines that confirm what worked and say what was
+  attempted, and `--verbose` output for SFTP.
+- [#93](https://github.com/MawCeron/lazyftp/issues/93) Keep the cursor on the same file when a panel reloads, and
+  [#95](https://github.com/MawCeron/lazyftp/issues/95) a scrollable help screen.
 
 ## v0.5.0 — Transfer queue and permissions
 

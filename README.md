@@ -38,6 +38,11 @@ from the keyboard.
 ## Features
 
 - FTP, FTPS and SFTP support
+- SFTP with the ssh-agent, key files and verified host keys, and a session that reopens itself if
+  the server drops it
+- Favorites, recent connections and the servers in `~/.ssh/config`, all from the connection
+  dialog; passwords are kept only in the system keyring
+- Connect from the command line: `lazyftp user@host`, or a saved name
 - Dual-pane layout — local and remote side by side, responsive down to an 80x24 terminal
 - File size and modification date, sortable by name, size or date, with the exact byte count and
   full timestamp a keystroke away when the panel is too narrow to show them
@@ -293,11 +298,14 @@ Connect over `FTP` instead.
 lazyftp/
 ├── .github/
 │   └── workflows/     CI on Linux and Windows, plus the release build
-├── docs/              Contributor documentation
+├── docs/              Contributor documentation, and example themes under themes/
 ├── internal/
 │   ├── client/        FTP, FTPS and SFTP behind one interface
+│   ├── config/        config.toml, the history, themes by name, the keyring
 │   ├── model/         FileInfo — one entry in a listing, local or remote
 │   ├── shared/        Messages and progress wrappers used across packages
+│   ├── sshconfig/     Hosts from ~/.ssh/config, read as connections
+│   ├── theme/         The theme file format, and the themes built into the binary
 │   ├── transfer/      Uploads and downloads, running in the background
 │   └── ui/            The Bubble Tea model, the panels and every keystroke
 ├── CHANGELOG.md
@@ -316,7 +324,7 @@ lazyftp/
 | v0.1.2 | FTP connectivity and stability |
 | v0.2.0 | TUI overhaul — responsive layout, sort/filter/jump, help screen |
 | v0.3.0 | File operations — rename, delete, create directories |
-| v0.4.0 | Connections and authentication — favorites, history, SSH keys |
+| v0.4.0 | Connections and authentication — favorites, history, SSH keys, themes |
 | v0.5.0 | Transfer queue and permissions |
 
 See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the

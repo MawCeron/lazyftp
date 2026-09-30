@@ -12,17 +12,22 @@ like, where this covers where it goes.
 ## The shape of the program
 
 lazyftp moves files between the local machine and a server, from the keyboard. It is a single
-binary with no configuration file, no daemon and no state on disk. Everything it knows lives in
+binary with no daemon. What it keeps on disk is small and all optional: `config.toml` (favorites
+and the theme name), `history.toml`, the themes directory, and the user's own `~/.ssh/known_hosts`.
+Passwords are never among it; they live in the operating system keyring. Everything else lives in
 memory for as long as it runs.
 
-Five packages, all under `internal/` because none of them is meant to be imported by anything
+Eight packages, all under `internal/` because none of them is meant to be imported by anything
 else:
 
 | Package | Holds | Depends on |
 |---|---|---|
-| `ui` | The screen and every keystroke. The `App` model, the panels, the connection bar | `client`, `transfer`, `model`, `shared` |
+| `ui` | The screen and every keystroke. The `App` model, the panels, the connection bar | `client`, `transfer`, `model`, `shared`, `config`, `theme` |
 | `client` | Reaching servers. The `Client` interface and its FTP/FTPS and SFTP implementations | `model`, `shared` |
 | `transfer` | Running uploads and downloads in the background, reporting progress | `client`, `model`, `shared` |
+| `config` | Everything persisted between runs: `config.toml`, the history, themes by name, the keyring | `theme` |
+| `theme` | The theme file format, its validation, and the themes shipped in the binary | nothing |
+| `sshconfig` | Reading the `Host` entries of `~/.ssh/config` as connections | `config` |
 | `model` | `FileInfo` — one entry in a listing, local or remote, with the same shape either way | nothing |
 | `shared` | Types that would otherwise cause an import cycle: messages, the progress wrappers, `LineBuffer` | nothing |
 
@@ -32,8 +37,9 @@ If something belongs to one package, it goes in that package.
 
 ### Where things are
 
-`main.go` (63 lines) parses the flags, opens the log file if asked, and starts the program. It
-holds no logic worth reading twice.
+`main.go` parses the flags and the destination, loads the configuration, the history, the
+`~/.ssh/config` servers and the theme, opens the log file if asked, and starts the program. It
+only wires those together; the parsing of a destination lives in `config.ParseTarget`.
 
 Inside `ui`, `app.go` is the largest file in the project and the one to read first: it holds the
 model, the message dispatch, the layout arithmetic and the handlers. `panel.go` is the file
@@ -41,8 +47,9 @@ browser used for both sides. `connectionbar.go` is the form at the top. `process
 `log.go` are the two bottom panels. `helpers.go` draws the borders everything else sits inside.
 
 Inside `client`, `client.go` declares the interface and the dial timeout, `protocol.go` holds the
-protocol type and the factory, and `ftp.go` and `sftp.go` are the two implementations at roughly
-two hundred lines each.
+protocol type and the factory, and `ftp.go` and `sftp.go` are the two implementations. `sftp.go`
+also owns session recovery, with `sshauth.go` (how to authenticate) and `hostkey.go` (who to trust)
+beside it.
 
 ### Where to make a change
 
