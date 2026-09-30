@@ -99,6 +99,7 @@ func main() {
 	if cfgPathErr == nil {
 		app = app.WithConfig(cfgPath, cfg, cfgErr)
 	}
+	app = applyTheme(app, cfg.Theme)
 	if historyPathErr == nil {
 		app = app.WithHistory(historyPath, history, historyErr)
 	}
@@ -133,4 +134,14 @@ func usageError(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "lazyftp: "+format+"\n\n", args...)
 	usage()
 	os.Exit(2)
+}
+
+// applyTheme loads the theme named in config.toml. No name is the built-in
+// palette; a name that cannot be loaded is the same, plus a line in the Log.
+func applyTheme(app ui.App, name string) ui.App {
+	if name == "" {
+		return app
+	}
+	th, err := config.LoadTheme(name)
+	return app.WithTheme(th, err)
 }
