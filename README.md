@@ -192,7 +192,7 @@ press `?`.
 |-----|--------|
 | `Ctrl+L` | Open the connection dialog |
 | `Ctrl+X` | Disconnect without quitting; refused while a transfer is running |
-| `?` | Help screen |
+| `?` | Help screen; scroll with `j`/`k` and `PgUp`/`PgDn`, `Esc` or `?` closes it |
 | `Tab` | Switch panel within the current group (Local/Remote, or Log/Processes) |
 | `Shift+Tab` | Switch between the Local/Remote group and the Log/Processes group |
 | `U` / `D` | Upload / download whichever side has marked files, regardless of focus |

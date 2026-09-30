@@ -43,6 +43,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- The help screen scrolls. It was one fixed box cut off at the terminal's height, so at small
+  sizes the last groups of bindings could not be reached. It now wraps to the box width, scrolls
+  with the same keys as Log and Processes, shows them in the footer and its scroll position in the
+  title. ([#95](https://github.com/MawCeron/lazyftp/issues/95))
 - Reloading a panel, which happens after every completed transfer and on refresh, no longer sends
   the cursor back to the top. Reloading the same directory keeps it on the same file, or near its
   row if the file is gone; entering another directory still starts at the top, and marks still
