@@ -130,3 +130,27 @@ func TestLoadThemeReportsEachFailureInWords(t *testing.T) {
 		t.Error("a path in the name was accepted")
 	}
 }
+
+func TestALoadedThemeFallsBackToTheShippedOneAndTheUsersFileWins(t *testing.T) {
+	isolateConfigDir(t)
+
+	th, err := LoadTheme("catppuccin-mocha")
+	if err != nil || th.Dark.Background != "#1E1E2E" {
+		t.Fatalf("built-in: %+v, %v", th, err)
+	}
+
+	path, _ := ThemePath("catppuccin-mocha")
+	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.WriteFile(path, []byte("[dark]\naccent = \"#ABCDEF\"\n"), 0o644)
+	th, err = LoadTheme("catppuccin-mocha")
+	if err != nil || th.Dark.Accent != "#ABCDEF" || th.Dark.Background != "" {
+		t.Fatalf("the user's file should replace the built-in entirely: %+v, %v", th, err)
+	}
+}
+
+func TestAnUnknownThemeNamesWhatIsBuiltIn(t *testing.T) {
+	isolateConfigDir(t)
+	if _, err := LoadTheme("nope"); err == nil || !strings.Contains(err.Error(), "catppuccin-mocha") {
+		t.Fatalf("%v", err)
+	}
+}

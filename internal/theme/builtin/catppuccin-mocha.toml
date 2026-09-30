@@ -1,0 +1,18 @@
+# Catppuccin Mocha, https://github.com/catppuccin/catppuccin (MIT).
+# Selected with: theme = "catppuccin-mocha"
+name = "catppuccin-mocha"
+
+[dark]
+background   = "#1E1E2E"   # base
+primary      = "#CDD6F4"   # text
+emphasis     = "#F5E0DC"   # rosewater
+muted        = "#A6ADC8"   # subtext0
+border       = "#6C7086"   # overlay0
+accent       = "#CBA6F7"   # mauve
+success      = "#A6E3A1"   # green
+error        = "#F38BA8"   # red
+directory    = "#89B4FA"   # blue
+marked       = "#F9E2AF"   # yellow
+bar_bg       = "#313244"   # surface0
+diff_only    = "#FAB387"   # peach
+size_differs = "#F5C2E7"   # pink
