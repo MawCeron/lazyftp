@@ -70,3 +70,63 @@ func TestPushIsMostRecentFirstWithoutDuplicates(t *testing.T) {
 		t.Fatalf("oldest not dropped: %v", list)
 	}
 }
+
+// os.UserConfigDir reads a different variable on each platform.
+func isolateConfigDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, k := range []string{"XDG_CONFIG_HOME", "APPDATA", "HOME", "USERPROFILE"} {
+		t.Setenv(k, dir)
+	}
+	return dir
+}
+
+func TestThemeKeyRoundTripsAndIsOmittedWhenUnset(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.toml")
+	Save(p, Config{Theme: "borland", Connections: []Connection{conn}})
+	if c, err := Load(p); err != nil || c.Theme != "borland" {
+		t.Fatalf("%+v, %v", c, err)
+	}
+	Save(p, Config{})
+	if raw, _ := os.ReadFile(p); strings.Contains(string(raw), "theme") {
+		t.Fatalf("an unset theme was written:\n%s", raw)
+	}
+}
+
+func TestThemeNamesCannotEscapeTheThemesDirectory(t *testing.T) {
+	isolateConfigDir(t)
+	for _, bad := range []string{"", "../config", "a/b", `a\b`, ".hidden", "x y", "a.toml/../../b"} {
+		if _, err := ThemePath(bad); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	p, err := ThemePath("borland-2.1")
+	if err != nil || filepath.Base(p) != "borland-2.1.toml" || filepath.Base(filepath.Dir(p)) != "themes" {
+		t.Fatalf("%q, %v", p, err)
+	}
+}
+
+func TestLoadThemeReportsEachFailureInWords(t *testing.T) {
+	isolateConfigDir(t)
+
+	if _, err := LoadTheme("nope"); err == nil || !strings.Contains(err.Error(), "not found") || !strings.Contains(err.Error(), "nope.toml") {
+		t.Errorf("missing: %v", err)
+	}
+
+	path, _ := ThemePath("good")
+	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.WriteFile(path, []byte("[dark]\nbackground = \"#0000AA\"\n"), 0o644)
+	if th, err := LoadTheme("good"); err != nil || th.Dark.Background != "#0000AA" {
+		t.Errorf("good: %+v, %v", th, err)
+	}
+
+	bad, _ := ThemePath("bad")
+	os.WriteFile(bad, []byte("[dark]\naccent = \"green\"\n"), 0o644)
+	if _, err := LoadTheme("bad"); err == nil || !strings.Contains(err.Error(), "accent") {
+		t.Errorf("invalid: %v", err)
+	}
+
+	if _, err := LoadTheme("../x"); err == nil {
+		t.Error("a path in the name was accepted")
+	}
+}

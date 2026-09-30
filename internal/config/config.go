@@ -23,6 +23,8 @@ type Connection struct {
 }
 
 type Config struct {
+	// Theme names a file in the themes directory, without the .toml.
+	Theme       string       `toml:"theme,omitempty"`
 	Connections []Connection `toml:"connections"`
 }
 
