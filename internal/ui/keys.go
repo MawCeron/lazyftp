@@ -126,7 +126,8 @@ func (k footerKeyMap) ShortHelp() []key.Binding {
 	case k.hostKey:
 		return []key.Binding{keyHostKeyTrust, keyHostKeyReject}
 	case k.helpOpen:
-		return []key.Binding{keyCancelHelp}
+		up, down, pageUp, pageDown := scrollKeys()
+		return []key.Binding{keyCancelHelp, up, down, pageUp, pageDown}
 	case k.fileInfoOpen:
 		return []key.Binding{keyCancelFileInfo}
 	case k.jumping:

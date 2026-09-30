@@ -33,10 +33,11 @@ const (
 )
 
 type App struct {
-	width    int
-	height   int
-	focus    focus
-	helpOpen bool
+	width      int
+	height     int
+	focus      focus
+	helpOpen   bool
+	helpOffset int
 
 	fileInfoOpen bool
 	fileInfoFile model.FileInfo
@@ -404,9 +405,24 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// it or is swallowed, same as the connection dialog owning the
 		// keyboard while it has focus.
 		if a.helpOpen {
-			if key.Matches(msg, keyEsc) || key.Matches(msg, keyHelp) {
+			up, down, pageUp, pageDown := scrollKeys()
+			_, panelH, bottomH := a.heights()
+			canvasH := panelH + bottomH
+			page := max(1, canvasH-2)
+
+			switch {
+			case key.Matches(msg, keyEsc) || key.Matches(msg, keyHelp):
 				a.helpOpen = false
+			case key.Matches(msg, up):
+				a.helpOffset--
+			case key.Matches(msg, down):
+				a.helpOffset++
+			case key.Matches(msg, pageUp):
+				a.helpOffset -= page
+			case key.Matches(msg, pageDown):
+				a.helpOffset += page
 			}
+			a.helpOffset = max(0, min(a.helpOffset, helpScrollMax(a.width, canvasH)))
 			return a, nil
 		}
 
@@ -446,7 +462,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.focus != focusConnectionBar && !jumping && !filtering {
 			switch {
 			case key.Matches(msg, keyHelp):
-				a.helpOpen = true
+				a.helpOpen, a.helpOffset = true, 0
 				return a, nil
 
 			case key.Matches(msg, keyUpload):
@@ -639,7 +655,7 @@ func (a App) render() string {
 			// Capped to the blank canvas itself (panelH+bottomH), not the
 			// full height: the status line above it and the hints below
 			// are not part of that canvas and must stay clear.
-			return a.withOverlay(base, helpScreenView(a.width, panelH+bottomH))
+			return a.withOverlay(base, helpScreenView(a.width, panelH+bottomH, a.helpOffset))
 		}
 		return a.withOverlay(base, a.connBar.View(a.width))
 	}
