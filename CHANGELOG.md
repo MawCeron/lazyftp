@@ -53,7 +53,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `theme = "name"`, replaces any of the interface's colors, with separate `[dark]` and `[light]`
   palettes and a `background` token for themes that need a specific terminal background. Catppuccin
   Mocha and Latte are built in, and `docs/themes/` has a reference of every token and a Borland example. Adding
-  a theme needs no code; one that cannot be loaded leaves the default colors and a line in the Log;
+  a theme needs no code; one that cannot be loaded is explained on the console, which waits three
+  seconds and then starts with the default colors;
   `NO_COLOR` wins over any theme. A palette that sets `background` stops the terminal being asked
   whether it is light or dark. ([#42](https://github.com/MawCeron/lazyftp/issues/42))
 

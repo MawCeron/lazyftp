@@ -203,9 +203,10 @@ lazyftp stops asking the terminal whether it is light or dark, since the theme h
 if both palettes set it, the terminal is asked once to pick between them. Terminals that ignore
 the request keep their own background.
 
-A theme that cannot be loaded, because it is missing or has a bad color or a misspelled key, leaves
-the default colors and a line in the Log saying why. `NO_COLOR` wins over any theme, background
-included.
+A theme that cannot be loaded, because it is missing or has a bad color or a misspelled key, is
+explained on the console before anything else, which then waits three seconds and starts lazyftp
+with the default colors; the Log keeps the line too. Nothing else is limited. `NO_COLOR` wins over
+any theme, background included.
 
 ---
 
