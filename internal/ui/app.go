@@ -233,50 +233,16 @@ func (a App) narrow() bool {
 	return a.width < standardBreakpoint
 }
 
-// focusedPanelJumping reports whether the currently focused file panel has
-// its jump-to-path input open.
-func (a App) focusedPanelJumping() bool {
+// focusedPanel is the file panel that has the focus, or nil when something else
+// does. It is only read from: a is a copy.
+func (a App) focusedPanel() *Panel {
 	switch a.focus {
 	case focusLocal:
-		return a.local.jumping
+		return &a.local
 	case focusRemote:
-		return a.remote.jumping
-	default:
-		return false
+		return &a.remote
 	}
-}
-
-func (a App) focusedPanelCreatingDir() bool {
-	switch a.focus {
-	case focusLocal:
-		return a.local.creatingDir
-	case focusRemote:
-		return a.remote.creatingDir
-	default:
-		return false
-	}
-}
-
-func (a App) focusedPanelRenaming() bool {
-	switch a.focus {
-	case focusLocal:
-		return a.local.renaming
-	case focusRemote:
-		return a.remote.renaming
-	default:
-		return false
-	}
-}
-
-func (a App) focusedPanelDeleting() bool {
-	switch a.focus {
-	case focusLocal:
-		return a.local.deleting
-	case focusRemote:
-		return a.remote.deleting
-	default:
-		return false
-	}
+	return nil
 }
 
 func (a App) panelWidth() int {
@@ -332,35 +298,6 @@ func (a App) bottomPanelHeight(bottomH int) int {
 		h = 4
 	}
 	return h
-}
-
-// focusedPanelFiltering reports whether the currently focused file panel is
-// actively capturing filter query input. Global key handling in Update must
-// not intercept keys while this is true, or typing a filter query
-// containing e.g. "q" or "U" would trigger that action instead of being
-// entered as filter text.
-func (a App) focusedPanelFiltering() bool {
-	switch a.focus {
-	case focusLocal:
-		return a.local.Filtering()
-	case focusRemote:
-		return a.remote.Filtering()
-	}
-	return false
-}
-
-// focusedPanelHasFilter reports whether the currently focused file panel has
-// a filter active at all -- typing or already applied. Esc must be allowed
-// to reach the panel in both states so the list's own keymap can cancel or
-// clear it -- see acceptance criteria on #31.
-func (a App) focusedPanelHasFilter() bool {
-	switch a.focus {
-	case focusLocal:
-		return a.local.HasFilter()
-	case focusRemote:
-		return a.remote.HasFilter()
-	}
-	return false
 }
 
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -467,9 +404,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// bindings must not steal keystrokes that input would otherwise
 		// receive (a bare "q" is a perfectly normal path, directory, or file
 		// name character, and just as valid in a filter query).
-		jumping := a.focusedPanelJumping() || a.focusedPanelCreatingDir() ||
-			a.focusedPanelRenaming() || a.focusedPanelDeleting()
-		filtering := a.focusedPanelFiltering()
+		panel := a.focusedPanel()
+		jumping := panel != nil && (panel.jumping || panel.creatingDir || panel.renaming || panel.deleting)
+		// While a filter query is being typed, keys must reach it, or a "q" or a
+		// "U" in the query would fire that action instead.
+		filtering := panel != nil && panel.Filtering()
+		// Esc has to reach the panel while a filter is typed or applied, so the
+		// list's own keymap can cancel or clear it (#31).
+		hasFilter := panel != nil && panel.HasFilter()
 
 		// q/Q quits except where a literal "q" needs to reach a text field
 		// instead: a jump-to-path input, a filter query being typed, or the
@@ -553,7 +495,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.focus = focusLocal
 				return a, nil
 			}
-			if !jumping && !a.focusedPanelHasFilter() && a.focus != focusConnectionBar {
+			if !jumping && !hasFilter && a.focus != focusConnectionBar {
 				return a, nil
 			}
 			// jumping, or a filter is typing or applied: fall through so the
@@ -870,6 +812,11 @@ func (a App) hintsView() string {
 	gap := lipgloss.NewStyle().Background(colorBarBg).Render("  ")
 	leadWidth := lipgloss.Width(identity) + lipgloss.Width(gap)
 
+	var jumping, creatingDir, renaming, deleting bool
+	if p := a.focusedPanel(); p != nil {
+		jumping, creatingDir, renaming, deleting = p.jumping, p.creatingDir, p.renaming, p.deleting
+	}
+
 	km := footerKeyMap{
 		focus:        a.focus,
 		connecting:   a.connecting,
@@ -877,10 +824,10 @@ func (a App) hintsView() string {
 		fileInfoOpen: a.fileInfoOpen,
 		hostKey:      a.hostKey != nil,
 		barMode:      a.connBar.mode,
-		jumping:      a.focusedPanelJumping(),
-		creatingDir:  a.focusedPanelCreatingDir(),
-		renaming:     a.focusedPanelRenaming(),
-		deleting:     a.focusedPanelDeleting(),
+		jumping:      jumping,
+		creatingDir:  creatingDir,
+		renaming:     renaming,
+		deleting:     deleting,
 	}
 	hints := renderHints(km.ShortHelp(), a.width-leadWidth)
 
