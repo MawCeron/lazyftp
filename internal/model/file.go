@@ -23,7 +23,3 @@ type FileInfo struct {
 func (f FileInfo) IsDir() bool {
 	return f.Type == FileTypeDir
 }
-
-func (f FileInfo) IsSymlink() bool {
-	return f.Type == FileTypeSymlink
-}
