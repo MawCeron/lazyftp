@@ -578,6 +578,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case deleteDoneMsg:
 		return a.handleDeleteDone(msg)
 
+	case opDoneMsg:
+		a.log = a.log.Add(msg.Message, LogSuccess)
+		return a.handleNavigate(NavigateMsg{Panel: msg.Panel, Path: msg.ReloadPath})
+
 	case showFileInfoMsg:
 		a.fileInfoOpen = true
 		a.fileInfoFile = msg.File
@@ -1065,7 +1069,7 @@ func (a App) handleMkdir(msg mkdirMsg) (App, tea.Cmd) {
 	}
 
 	if !a.connected {
-		a.log = a.log.Add("No active connection", LogError)
+		a.log = a.log.Add("No active connection: cannot create a directory", LogError)
 		return a, nil
 	}
 
@@ -1078,7 +1082,7 @@ func (a App) handleRename(msg renameMsg) (App, tea.Cmd) {
 	}
 
 	if !a.connected {
-		a.log = a.log.Add("No active connection", LogError)
+		a.log = a.log.Add("No active connection: cannot rename", LogError)
 		return a, nil
 	}
 
@@ -1091,7 +1095,7 @@ func (a App) handleDelete(msg deleteMsg) (App, tea.Cmd) {
 	}
 
 	if !a.connected {
-		a.log = a.log.Add("No active connection", LogError)
+		a.log = a.log.Add("No active connection: cannot delete", LogError)
 		return a, nil
 	}
 
@@ -1099,13 +1103,19 @@ func (a App) handleDelete(msg deleteMsg) (App, tea.Cmd) {
 }
 
 // handleDeleteDone logs whichever targets failed -- a failure on one must
-// not hide that the rest were still removed -- then reloads the panel via
+// not hide that the rest were still removed -- and a summary, then reloads the panel via
 // the same path a manual refresh takes, reflecting whatever the delete
 // actually left behind.
 func (a App) handleDeleteDone(msg deleteDoneMsg) (App, tea.Cmd) {
 	for _, failure := range msg.Failed {
 		a.log = a.log.Add("Error deleting "+failure, LogError)
 	}
+	level := LogSuccess
+	if len(msg.Failed) > 0 {
+		level = LogError
+	}
+	done := msg.Total - len(msg.Failed)
+	a.log = a.log.Add(fmt.Sprintf("%s: %d of %d deleted", msg.Panel, done, msg.Total), level)
 	return a.handleNavigate(NavigateMsg{Panel: msg.Panel, Path: msg.ReloadPath})
 }
 
@@ -1121,7 +1131,7 @@ func (a App) handleDirectTransfer(sourcePanel string, files []model.FileInfo) (A
 
 func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
 	if !a.connected {
-		a.log = a.log.Add("No active connection", LogError)
+		a.log = a.log.Add("No active connection: cannot transfer", LogError)
 		return a, nil
 	}
 
@@ -1169,7 +1179,7 @@ func loadRemoteDir(c client.Client, path string) tea.Cmd {
 		files, err := c.List(path)
 		if err != nil {
 			return LogMsg{
-				Message: "Error listing remote directory: " + err.Error(),
+				Message: "Error listing remote directory " + path + ": " + err.Error(),
 				Level:   LogError,
 			}
 		}
@@ -1182,7 +1192,7 @@ func loadLocalDir(path string) tea.Cmd {
 		files, err := listLocalDir(path)
 		if err != nil {
 			return LogMsg{
-				Message: "Error listing local directory: " + err.Error(),
+				Message: "Error listing local directory " + path + ": " + err.Error(),
 				Level:   LogError,
 			}
 		}
@@ -1196,18 +1206,18 @@ func loadLocalDir(path string) tea.Cmd {
 func mkdirLocal(dirPath, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
 		if err := os.Mkdir(dirPath, 0o755); err != nil {
-			return LogMsg{Message: "Error creating directory: " + err.Error(), Level: LogError}
+			return LogMsg{Message: "Error creating directory " + dirPath + ": " + err.Error(), Level: LogError}
 		}
-		return NavigateMsg{Panel: "Local", Path: reloadPath}
+		return opDoneMsg{Panel: "Local", ReloadPath: reloadPath, Message: "Local: created directory " + dirPath}
 	}
 }
 
 func mkdirRemote(c client.Client, dirPath, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
 		if err := c.Mkdir(dirPath); err != nil {
-			return LogMsg{Message: "Error creating directory: " + err.Error(), Level: LogError}
+			return LogMsg{Message: "Error creating directory " + dirPath + ": " + err.Error(), Level: LogError}
 		}
-		return NavigateMsg{Panel: "Remote", Path: reloadPath}
+		return opDoneMsg{Panel: "Remote", ReloadPath: reloadPath, Message: "Remote: created directory " + dirPath}
 	}
 }
 
@@ -1216,12 +1226,12 @@ func mkdirRemote(c client.Client, dirPath, reloadPath string) tea.Cmd {
 func renameLocal(oldPath, newPath, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
 		if err := checkRenameTarget(oldPath, newPath); err != nil {
-			return LogMsg{Message: "Error renaming: " + err.Error(), Level: LogError}
+			return LogMsg{Message: renameError(oldPath, newPath, err), Level: LogError}
 		}
 		if err := os.Rename(oldPath, newPath); err != nil {
-			return LogMsg{Message: "Error renaming: " + err.Error(), Level: LogError}
+			return LogMsg{Message: renameError(oldPath, newPath, err), Level: LogError}
 		}
-		return NavigateMsg{Panel: "Local", Path: reloadPath}
+		return opDoneMsg{Panel: "Local", ReloadPath: reloadPath, Message: "Local: renamed " + oldPath + " to " + newPath}
 	}
 }
 
@@ -1243,12 +1253,16 @@ func checkRenameTarget(oldPath, newPath string) error {
 	return fmt.Errorf("%s already exists", newPath)
 }
 
+func renameError(oldPath, newPath string, err error) string {
+	return "Error renaming " + oldPath + " to " + newPath + ": " + err.Error()
+}
+
 func renameRemote(c client.Client, oldPath, newPath, reloadPath string) tea.Cmd {
 	return func() tea.Msg {
 		if err := c.Rename(oldPath, newPath); err != nil {
-			return LogMsg{Message: "Error renaming: " + err.Error(), Level: LogError}
+			return LogMsg{Message: renameError(oldPath, newPath, err), Level: LogError}
 		}
-		return NavigateMsg{Panel: "Remote", Path: reloadPath}
+		return opDoneMsg{Panel: "Remote", ReloadPath: reloadPath, Message: "Remote: renamed " + oldPath + " to " + newPath}
 	}
 }
 
@@ -1265,7 +1279,7 @@ func deleteLocal(targets []deleteTarget, reloadPath string) tea.Cmd {
 				failed = append(failed, fmt.Sprintf("%s: %v", filepath.Base(t.Path), err))
 			}
 		}
-		return deleteDoneMsg{Panel: "Local", ReloadPath: reloadPath, Failed: failed}
+		return deleteDoneMsg{Panel: "Local", ReloadPath: reloadPath, Total: len(targets), Failed: failed}
 	}
 }
 
@@ -1277,7 +1291,7 @@ func deleteRemote(c client.Client, targets []deleteTarget, reloadPath string) te
 				failed = append(failed, fmt.Sprintf("%s: %v", path.Base(t.Path), err))
 			}
 		}
-		return deleteDoneMsg{Panel: "Remote", ReloadPath: reloadPath, Failed: failed}
+		return deleteDoneMsg{Panel: "Remote", ReloadPath: reloadPath, Total: len(targets), Failed: failed}
 	}
 }
 
@@ -1291,9 +1305,18 @@ type RemoteDirLoadedMsg struct {
 	Files []model.FileInfo
 }
 
+// opDoneMsg is a mkdir or rename that worked: the confirmation for the Log,
+// then the same reload a manual refresh does.
+type opDoneMsg struct {
+	Panel      string
+	ReloadPath string
+	Message    string
+}
+
 type deleteDoneMsg struct {
 	Panel      string
 	ReloadPath string
+	Total      int
 	Failed     []string // "name: error" for each target that failed, empty if all succeeded
 }
 
