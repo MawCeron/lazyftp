@@ -121,10 +121,10 @@ type footerKeyMap struct {
 
 func (k footerKeyMap) ShortHelp() []key.Binding {
 	switch {
-	case k.connecting:
-		return []key.Binding{keyCancelConnecting}
 	case k.hostKey:
 		return []key.Binding{keyHostKeyTrust, keyHostKeyReject}
+	case k.connecting:
+		return []key.Binding{keyCancelConnecting}
 	case k.helpOpen:
 		up, down, pageUp, pageDown := scrollKeys()
 		return []key.Binding{keyCancelHelp, up, down, pageUp, pageDown}

@@ -352,7 +352,7 @@ func TestNoFooterShowsMoreThanFiveKeys(t *testing.T) {
 		}
 	}
 	states = append(states,
-		footerKeyMap{connecting: true}, footerKeyMap{hostKey: true}, footerKeyMap{helpOpen: true},
+		footerKeyMap{connecting: true}, footerKeyMap{hostKey: true}, footerKeyMap{connecting: true, hostKey: true}, footerKeyMap{helpOpen: true},
 		footerKeyMap{fileInfoOpen: true}, footerKeyMap{jumping: true}, footerKeyMap{creatingDir: true},
 		footerKeyMap{renaming: true}, footerKeyMap{deleting: true})
 	for _, k := range states {

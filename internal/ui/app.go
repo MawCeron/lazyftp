@@ -683,6 +683,11 @@ func (a App) render() string {
 	// the overlay cutting their text off mid-word wherever it overlaps.
 	if a.focus == focusConnectionBar || a.helpOpen {
 		base := lipgloss.JoinVertical(lipgloss.Left, status, blankArea(a.width, panelH), blankArea(a.width, bottomH), hints)
+		// A connection waits on this question, and the dialog is where every
+		// connection starts, so it has to win over the dialog.
+		if a.hostKey != nil {
+			return a.withOverlay(base, hostKeyView(*a.hostKey, a.width))
+		}
 		if a.helpOpen {
 			// Capped to the blank canvas itself (panelH+bottomH), not the
 			// full height: the status line above it and the hints below
