@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
+Connections and authentication. lazyftp now remembers the servers you use, reads the ones in
+`~/.ssh/config`, reaches key-only SFTP servers and checks who it is talking to, reopens an SFTP
+session the server dropped, and takes its colors from a theme file if you want.
+
+Two behavior changes to know before upgrading: SFTP now asks you to confirm a server's host key the
+first time it sees it, and hidden (dot) files are hidden until `Ctrl+H`.
+
 ### Added
 
 - SFTP authenticates with the ssh-agent and the default keys in `~/.ssh` before falling back to
@@ -378,7 +387,10 @@ First working release.
 - Keyboard navigation, vim-style keys and arrows.
 - A hints bar reflecting the focused panel, and a panel logging transfers and connections.
 
-[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/MawCeron/lazyftp/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/MawCeron/lazyftp/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/MawCeron/lazyftp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/MawCeron/lazyftp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/MawCeron/lazyftp/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/MawCeron/lazyftp/compare/v0.1.1...v0.1.2
