@@ -218,7 +218,7 @@ func (c ConnectionBar) replaceView(maxWidth int) string {
 	}
 	body := fmt.Sprintf("A favorite named %q already exists.", c.pending.Conn.Name) + "\n\n" +
 		line("Current: ", old) + "\n" + line("New:     ", c.pending.Conn)
-	return borderWithTitle(body, "Replace Favorite", width, lipgloss.Height(body)+2, colorAccent)
+	return dialogBox("Replace Favorite", body, width)
 }
 
 func dialogWidth(maxWidth int) int {
@@ -258,7 +258,7 @@ func (c ConnectionBar) listView(maxWidth int) string {
 		title = "Recent"
 	}
 	body := strings.Join(rows, "\n")
-	return borderWithTitle(body, title, width, lipgloss.Height(body)+2, colorAccent)
+	return dialogBox(title, body, width)
 }
 
 func (c ConnectionBar) saveView(maxWidth int) string {
@@ -275,5 +275,5 @@ func (c ConnectionBar) saveView(maxWidth int) string {
 	}
 
 	body := labelStyle.Render("Name:") + " " + c.name.View() + "\n\n" + pass
-	return borderWithTitle(body, "Save Favorite", width, lipgloss.Height(body)+2, colorAccent)
+	return dialogBox("Save Favorite", body, width)
 }

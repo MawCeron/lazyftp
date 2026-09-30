@@ -9,13 +9,7 @@ import (
 const hostKeyContentWidth = 60
 
 func hostKeyView(m hostKeyPromptMsg, maxWidth int) string {
-	contentWidth := hostKeyContentWidth
-	if outer := maxWidth - 4; outer < contentWidth {
-		contentWidth = outer
-	}
-	if contentWidth < 1 {
-		contentWidth = 1
-	}
+	contentWidth := modalContentWidth(hostKeyContentWidth, maxWidth)
 
 	labelStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	valueStyle := lipgloss.NewStyle().Foreground(colorPrimary).Width(contentWidth)
@@ -29,10 +23,5 @@ func hostKeyView(m hostKeyPromptMsg, maxWidth int) string {
 		valueStyle.Render(m.fingerprint),
 	}, "\n")
 
-	width := borderOuterWidth(lipgloss.Width(body))
-	if width > maxWidth {
-		width = maxWidth
-	}
-	height := lipgloss.Height(body) + 2
-	return borderWithTitle(body, "Unknown Host", width, height, colorAccent)
+	return modalBox("Unknown Host", body, maxWidth)
 }

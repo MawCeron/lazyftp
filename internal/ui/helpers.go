@@ -82,6 +82,24 @@ func borderWithTitle(content, title string, width, height int, borderColor color
 	return top + "\n" + box
 }
 
+// dialogBox is a box in the accent color, exactly as tall as its content needs:
+// a dialog, not a panel truncating to fit whatever space is left.
+func dialogBox(title, body string, width int) string {
+	return borderWithTitle(body, title, width, lipgloss.Height(body)+2, colorAccent)
+}
+
+// modalBox sizes a dialogBox to its content, no wider than maxWidth.
+func modalBox(title, body string, maxWidth int) string {
+	return dialogBox(title, body, min(borderOuterWidth(lipgloss.Width(body)), maxWidth))
+}
+
+// modalContentWidth is the width a modal's content gets: the most it wants, or
+// what fits in maxWidth once the border and padding are taken off, and never
+// less than one cell.
+func modalContentWidth(most, maxWidth int) int {
+	return max(1, min(most, borderInteriorWidth(maxWidth)))
+}
+
 // borderInteriorWidth returns how many cells of a borderWithTitle box at the
 // given outer width are actually usable for content, once its border and
 // padding (1 cell each side, both) are subtracted.
