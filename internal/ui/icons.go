@@ -10,59 +10,28 @@ func SetNerdFonts(enabled bool) {
 	nerdFonts = enabled
 }
 
-func iconMark() string {
+// pick is the glyph for the current font setting: the Nerd Font one, or its
+// plain Unicode fallback.
+func pick(nerd, plain string) string {
 	if nerdFonts {
-		return "" // nf-fa-check
+		return nerd
 	}
-	return "✓"
+	return plain
 }
+
+func iconMark() string { return pick("", "✓") } // nf-fa-check
 
 // iconChecked is a ticked checkbox; the unticked one is "[ ]" either way.
-func iconChecked() string {
-	if nerdFonts {
-		return "[" + iconMark() + "]"
-	}
-	return "[x]"
-}
+func iconChecked() string { return pick("["+iconMark()+"]", "[x]") }
 
-func iconDone() string {
-	if nerdFonts {
-		return "" // nf-fa-check
-	}
-	return "✔"
-}
+func iconDone() string { return pick("", "✔") } // nf-fa-check
 
-func iconError() string {
-	if nerdFonts {
-		return "" // nf-fa-times
-	}
-	return "✗"
-}
+func iconError() string { return pick("", "✗") } // nf-fa-times
 
-func iconUpload() string {
-	if nerdFonts {
-		return "" // nf-fa-arrow_up
-	}
-	return "↑"
-}
+func iconUpload() string { return pick("", "↑") } // nf-fa-arrow_up
 
-func iconDownload() string {
-	if nerdFonts {
-		return "" // nf-fa-arrow_down
-	}
-	return "↓"
-}
+func iconDownload() string { return pick("", "↓") } // nf-fa-arrow_down
 
-func iconUnique() string {
-	if nerdFonts {
-		return "" // nf-fa-exclamation
-	}
-	return "!"
-}
+func iconUnique() string { return pick("", "!") } // nf-fa-exclamation
 
-func iconSizeDiffers() string {
-	if nerdFonts {
-		return "" // nf-fa-exchange
-	}
-	return "M"
-}
+func iconSizeDiffers() string { return pick("", "M") } // nf-fa-exchange
