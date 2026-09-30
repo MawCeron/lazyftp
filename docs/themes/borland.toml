@@ -1,0 +1,18 @@
+# A theme that needs a specific background: Turbo Pascal blue.
+# background asks the terminal for it while lazyftp runs, and because it is set
+# in [dark] only, this palette is used whatever the terminal's own background is.
+
+[dark]
+background   = "#0000AA"
+primary      = "#FFFFFF"
+emphasis     = "#FFFF55"
+muted        = "#AAAAAA"
+border       = "#8080FF"
+accent       = "#55FFFF"
+success      = "#55FF55"
+error        = "#FF8080"
+directory    = "#55FFFF"
+marked       = "#FFFF55"
+bar_bg       = "#000088"
+diff_only    = "#FFAA55"
+size_differs = "#FF80FF"

@@ -1,0 +1,40 @@
+# Every token lazyftp draws with, at the value it has when no theme is set.
+# Copy this to  <config dir>/lazyftp/themes/mytheme.toml  (on Linux,
+# ~/.config/lazyftp/themes/), edit what you want, and select it in config.toml:
+#
+#     theme = "mytheme"
+#
+# Colors are #RGB or #RRGGBB. Every token is optional: one you leave out keeps
+# its built-in color, and a theme may define only [dark] or only [light].
+
+[dark]   # used on terminals with a dark background
+# background = "#1E1E1E"  # asks the terminal for this background while lazyftp runs;
+#                         # the app draws none of its own. Terminals that ignore the request
+#                         # keep theirs, and NO_COLOR disables it.
+primary      = "#D4D4D4"  # default text
+emphasis     = "#F5F5F0"  # footer key hints, the "connected" detail
+muted        = "#808592"  # secondary text: dates, paths, placeholders
+border       = "#7A7F8C"  # inactive borders and separators
+accent       = "#5DCAA5"  # focus, cursor, active border
+success      = "#97C459"
+error        = "#E8615F"
+directory    = "#85B7EB"
+marked       = "#EFB050"  # marked files
+bar_bg       = "#282828"  # status line and footer background
+diff_only    = "#E28560"  # --highlight-diff: present on one side only
+size_differs = "#E080A0"  # --highlight-diff: same name, different size
+
+[light]  # used on terminals with a light background
+# background = "#FAFAFA"
+primary      = "#2C2C2A"
+emphasis     = "#141414"
+muted        = "#57554C"
+border       = "#8A897F"
+accent       = "#0F6E56"
+success      = "#3B6D11"
+error        = "#A32D2D"
+directory    = "#185FA5"
+marked       = "#854F0B"
+bar_bg       = "#EFEDE6"
+diff_only    = "#993C1D"
+size_differs = "#993556"
