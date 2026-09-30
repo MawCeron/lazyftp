@@ -1,19 +1,33 @@
-// sftpd is a throwaway SFTP server for recording assets/demo.tape -- not
-// part of the lazyftp product. It serves one directory (the first argument)
-// as the SFTP root, over password auth on 127.0.0.1:2022, using only
+// sftpd is a throwaway SFTP server for recording the GIFs under assets/ -- not
+// part of the lazyftp product. It serves one directory (the last argument)
+// as the SFTP root, on 127.0.0.1:2022, over password auth, using only
 // dependencies lazyftp's own SFTP client already brings in
 // (golang.org/x/crypto/ssh, github.com/pkg/sftp).
+//
+//	sftpd [-hostkey file] [-authorized file] [-drop-first duration] <root-dir>
+//
+// -hostkey keeps the server's host key in a file, created on first use, so a
+// restarted server is still the same server to a client that already trusts it.
+// Without it a new key is made on every start. -authorized is an
+// authorized_keys file whose keys may log in as the demo user, besides the
+// password. -drop-first cuts the first connection after that long, the way an
+// idle timeout would, so a recording can show a dropped session being reopened.
 package main
 
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/pem"
+	"errors"
+	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -26,22 +40,24 @@ const (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "usage: sftpd <root-dir>")
+	hostKeyFile := flag.String("hostkey", "", "keep the host key in this `file`, creating it if missing")
+	dropFirst := flag.Duration("drop-first", 0, "cut the first connection after this `duration`, like an idle timeout")
+	authorizedFile := flag.String("authorized", "", "authorized_keys `file`: its keys may log in as the demo user")
+	flag.Usage = func() {
+		fmt.Fprintln(os.Stderr, "usage: sftpd [-hostkey file] [-authorized file] [-drop-first duration] <root-dir>")
+	}
+	flag.Parse()
+	if flag.NArg() != 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
-	root, err := filepath.Abs(os.Args[1])
+	root, err := filepath.Abs(flag.Arg(0))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sftpd:", err)
 		os.Exit(1)
 	}
 
-	_, priv, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "sftpd:", err)
-		os.Exit(1)
-	}
-	signer, err := ssh.NewSignerFromSigner(priv)
+	signer, err := loadOrCreateHostKey(*hostKeyFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "sftpd:", err)
 		os.Exit(1)
@@ -55,6 +71,19 @@ func main() {
 			return nil, fmt.Errorf("denied")
 		},
 	}
+	if *authorizedFile != "" {
+		keys, err := loadAuthorizedKeys(*authorizedFile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "sftpd:", err)
+			os.Exit(1)
+		}
+		config.PublicKeyCallback = func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			if c.User() == demoUser && keys[string(key.Marshal())] {
+				return nil, nil
+			}
+			return nil, fmt.Errorf("denied")
+		}
+	}
 	config.AddHostKey(signer)
 
 	ln, err := net.Listen("tcp", listenAddr)
@@ -65,13 +94,72 @@ func main() {
 	defer ln.Close()
 	fmt.Println("sftpd: serving", root, "on", listenAddr)
 
-	for {
+	for first := true; ; first = false {
 		nConn, err := ln.Accept()
 		if err != nil {
 			return
 		}
+		if first && *dropFirst > 0 {
+			dropAfter(nConn, *dropFirst)
+		}
 		go serveConn(nConn, config, root)
 	}
+}
+
+// loadOrCreateHostKey returns the key stored in path, writing a new one there
+// first if the file is missing. An empty path is a key that lives and dies with
+// the process.
+func loadOrCreateHostKey(path string) (ssh.Signer, error) {
+	if path != "" {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			return ssh.ParsePrivateKey(data)
+		}
+		if !errors.Is(err, fs.ErrNotExist) {
+			return nil, err
+		}
+	}
+
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+	if path != "" {
+		block, err := ssh.MarshalPrivateKey(priv, "")
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(path, pem.EncodeToMemory(block), 0o600); err != nil {
+			return nil, err
+		}
+	}
+	return ssh.NewSignerFromSigner(priv)
+}
+
+// loadAuthorizedKeys reads an authorized_keys file into a set keyed by the
+// wire form of each public key.
+func loadAuthorizedKeys(path string) (map[string]bool, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	keys := map[string]bool{}
+	for len(data) > 0 {
+		key, _, _, rest, err := ssh.ParseAuthorizedKey(data)
+		if err != nil {
+			break
+		}
+		keys[string(key.Marshal())] = true
+		data = rest
+	}
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("%s holds no public keys", path)
+	}
+	return keys, nil
+}
+
+func dropAfter(c net.Conn, d time.Duration) *time.Timer {
+	return time.AfterFunc(d, func() { c.Close() })
 }
 
 func serveConn(nConn net.Conn, config *ssh.ServerConfig, root string) {
