@@ -45,11 +45,12 @@ func (p Protocol) Prev() Protocol {
 	return Protocol((int(p) + len(protocolNames) - 1) % len(protocolNames))
 }
 
-// SFTP has no control dialogue and ignores logger.
+// SFTP has no control dialogue to capture, so its logger gets one line per
+// request instead. A nil logger disables logging.
 func New(p Protocol, logger io.Writer) Client {
 	switch p {
 	case SFTP:
-		return NewSFTPClient()
+		return NewSFTPClient(logger)
 	case FTPS:
 		return NewFTPSClient(logger)
 	default:

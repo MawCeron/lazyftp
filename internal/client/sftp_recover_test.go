@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/MawCeron/lazyftp/internal/shared"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
@@ -112,7 +114,7 @@ func (s *testServer) connect(t *testing.T, tune func(*SFTPClient)) (*SFTPClient,
 	t.Setenv("SSH_AUTH_SOCK", "")
 
 	events := make(chan error, 8)
-	c := NewSFTPClient()
+	c := NewSFTPClient(nil)
 	c.SetHostKeyPrompt(func(string, string, string) bool { return true })
 	c.SetSessionNotifier(func(err error) { events <- err })
 	if tune != nil {
@@ -236,5 +238,48 @@ func TestATransferRestartsOnTheReopenedSession(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(filepath.Join(out, "data.bin")); string(got) != "payload" {
 		t.Errorf("downloaded %q", got)
+	}
+}
+
+func TestVerboseLogsOneLinePerSFTPRequestWithoutTheSecret(t *testing.T) {
+	s := startServer(t)
+	buf := &shared.LineBuffer{}
+	c, _ := s.connect(t, func(c *SFTPClient) { c.logger = buf })
+
+	c.Mkdir("/logs")
+	c.Rename("/logs", "/renamed")
+	c.List("/renamed")
+	c.List("/missing")
+	c.Delete("/renamed", true)
+
+	src := filepath.Join(t.TempDir(), "f.txt")
+	os.WriteFile(src, []byte("x"), 0o644)
+	c.Upload(src, "/", func(int64) {})
+	c.Download("/f.txt", t.TempDir(), func(int64) {})
+
+	s.dropAll()
+	c.List("/")
+	c.Disconnect()
+
+	log := strings.Join(buf.Drain(), "\n")
+	for _, want := range []string{
+		"SFTP > connect 127.0.0.1:", " as u",
+		"SFTP < host key ssh-ed25519 SHA256:",
+		"SFTP < authenticated with password, sftp subsystem open",
+		"SFTP > MKDIR /logs", "SFTP < MKDIR /logs ok",
+		"SFTP > RENAME /logs to /renamed", "SFTP < RENAME /logs to /renamed ok",
+		"SFTP > READDIR /renamed", "SFTP < READDIR /renamed ok",
+		"SFTP < READDIR /missing failed:",
+		"SFTP > REMOVE /renamed",
+		"SFTP > PUT " + src + " to /", "SFTP > GET /f.txt to ",
+		"SFTP session lost, reopening", "SFTP session reopened",
+		"SFTP > disconnect",
+	} {
+		if !strings.Contains(log, want) {
+			t.Errorf("verbose log is missing %q:\n%s", want, log)
+		}
+	}
+	if strings.Contains(log, "\"p\"") || strings.Contains(log, " p\n") {
+		t.Errorf("the password is in the log:\n%s", log)
 	}
 }

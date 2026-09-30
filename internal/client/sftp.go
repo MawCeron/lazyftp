@@ -49,6 +49,7 @@ type SFTPClient struct {
 	prompt           HostKeyPrompt
 	identity         string
 	notify           func(error)
+	logger           io.Writer
 
 	// Zero means the constants above; tests shorten them.
 	kaEvery, kaWait time.Duration
@@ -70,8 +71,15 @@ func (c *SFTPClient) AuthMethod() string {
 	return c.auth
 }
 
-func NewSFTPClient() *SFTPClient {
-	return &SFTPClient{}
+// A nil logger disables logging.
+func NewSFTPClient(logger io.Writer) *SFTPClient {
+	return &SFTPClient{logger: logger}
+}
+
+func (c *SFTPClient) logf(format string, args ...any) {
+	if c.logger != nil {
+		fmt.Fprintf(c.logger, "SFTP "+format+"\n", args...)
+	}
 }
 
 func (c *SFTPClient) Connect(host, user, pass string, port int) error {
@@ -79,6 +87,7 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 
 	sshConn, client, auth, err := c.dial()
 	if err != nil {
+		c.logf("connect failed: %v", err)
 		return err
 	}
 	c.install(sshConn, client, auth)
@@ -87,6 +96,7 @@ func (c *SFTPClient) Connect(host, user, pass string, port int) error {
 
 func (c *SFTPClient) dial() (*ssh.Client, *sftp.Client, string, error) {
 	addr := net.JoinHostPort(c.host, strconv.Itoa(c.port))
+	c.logf("> connect %s as %s", addr, c.user)
 
 	// ssh.Dial bounds the TCP dial only. A host that accepts without speaking
 	// SSH leaves the handshake waiting with nothing to end it.
@@ -101,10 +111,17 @@ func (c *SFTPClient) dial() (*ssh.Client, *sftp.Client, string, error) {
 		tcpConn.Close()
 		return nil, nil, "", err
 	}
-	hostKeys, err := hostKeyCallback(path, c.prompt, tcpConn)
+	checkHostKey, err := hostKeyCallback(path, c.prompt, tcpConn)
 	if err != nil {
 		tcpConn.Close()
 		return nil, nil, "", fmt.Errorf("unable to read known_hosts: %w", err)
+	}
+	hostKeys := func(host string, remote net.Addr, key ssh.PublicKey) error {
+		err := checkHostKey(host, remote, key)
+		if err == nil {
+			c.logf("< host key %s %s accepted", key.Type(), ssh.FingerprintSHA256(key))
+		}
+		return err
 	}
 
 	auth := &sshAuth{pass: c.pass, identity: c.identity}
@@ -137,6 +154,7 @@ func (c *SFTPClient) dial() (*ssh.Client, *sftp.Client, string, error) {
 	// Left in place the deadline would expire mid-transfer.
 	tcpConn.SetDeadline(time.Time{})
 
+	c.logf("< authenticated with %s, sftp subsystem open", auth.method)
 	return sshConn, client, auth.method, nil
 }
 
@@ -171,6 +189,7 @@ func (c *SFTPClient) keepalive(conn *ssh.Client) {
 			return
 		}
 		if !alive(conn, wait) {
+			c.logf("keepalive unanswered")
 			c.reconnect(conn)
 			return
 		}
@@ -209,8 +228,10 @@ func (c *SFTPClient) reconnect(failed *ssh.Client) error {
 		return nil
 	}
 
+	c.logf("session lost, reopening")
 	sshConn, client, auth, err := c.dial()
 	if err != nil {
+		c.logf("reopen failed: %v", err)
 		c.tell(err)
 		return err
 	}
@@ -229,6 +250,7 @@ func (c *SFTPClient) reconnect(failed *ssh.Client) error {
 	oldClient.Close()
 	oldConn.Close()
 	go c.keepalive(sshConn)
+	c.logf("session reopened")
 	c.tell(nil)
 	return nil
 }
@@ -262,12 +284,22 @@ func connectionLost(err error) bool {
 // reopened; an operation that is safe to repeat (a listing, a transfer that
 // starts over) then runs again, and one that is not (a rename or a delete,
 // which the server may have finished before the drop) reports the loss instead.
-func (c *SFTPClient) do(retry bool, fn func(*sftp.Client) error) error {
+func (c *SFTPClient) do(desc string, retry bool, fn func(*sftp.Client) error) (err error) {
 	conn, cl := c.current()
 	if cl == nil {
 		return errNoConnection
 	}
-	err := fn(cl)
+
+	c.logf("> %s", desc)
+	defer func() {
+		if err != nil {
+			c.logf("< %s failed: %v", desc, err)
+		} else {
+			c.logf("< %s ok", desc)
+		}
+	}()
+
+	err = fn(cl)
 	if !connectionLost(err) {
 		return err
 	}
@@ -282,6 +314,7 @@ func (c *SFTPClient) do(retry bool, fn func(*sftp.Client) error) error {
 }
 
 func (c *SFTPClient) Disconnect() error {
+	c.logf("> disconnect")
 	c.mu.Lock()
 	c.closed = true
 	client, conn := c.client, c.sshConn
@@ -306,7 +339,7 @@ func (c *SFTPClient) Disconnect() error {
 
 func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
 	var entries []os.FileInfo
-	err := c.do(true, func(cl *sftp.Client) (err error) {
+	err := c.do("READDIR "+path, true, func(cl *sftp.Client) (err error) {
 		entries, err = cl.ReadDir(path)
 		return err
 	})
@@ -343,7 +376,7 @@ func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
 }
 
 func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) error {
-	return c.do(true, func(cl *sftp.Client) error {
+	return c.do("PUT "+localPath+" to "+remotePath, true, func(cl *sftp.Client) error {
 		f, err := os.Open(localPath)
 		if err != nil {
 			return fmt.Errorf("error opening local file: %w", err)
@@ -376,7 +409,7 @@ func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) 
 }
 
 func (c *SFTPClient) Download(remotePath, localPath string, progress func(int64)) error {
-	return c.do(true, func(cl *sftp.Client) error {
+	return c.do("GET "+remotePath+" to "+localPath, true, func(cl *sftp.Client) error {
 		src, err := cl.Open(remotePath)
 		if err != nil {
 			return fmt.Errorf("error opening remote file: %w", err)
@@ -409,15 +442,15 @@ func (c *SFTPClient) Download(remotePath, localPath string, progress func(int64)
 }
 
 func (c *SFTPClient) Mkdir(path string) error {
-	return c.do(true, func(cl *sftp.Client) error { return cl.MkdirAll(path) })
+	return c.do("MKDIR "+path, true, func(cl *sftp.Client) error { return cl.MkdirAll(path) })
 }
 
 func (c *SFTPClient) Rename(oldPath, newPath string) error {
-	return c.do(false, func(cl *sftp.Client) error { return cl.Rename(oldPath, newPath) })
+	return c.do("RENAME "+oldPath+" to "+newPath, false, func(cl *sftp.Client) error { return cl.Rename(oldPath, newPath) })
 }
 
 func (c *SFTPClient) Delete(path string, isDir bool) error {
-	return c.do(false, func(cl *sftp.Client) error {
+	return c.do("REMOVE "+path, false, func(cl *sftp.Client) error {
 		if isDir {
 			return cl.RemoveAll(path)
 		}
