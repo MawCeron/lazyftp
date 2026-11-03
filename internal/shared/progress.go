@@ -1,6 +1,9 @@
 package shared
 
-import "io"
+import (
+	"context"
+	"io"
+)
 
 // Must be a seeker: goftp resumes an upload only when the source is one.
 type ProgressReader struct {
@@ -8,9 +11,17 @@ type ProgressReader struct {
 	Total    int64
 	Current  int64
 	Callback func(int64)
+
+	// A nil Ctx is never cancelled.
+	Ctx context.Context
 }
 
 func (r *ProgressReader) Read(p []byte) (int, error) {
+	if r.Ctx != nil {
+		if err := r.Ctx.Err(); err != nil {
+			return 0, err
+		}
+	}
 	n, err := r.Reader.Read(p)
 	r.Current += int64(n)
 	if r.Callback != nil {
@@ -39,9 +50,17 @@ type ProgressWriter struct {
 	Total    int64
 	Current  int64
 	Callback func(int64)
+
+	// A nil Ctx is never cancelled.
+	Ctx context.Context
 }
 
 func (w *ProgressWriter) Write(p []byte) (int, error) {
+	if w.Ctx != nil {
+		if err := w.Ctx.Err(); err != nil {
+			return 0, err
+		}
+	}
 	n, err := w.Writer.Write(p)
 	w.Current += int64(n)
 	if w.Callback != nil {
