@@ -44,3 +44,6 @@ go.work.sum
 # Brainstorming mockups and design documents
 .superpowers/
 docs/superpowers/
+
+# Local audit reports
+docs/auditoria/
