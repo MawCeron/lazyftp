@@ -318,6 +318,27 @@ func (m *Manager) acceptName(p *tea.Program, name string) bool {
 	return false
 }
 
+// discardPartial removes what a cancelled transfer left on the side it was
+// writing to, so a half-written file cannot pass for a complete one.
+func (m *Manager) discardPartial(p *tea.Program, job Job) {
+	var err error
+	switch job.Direction {
+	case Upload:
+		err = m.client.Delete(path.Join(job.RemotePath, job.File.Name), false)
+	case Download:
+		err = os.Remove(filepath.Join(job.LocalPath, job.File.Name))
+		if os.IsNotExist(err) {
+			err = nil
+		}
+	}
+	if err != nil {
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Could not remove the partial file %s: %v", job.File.Name, err),
+			Level:   shared.LogError,
+		})
+	}
+}
+
 func (m *Manager) run(job Job) {
 	p := m.program()
 	if p == nil {
@@ -374,6 +395,7 @@ func (m *Manager) run(job Job) {
 
 	if err != nil {
 		if job.context().Err() != nil {
+			m.discardPartial(p, job)
 			p.Send(shared.TransferCancelledMsg{ID: id, Filename: filename})
 			p.Send(shared.LogMsg{
 				Message: fmt.Sprintf("Cancelled transfer: %s", filename),
