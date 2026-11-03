@@ -202,27 +202,35 @@ func endsRow(msg tea.Msg) bool {
 	return failed || isCancelled(msg)
 }
 
-// ctxClient holds every transfer until its context is cancelled, except the
-// files named in pass, which finish at once.
+// ctxClient holds every transfer until its context is cancelled or release is
+// closed, except the files named in pass, which finish at once.
 type ctxClient struct {
 	dirClient
-	pass map[string]bool
+	pass    map[string]bool
+	release chan struct{}
+}
+
+func (c *ctxClient) hold(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.release:
+		return nil
+	}
 }
 
 func (c *ctxClient) Upload(ctx context.Context, localPath, _ string, _ func(int64)) error {
 	if c.pass[filepath.Base(localPath)] {
 		return nil
 	}
-	<-ctx.Done()
-	return ctx.Err()
+	return c.hold(ctx)
 }
 
 func (c *ctxClient) Download(ctx context.Context, remotePath, _ string, _ func(int64)) error {
 	if c.pass[path.Base(remotePath)] {
 		return nil
 	}
-	<-ctx.Done()
-	return ctx.Err()
+	return c.hold(ctx)
 }
 
 func TestCancellingAJobStopsItsTransfer(t *testing.T) {
@@ -248,18 +256,22 @@ func TestCancellingAJobStopsItsTransfer(t *testing.T) {
 
 func TestCancellingOneJobLeavesTheOthersRunning(t *testing.T) {
 	p, msgs := startRecordingProgram(t)
-	m := NewManager(&ctxClient{pass: map[string]bool{"fast.bin": true}}, func() *tea.Program { return p })
+	c := &ctxClient{release: make(chan struct{})}
+	m := NewManager(c, func() *tea.Program { return p })
 
 	ids := m.Enqueue([]Job{
-		{File: model.FileInfo{Name: "stuck.bin"}, Direction: Upload},
-		{File: model.FileInfo{Name: "fast.bin"}, Direction: Upload},
+		{File: model.FileInfo{Name: "first.bin"}, Direction: Upload},
+		{File: model.FileInfo{Name: "second.bin"}, Direction: Upload},
 	})
-	waitFor(t, msgs, isDone)
+	waitFor(t, msgs, isStart)
+	waitFor(t, msgs, isStart)
 
-	if !m.Cancel(ids[0]) {
-		t.Fatal("Cancel did not find the stuck job")
-	}
+	m.Cancel(ids[0])
 	waitFor(t, msgs, isCancelled)
+
+	// The second job only finishes as Done if the cancel did not reach it.
+	close(c.release)
+	waitFor(t, msgs, isDone)
 	waitForIdle(t, m)
 }
 
