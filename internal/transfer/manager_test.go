@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -62,11 +63,11 @@ func (c *dirClient) Disconnect() error                         { return nil }
 func (c *dirClient) List(path string) ([]model.FileInfo, error) {
 	return c.tree[path], nil
 }
-func (c *dirClient) Upload(localPath, remotePath string, _ func(int64)) error {
+func (c *dirClient) Upload(_ context.Context, localPath, remotePath string, _ func(int64)) error {
 	c.uploaded = append(c.uploaded, path.Join(remotePath, filepath.Base(localPath)))
 	return nil
 }
-func (c *dirClient) Download(remotePath, _ string, _ func(int64)) error {
+func (c *dirClient) Download(_ context.Context, remotePath, _ string, _ func(int64)) error {
 	c.downloaded = append(c.downloaded, remotePath)
 	if err, ok := c.fail[remotePath]; ok {
 		return err
@@ -104,7 +105,9 @@ func (recorder) View() tea.View { return tea.NewView("") }
 
 type panickingClient struct{ dirClient }
 
-func (panickingClient) Upload(string, string, func(int64)) error { panic("the server hung up") }
+func (panickingClient) Upload(context.Context, string, string, func(int64)) error {
+	panic("the server hung up")
+}
 
 func TestAPanickingTransferMarksItsOwnRowAsFailed(t *testing.T) {
 	r := recorder{msgs: make(chan tea.Msg, 16)}

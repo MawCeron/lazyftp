@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -299,10 +300,10 @@ func (m *Manager) run(job Job) {
 	switch job.Direction {
 	case Upload:
 		localFile := filepath.Join(job.LocalPath, filename)
-		err = m.client.Upload(localFile, job.RemotePath, progress)
+		err = m.client.Upload(context.Background(), localFile, job.RemotePath, progress)
 	case Download:
 		remoteFile := path.Join(job.RemotePath, filename)
-		err = m.client.Download(remoteFile, job.LocalPath, progress)
+		err = m.client.Download(context.Background(), remoteFile, job.LocalPath, progress)
 	}
 
 	if err != nil {

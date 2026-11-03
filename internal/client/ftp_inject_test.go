@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -38,11 +39,13 @@ func TestAFileNameThatCouldInjectACommandNeverReachesTheServer(t *testing.T) {
 			"Delete a file":   func() error { return c.Delete("/"+name, false) },
 			"Delete a folder": func() error { return c.Delete("/"+name, true) },
 			"List":            func() error { _, err := c.List("/" + name); return err },
-			"Download":        func() error { return c.Download("/"+name, t.TempDir(), func(int64) {}) },
-			"Upload to":       func() error { return c.Upload(filepath.Join(t.TempDir(), "f"), "/"+name, func(int64) {}) },
+			"Download":        func() error { return c.Download(context.Background(), "/"+name, t.TempDir(), func(int64) {}) },
+			"Upload to": func() error {
+				return c.Upload(context.Background(), filepath.Join(t.TempDir(), "f"), "/"+name, func(int64) {})
+			},
 		}
 		if hasLocalFile {
-			ops["Upload of"] = func() error { return c.Upload(localName, "/", func(int64) {}) }
+			ops["Upload of"] = func() error { return c.Upload(context.Background(), localName, "/", func(int64) {}) }
 		}
 
 		for op, run := range ops {
