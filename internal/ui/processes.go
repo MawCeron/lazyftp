@@ -48,6 +48,16 @@ func (p ProcessesPanel) MarkError(id int64) ProcessesPanel {
 	return p.refreshViewport()
 }
 
+func (p ProcessesPanel) MarkCancelled(id int64) ProcessesPanel {
+	for i, t := range p.transfers {
+		if t.ID == id {
+			p.transfers[i].Status = shared.StatusCancelled
+			break
+		}
+	}
+	return p.refreshViewport()
+}
+
 // MarkDone is the authoritative completion signal: UpdateTransfer's
 // current>=Total check can't fire for a 0-byte file (Total is 0), so a
 // transfer that finishes without ever tripping it would otherwise sit at
@@ -109,6 +119,8 @@ func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 		return p.UpdateTransfer(msg.ID, msg.Current), nil
 	case shared.TransferErrorMsg:
 		return p.MarkError(msg.ID), nil
+	case shared.TransferCancelledMsg:
+		return p.MarkCancelled(msg.ID), nil
 	}
 	return p, nil
 }
@@ -168,6 +180,9 @@ func renderTransfer(t shared.Transfer, width int) string {
 	case shared.StatusError:
 		suffix = " " + iconError()
 		bar = lipgloss.NewStyle().Foreground(colorError).Render(bar)
+	case shared.StatusCancelled:
+		suffix = " cancelled"
+		bar = lipgloss.NewStyle().Foreground(colorMuted).Render(bar)
 	}
 
 	return fmt.Sprintf("  %s %s%s\n", name, bar, suffix)
