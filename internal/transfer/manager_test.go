@@ -334,6 +334,78 @@ func TestACancelledUploadDeletesTheRemotePartial(t *testing.T) {
 	}
 }
 
+func isLog(text string) func(tea.Msg) bool {
+	return func(msg tea.Msg) bool {
+		l, ok := msg.(shared.LogMsg)
+		return ok && l.Message == text
+	}
+}
+
+func TestCancellingADirectoryStopsItsRemainingFiles(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	c := &ctxClient{dirClient: dirClient{tree: map[string][]model.FileInfo{
+		"/pub/photos": {
+			{Name: "a.jpg", Size: 1},
+			{Name: "b.jpg", Size: 1},
+			{Name: "c.jpg", Size: 1},
+		},
+	}}}
+	m := NewManager(c, func() *tea.Program { return p })
+
+	id := m.Enqueue([]Job{{
+		File:       model.FileInfo{Name: "photos", Type: model.FileTypeDir},
+		LocalPath:  t.TempDir(),
+		RemotePath: "/pub",
+		Direction:  Download,
+	}})[0]
+	waitFor(t, msgs, isStart)
+
+	m.Cancel(id)
+	waitFor(t, msgs, isCancelled)
+	waitFor(t, msgs, isLog("Cancelled: photos"))
+	waitForIdle(t, m)
+
+	for {
+		select {
+		case msg := <-msgs:
+			if isStart(msg) {
+				t.Fatal("a file of the cancelled directory started after the cancellation")
+			}
+		default:
+			return
+		}
+	}
+}
+
+// Cancelling between two files leaves no transfer to fail, so the walk itself
+// has to notice.
+func TestACancelledDirectoryWalkStartsNothing(t *testing.T) {
+	p, _ := startRecordingProgram(t)
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	local := t.TempDir()
+	os.MkdirAll(filepath.Join(local, "photos"), 0o755)
+	os.WriteFile(filepath.Join(local, "photos", "a.jpg"), []byte("a"), 0o644)
+	c := &dirClient{tree: map[string][]model.FileInfo{"/pub/photos": {{Name: "a.jpg"}}}}
+	m := NewManager(c, func() *tea.Program { return p })
+	dir := Job{
+		File:       model.FileInfo{Name: "photos", Type: model.FileTypeDir},
+		LocalPath:  local,
+		RemotePath: "/pub",
+		ctx:        cancelled,
+	}
+
+	dir.Direction = Download
+	m.runDirDownload(dir)
+	dir.Direction = Upload
+	m.runDir(dir)
+
+	if len(c.downloaded) != 0 || len(c.uploaded) != 0 {
+		t.Errorf("a cancelled directory transferred %v and %v", c.downloaded, c.uploaded)
+	}
+}
+
 func TestCancellingAJobThatIsGoneDoesNothing(t *testing.T) {
 	p, msgs := startRecordingProgram(t)
 	m := NewManager(&ctxClient{pass: map[string]bool{"fast.bin": true}}, func() *tea.Program { return p })
