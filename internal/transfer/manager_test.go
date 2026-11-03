@@ -310,26 +310,29 @@ func TestCancellingOneJobLeavesTheOthersRunning(t *testing.T) {
 // transfer cut mid-way does, and records what it is asked to delete.
 type partialClient struct {
 	ctxClient
-	mu      sync.Mutex
+	written chan struct{}
+	dmu     sync.Mutex
 	deleted []string
 }
 
 func (c *partialClient) Download(ctx context.Context, remotePath, localPath string, _ func(int64)) error {
 	os.WriteFile(filepath.Join(localPath, path.Base(remotePath)), []byte("half"), 0o644)
+	close(c.written)
 	<-ctx.Done()
 	return ctx.Err()
 }
 
 func (c *partialClient) Delete(p string, _ bool) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.dmu.Lock()
+	defer c.dmu.Unlock()
 	c.deleted = append(c.deleted, p)
 	return nil
 }
 
 func TestACancelledDownloadLeavesNoPartialFile(t *testing.T) {
 	p, msgs := startRecordingProgram(t)
-	m := NewManager(&partialClient{}, func() *tea.Program { return p })
+	c := &partialClient{written: make(chan struct{})}
+	m := NewManager(c, func() *tea.Program { return p })
 	local := t.TempDir()
 
 	id := m.Enqueue([]Job{{
@@ -338,12 +341,10 @@ func TestACancelledDownloadLeavesNoPartialFile(t *testing.T) {
 		RemotePath: "/pub",
 		Direction:  Download,
 	}})[0]
-	waitFor(t, msgs, isStart)
-	for { // the stub writes the partial before it holds
-		if _, err := os.Stat(filepath.Join(local, "big.iso")); err == nil {
-			break
-		}
-		time.Sleep(time.Millisecond)
+	select {
+	case <-c.written:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the transfer never wrote its partial file")
 	}
 
 	m.Cancel(id)
@@ -370,8 +371,8 @@ func TestACancelledUploadDeletesTheRemotePartial(t *testing.T) {
 	m.Cancel(id)
 	waitFor(t, msgs, isCancelled)
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.dmu.Lock()
+	defer c.dmu.Unlock()
 	if len(c.deleted) != 1 || c.deleted[0] != "/incoming/big.iso" {
 		t.Errorf("deleted %v, want [/incoming/big.iso]", c.deleted)
 	}
@@ -578,12 +579,31 @@ func TestCancellingAJobThatIsGoneDoesNothing(t *testing.T) {
 	}
 
 	id := m.Enqueue([]Job{{File: model.FileInfo{Name: "fast.bin"}, Direction: Upload}})[0]
-	waitFor(t, msgs, isDone)
+	collectUntil(t, msgs, isDone)
 	waitForIdle(t, m)
 
 	if m.Cancel(id) {
 		t.Error("Cancel reported a job that had already finished")
 	}
+	select {
+	case msg := <-msgs:
+		t.Errorf("cancelling a job that is gone sent %T", msg)
+	default:
+	}
+}
+
+func TestCancellingTheSameJobTwiceCancelsItOnce(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	m := NewManager(&ctxClient{}, func() *tea.Program { return p })
+
+	id := m.Enqueue([]Job{{File: model.FileInfo{Name: "stuck.bin"}, Direction: Upload}})[0]
+	waitFor(t, msgs, isStart)
+
+	first, second := m.Cancel(id), m.Cancel(id)
+	if !first || second {
+		t.Errorf("Cancel returned %v then %v, want true then false", first, second)
+	}
+	waitForIdle(t, m)
 }
 
 func TestGuardRunsTheTransfer(t *testing.T) {
