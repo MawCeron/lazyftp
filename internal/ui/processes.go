@@ -119,8 +119,6 @@ func (p ProcessesPanel) Update(msg tea.Msg) (ProcessesPanel, tea.Cmd) {
 		return p.UpdateTransfer(msg.ID, msg.Current), nil
 	case shared.TransferErrorMsg:
 		return p.MarkError(msg.ID), nil
-	case shared.TransferCancelledMsg:
-		return p.MarkCancelled(msg.ID), nil
 	}
 	return p, nil
 }

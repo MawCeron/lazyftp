@@ -579,7 +579,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case TransferDoneMsg:
 		return a.handleTransferDone(msg)
 
-	case TransferCancelledMsg:
+	case shared.TransferCancelledMsg:
 		return a.handleTransferCancelled(msg)
 	}
 
@@ -1158,7 +1158,7 @@ func (a App) handleTransferDone(msg TransferDoneMsg) (App, tea.Cmd) {
 
 // handleTransferCancelled reloads both listings: the transfer removed the
 // partial file it left behind.
-func (a App) handleTransferCancelled(msg TransferCancelledMsg) (App, tea.Cmd) {
+func (a App) handleTransferCancelled(msg shared.TransferCancelledMsg) (App, tea.Cmd) {
 	a.processes = a.processes.MarkCancelled(msg.ID)
 	return a, a.reloadPanels()
 }
@@ -1318,8 +1318,6 @@ type deleteDoneMsg struct {
 }
 
 type TransferDoneMsg = shared.TransferDoneMsg
-
-type TransferCancelledMsg = shared.TransferCancelledMsg
 
 // WithConfig installs the loaded configuration. A load error means defaults
 // are in use, and the Log is the only place to say so.
