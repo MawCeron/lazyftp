@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"image/color"
@@ -29,10 +30,10 @@ func (s *stubClient) List(path string) ([]model.FileInfo, error)      { return n
 func (s *stubClient) Mkdir(path string) error                         { return nil }
 func (s *stubClient) Rename(oldPath, newPath string) error            { return nil }
 func (s *stubClient) Delete(path string, isDir bool) error            { return nil }
-func (s *stubClient) Upload(local, remote string, p func(int64)) error {
+func (s *stubClient) Upload(_ context.Context, local, remote string, p func(int64)) error {
 	return nil
 }
-func (s *stubClient) Download(remote, local string, p func(int64)) error {
+func (s *stubClient) Download(_ context.Context, remote, local string, p func(int64)) error {
 	return nil
 }
 

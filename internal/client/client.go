@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"time"
 
 	"github.com/MawCeron/lazyftp/internal/model"
@@ -14,8 +15,8 @@ type Client interface {
 	Connect(host, user, pass string, port int) error
 	Disconnect() error
 	List(path string) ([]model.FileInfo, error)
-	Upload(localPath, remotePath string, progress func(int64)) error
-	Download(remotePath, localPath string, progress func(int64)) error
+	Upload(ctx context.Context, localPath, remotePath string, progress func(int64)) error
+	Download(ctx context.Context, remotePath, localPath string, progress func(int64)) error
 	Mkdir(path string) error
 	Rename(oldPath, newPath string) error
 	Delete(path string, isDir bool) error

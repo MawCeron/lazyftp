@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -375,7 +376,7 @@ func (c *SFTPClient) List(path string) ([]model.FileInfo, error) {
 	return files, nil
 }
 
-func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) error {
+func (c *SFTPClient) Upload(ctx context.Context, localPath, remotePath string, progress func(int64)) error {
 	return c.do("PUT "+localPath+" to "+remotePath, true, func(cl *sftp.Client) error {
 		f, err := os.Open(localPath)
 		if err != nil {
@@ -399,6 +400,7 @@ func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) 
 			Reader:   f,
 			Total:    info.Size(),
 			Callback: progress,
+			Ctx:      ctx,
 		}
 
 		if _, err := io.Copy(dst, reader); err != nil {
@@ -408,7 +410,7 @@ func (c *SFTPClient) Upload(localPath, remotePath string, progress func(int64)) 
 	})
 }
 
-func (c *SFTPClient) Download(remotePath, localPath string, progress func(int64)) error {
+func (c *SFTPClient) Download(ctx context.Context, remotePath, localPath string, progress func(int64)) error {
 	return c.do("GET "+remotePath+" to "+localPath, true, func(cl *sftp.Client) error {
 		src, err := cl.Open(remotePath)
 		if err != nil {
@@ -432,6 +434,7 @@ func (c *SFTPClient) Download(remotePath, localPath string, progress func(int64)
 			Writer:   f,
 			Total:    info.Size(),
 			Callback: progress,
+			Ctx:      ctx,
 		}
 
 		if _, err := io.Copy(writer, src); err != nil {

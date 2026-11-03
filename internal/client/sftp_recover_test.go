@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"net"
@@ -224,7 +225,7 @@ func TestATransferRestartsOnTheReopenedSession(t *testing.T) {
 
 	s.dropAll()
 	var last int64
-	if err := c.Upload(src, "/", func(n int64) { last = n }); err != nil {
+	if err := c.Upload(context.Background(), src, "/", func(n int64) { last = n }); err != nil {
 		t.Fatalf("upload over a dropped session: %v", err)
 	}
 	if last != 7 {
@@ -233,7 +234,7 @@ func TestATransferRestartsOnTheReopenedSession(t *testing.T) {
 
 	out := t.TempDir()
 	s.dropAll()
-	if err := c.Download("/data.bin", out, func(int64) {}); err != nil {
+	if err := c.Download(context.Background(), "/data.bin", out, func(int64) {}); err != nil {
 		t.Fatalf("download over a dropped session: %v", err)
 	}
 	if got, _ := os.ReadFile(filepath.Join(out, "data.bin")); string(got) != "payload" {
@@ -254,8 +255,8 @@ func TestVerboseLogsOneLinePerSFTPRequestWithoutTheSecret(t *testing.T) {
 
 	src := filepath.Join(t.TempDir(), "f.txt")
 	os.WriteFile(src, []byte("x"), 0o644)
-	c.Upload(src, "/", func(int64) {})
-	c.Download("/f.txt", t.TempDir(), func(int64) {})
+	c.Upload(context.Background(), src, "/", func(int64) {})
+	c.Download(context.Background(), "/f.txt", t.TempDir(), func(int64) {})
 
 	s.dropAll()
 	c.List("/")

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -25,7 +26,7 @@ type blockingClient struct {
 	release chan struct{}
 }
 
-func (b *blockingClient) Upload(local, remote string, p func(int64)) error {
+func (b *blockingClient) Upload(_ context.Context, local, remote string, p func(int64)) error {
 	<-b.release
 	return nil
 }

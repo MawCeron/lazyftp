@@ -2,6 +2,7 @@ package client
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -112,7 +113,7 @@ func (c *FTPClient) List(path string) ([]model.FileInfo, error) {
 	return files, nil
 }
 
-func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) error {
+func (c *FTPClient) Upload(ctx context.Context, localPath, remotePath string, progress func(int64)) error {
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
 	}
@@ -132,6 +133,7 @@ func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) e
 		Reader:   f,
 		Total:    info.Size(),
 		Callback: progress,
+		Ctx:      ctx,
 	}
 
 	remotePath = path.Join(remotePath, filepath.Base(localPath))
@@ -142,7 +144,7 @@ func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) e
 	return nil
 }
 
-func (c *FTPClient) Download(remotePath, localPath string, progress func(int64)) error {
+func (c *FTPClient) Download(ctx context.Context, remotePath, localPath string, progress func(int64)) error {
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
 	}
@@ -169,6 +171,7 @@ func (c *FTPClient) Download(remotePath, localPath string, progress func(int64))
 		Writer:   f,
 		Total:    size,
 		Callback: progress,
+		Ctx:      ctx,
 	}
 
 	if err := c.conn.Retrieve(remotePath, writer); err != nil {
