@@ -146,6 +146,139 @@ func TestAPanickingTransferMarksItsOwnRowAsFailed(t *testing.T) {
 	}
 }
 
+// startRecordingProgram runs a headless program and hands back every message
+// sent to it.
+func startRecordingProgram(t *testing.T) (*tea.Program, <-chan tea.Msg) {
+	t.Helper()
+	r := recorder{msgs: make(chan tea.Msg, 64)}
+	p := tea.NewProgram(r,
+		tea.WithInput(strings.NewReader("")),
+		tea.WithOutput(io.Discard),
+		tea.WithoutRenderer(),
+		tea.WithoutSignalHandler(),
+		tea.WithoutSignals(),
+	)
+	go p.Run()
+	t.Cleanup(func() {
+		p.Quit()
+		p.Wait()
+	})
+	return p, r.msgs
+}
+
+// waitFor returns the first message for which match is true.
+func waitFor(t *testing.T, msgs <-chan tea.Msg, match func(tea.Msg) bool) tea.Msg {
+	t.Helper()
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case msg := <-msgs:
+			if match(msg) {
+				return msg
+			}
+		case <-timeout:
+			t.Fatal("the message never arrived")
+		}
+	}
+}
+
+func waitForIdle(t *testing.T, m *Manager) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for m.Active() != 0 {
+		if time.Now().After(deadline) {
+			t.Fatalf("%d job(s) still active", m.Active())
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func isStart(msg tea.Msg) bool     { _, ok := msg.(shared.TransferStartMsg); return ok }
+func isDone(msg tea.Msg) bool      { _, ok := msg.(shared.TransferDoneMsg); return ok }
+func isCancelled(msg tea.Msg) bool { _, ok := msg.(shared.TransferCancelledMsg); return ok }
+func endsRow(msg tea.Msg) bool {
+	_, failed := msg.(shared.TransferErrorMsg)
+	return failed || isCancelled(msg)
+}
+
+// ctxClient holds every transfer until its context is cancelled, except the
+// files named in pass, which finish at once.
+type ctxClient struct {
+	dirClient
+	pass map[string]bool
+}
+
+func (c *ctxClient) Upload(ctx context.Context, localPath, _ string, _ func(int64)) error {
+	if c.pass[filepath.Base(localPath)] {
+		return nil
+	}
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func (c *ctxClient) Download(ctx context.Context, remotePath, _ string, _ func(int64)) error {
+	if c.pass[path.Base(remotePath)] {
+		return nil
+	}
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func TestCancellingAJobStopsItsTransfer(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	m := NewManager(&ctxClient{}, func() *tea.Program { return p })
+
+	id := m.Enqueue([]Job{{File: model.FileInfo{Name: "report.pdf"}, Direction: Upload}})[0]
+	started := waitFor(t, msgs, isStart).(shared.TransferStartMsg)
+
+	if !m.Cancel(id) {
+		t.Fatal("Cancel did not find the running job")
+	}
+
+	cancelled, ok := waitFor(t, msgs, endsRow).(shared.TransferCancelledMsg)
+	if !ok {
+		t.Fatal("the cancelled transfer was reported as an error")
+	}
+	if cancelled.ID != started.Transfer.ID {
+		t.Errorf("cancelled row %d, want the started row %d", cancelled.ID, started.Transfer.ID)
+	}
+	waitForIdle(t, m)
+}
+
+func TestCancellingOneJobLeavesTheOthersRunning(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	m := NewManager(&ctxClient{pass: map[string]bool{"fast.bin": true}}, func() *tea.Program { return p })
+
+	ids := m.Enqueue([]Job{
+		{File: model.FileInfo{Name: "stuck.bin"}, Direction: Upload},
+		{File: model.FileInfo{Name: "fast.bin"}, Direction: Upload},
+	})
+	waitFor(t, msgs, isDone)
+
+	if !m.Cancel(ids[0]) {
+		t.Fatal("Cancel did not find the stuck job")
+	}
+	waitFor(t, msgs, isCancelled)
+	waitForIdle(t, m)
+}
+
+func TestCancellingAJobThatIsGoneDoesNothing(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	m := NewManager(&ctxClient{pass: map[string]bool{"fast.bin": true}}, func() *tea.Program { return p })
+
+	if m.Cancel(12345) {
+		t.Error("Cancel reported a job that never existed")
+	}
+
+	id := m.Enqueue([]Job{{File: model.FileInfo{Name: "fast.bin"}, Direction: Upload}})[0]
+	waitFor(t, msgs, isDone)
+	waitForIdle(t, m)
+
+	if m.Cancel(id) {
+		t.Error("Cancel reported a job that had already finished")
+	}
+}
+
 func TestGuardRunsTheTransfer(t *testing.T) {
 	m := NewManager(nil, func() *tea.Program { return nil })
 

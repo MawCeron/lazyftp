@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 
 	tea "charm.land/bubbletea/v2"
@@ -20,6 +21,8 @@ import (
 // update both by matching on Filename.
 var transferSeq atomic.Int64
 
+var jobSeq atomic.Int64
+
 type Direction int
 
 const (
@@ -32,12 +35,26 @@ type Job struct {
 	LocalPath  string
 	RemotePath string
 	Direction  Direction
+
+	id  int64
+	ctx context.Context
+}
+
+// context is Background for a Job built by hand rather than through Enqueue.
+func (j Job) context() context.Context {
+	if j.ctx == nil {
+		return context.Background()
+	}
+	return j.ctx
 }
 
 type Manager struct {
 	client  client.Client
 	program func() *tea.Program
 	active  atomic.Int32
+
+	mu   sync.Mutex
+	jobs map[int64]context.CancelFunc
 }
 
 // Active counts jobs still running, a recursive directory transfer being one
@@ -51,8 +68,12 @@ func NewManager(c client.Client, p func() *tea.Program) *Manager {
 	}
 }
 
-func (m *Manager) Enqueue(jobs []Job) {
-	for _, job := range jobs {
+// Enqueue returns the ID of each job, in order, which Cancel takes.
+func (m *Manager) Enqueue(jobs []Job) []int64 {
+	ids := make([]int64, len(jobs))
+	for i, job := range jobs {
+		job.id, job.ctx = m.register()
+		ids[i] = job.id
 		m.active.Add(1)
 		switch {
 		case job.File.IsDir() && job.Direction == Upload:
@@ -63,6 +84,46 @@ func (m *Manager) Enqueue(jobs []Job) {
 			go m.guard(job, m.run)
 		}
 	}
+	return ids
+}
+
+func (m *Manager) register() (int64, context.Context) {
+	ctx, cancel := context.WithCancel(context.Background())
+	id := jobSeq.Add(1)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.jobs == nil {
+		m.jobs = map[int64]context.CancelFunc{}
+	}
+	m.jobs[id] = cancel
+	return id, ctx
+}
+
+// Cancel reports whether the job was still registered: false for an unknown
+// job, one that already finished, or one already cancelled.
+func (m *Manager) Cancel(id int64) bool {
+	m.mu.Lock()
+	cancel, ok := m.jobs[id]
+	delete(m.jobs, id)
+	m.mu.Unlock()
+
+	if ok {
+		cancel()
+	}
+	return ok
+}
+
+// forget releases the job's context once its transfer has returned.
+func (m *Manager) forget(id int64) {
+	m.mu.Lock()
+	cancel := m.jobs[id]
+	delete(m.jobs, id)
+	m.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
 }
 
 // These goroutines run outside Bubble Tea, whose own panic recovery never sees
@@ -70,6 +131,7 @@ func (m *Manager) Enqueue(jobs []Job) {
 // the whole tree.
 func (m *Manager) guard(job Job, run func(Job)) {
 	defer m.active.Add(-1)
+	defer m.forget(job.id)
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -150,6 +212,8 @@ func (m *Manager) runDir(job Job) {
 			LocalPath:  localDirPath,
 			RemotePath: remoteDirPath,
 			Direction:  Upload,
+			id:         job.id,
+			ctx:        job.ctx,
 		}
 
 		if entry.IsDir() {
@@ -218,6 +282,8 @@ func (m *Manager) runDirDownload(job Job) {
 			LocalPath:  localDirPath,
 			RemotePath: remoteDirPath,
 			Direction:  Download,
+			id:         job.id,
+			ctx:        job.ctx,
 		}
 
 		if entry.IsDir() {
@@ -273,13 +339,21 @@ func (m *Manager) run(job Job) {
 	switch job.Direction {
 	case Upload:
 		localFile := filepath.Join(job.LocalPath, filename)
-		err = m.client.Upload(context.Background(), localFile, job.RemotePath, progress)
+		err = m.client.Upload(job.context(), localFile, job.RemotePath, progress)
 	case Download:
 		remoteFile := path.Join(job.RemotePath, filename)
-		err = m.client.Download(context.Background(), remoteFile, job.LocalPath, progress)
+		err = m.client.Download(job.context(), remoteFile, job.LocalPath, progress)
 	}
 
 	if err != nil {
+		if job.context().Err() != nil {
+			p.Send(shared.TransferCancelledMsg{ID: id, Filename: filename})
+			p.Send(shared.LogMsg{
+				Message: fmt.Sprintf("Cancelled transfer: %s", filename),
+				Level:   shared.LogInfo,
+			})
+			return
+		}
 		p.Send(shared.TransferErrorMsg{
 			ID:       id,
 			Filename: filename,
