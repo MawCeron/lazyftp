@@ -343,6 +343,13 @@ func (m *Manager) run(job Job) {
 	}
 
 	filename := job.File.Name
+	if job.context().Err() != nil {
+		p.Send(shared.LogMsg{
+			Message: fmt.Sprintf("Cancelled transfer: %s", filename),
+			Level:   shared.LogInfo,
+		})
+		return
+	}
 	id := transferSeq.Add(1)
 
 	// Only run knows the row's ID, and a row left at "in progress" stays so for
