@@ -70,6 +70,19 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 	return nil
 }
 
+// checkPath refuses a path that FTP would read as more than one command.
+// goftp ends each command with CRLF but does not look inside the path, so a
+// line break in a name sends whatever follows it as the next command, and a
+// NUL cuts the command short on some servers.
+func checkPath(paths ...string) error {
+	for _, p := range paths {
+		if strings.ContainsAny(p, "\r\n\x00") {
+			return fmt.Errorf("refusing %q: an FTP file name may not contain a line break or NUL", p)
+		}
+	}
+	return nil
+}
+
 func (c *FTPClient) Disconnect() error {
 	if c.conn == nil {
 		return nil
@@ -80,6 +93,9 @@ func (c *FTPClient) Disconnect() error {
 func (c *FTPClient) List(path string) ([]model.FileInfo, error) {
 	if c.conn == nil {
 		return nil, fmt.Errorf("no active connection")
+	}
+	if err := checkPath(path); err != nil {
+		return nil, err
 	}
 
 	entries, err := c.readDir(path)
@@ -116,6 +132,9 @@ func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) e
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
 	}
+	if err := checkPath(remotePath, filepath.Base(localPath)); err != nil {
+		return err
+	}
 
 	f, err := os.Open(localPath)
 	if err != nil {
@@ -145,6 +164,9 @@ func (c *FTPClient) Upload(localPath, remotePath string, progress func(int64)) e
 func (c *FTPClient) Download(remotePath, localPath string, progress func(int64)) error {
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
+	}
+	if err := checkPath(remotePath); err != nil {
+		return err
 	}
 
 	entries, err := c.readDir(path.Dir(remotePath))
@@ -182,6 +204,9 @@ func (c *FTPClient) Mkdir(path string) error {
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
 	}
+	if err := checkPath(path); err != nil {
+		return err
+	}
 	_, err := c.conn.Mkdir(path)
 	return err
 }
@@ -190,12 +215,18 @@ func (c *FTPClient) Rename(oldPath, newPath string) error {
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
 	}
+	if err := checkPath(oldPath, newPath); err != nil {
+		return err
+	}
 	return c.conn.Rename(oldPath, newPath)
 }
 
 func (c *FTPClient) Delete(target string, isDir bool) error {
 	if c.conn == nil {
 		return fmt.Errorf("no active connection")
+	}
+	if err := checkPath(target); err != nil {
+		return err
 	}
 	if !isDir {
 		return c.conn.Delete(target)
@@ -214,6 +245,9 @@ func (c *FTPClient) deleteDirRecursive(dirPath string) error {
 	}
 	for _, e := range entries {
 		childPath := path.Join(dirPath, e.Name())
+		if err := checkPath(childPath); err != nil {
+			return err
+		}
 		if e.IsDir() {
 			if err := c.deleteDirRecursive(childPath); err != nil {
 				return err
