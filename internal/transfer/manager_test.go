@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -260,6 +261,77 @@ func TestCancellingOneJobLeavesTheOthersRunning(t *testing.T) {
 	}
 	waitFor(t, msgs, isCancelled)
 	waitForIdle(t, m)
+}
+
+// partialClient leaves a half-written file behind and then holds, as a
+// transfer cut mid-way does, and records what it is asked to delete.
+type partialClient struct {
+	ctxClient
+	mu      sync.Mutex
+	deleted []string
+}
+
+func (c *partialClient) Download(ctx context.Context, remotePath, localPath string, _ func(int64)) error {
+	os.WriteFile(filepath.Join(localPath, path.Base(remotePath)), []byte("half"), 0o644)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func (c *partialClient) Delete(p string, _ bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.deleted = append(c.deleted, p)
+	return nil
+}
+
+func TestACancelledDownloadLeavesNoPartialFile(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	m := NewManager(&partialClient{}, func() *tea.Program { return p })
+	local := t.TempDir()
+
+	id := m.Enqueue([]Job{{
+		File:       model.FileInfo{Name: "big.iso"},
+		LocalPath:  local,
+		RemotePath: "/pub",
+		Direction:  Download,
+	}})[0]
+	waitFor(t, msgs, isStart)
+	for { // the stub writes the partial before it holds
+		if _, err := os.Stat(filepath.Join(local, "big.iso")); err == nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	m.Cancel(id)
+	waitFor(t, msgs, isCancelled)
+
+	if _, err := os.Stat(filepath.Join(local, "big.iso")); !os.IsNotExist(err) {
+		t.Errorf("the partial download is still there: %v", err)
+	}
+}
+
+func TestACancelledUploadDeletesTheRemotePartial(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	c := &partialClient{}
+	m := NewManager(c, func() *tea.Program { return p })
+
+	id := m.Enqueue([]Job{{
+		File:       model.FileInfo{Name: "big.iso"},
+		LocalPath:  t.TempDir(),
+		RemotePath: "/incoming",
+		Direction:  Upload,
+	}})[0]
+	waitFor(t, msgs, isStart)
+
+	m.Cancel(id)
+	waitFor(t, msgs, isCancelled)
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.deleted) != 1 || c.deleted[0] != "/incoming/big.iso" {
+		t.Errorf("deleted %v, want [/incoming/big.iso]", c.deleted)
+	}
 }
 
 func TestCancellingAJobThatIsGoneDoesNothing(t *testing.T) {
