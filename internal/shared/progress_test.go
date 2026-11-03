@@ -2,7 +2,10 @@ package shared
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
+	"strings"
 	"testing"
 )
 
@@ -70,5 +73,50 @@ func TestAFailedSeekLeavesProgressAlone(t *testing.T) {
 	}
 	if r.Current != 5 {
 		t.Errorf("a failed seek moved progress to %d, want it left at 5", r.Current)
+	}
+}
+
+func TestAProgressReaderStopsOnceItsContextIsCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &ProgressReader{Reader: strings.NewReader("abcdef"), Ctx: ctx}
+	buf := make([]byte, 3)
+
+	if n, err := r.Read(buf); n != 3 || err != nil {
+		t.Fatalf("read before cancelling = %d, %v; want 3, nil", n, err)
+	}
+	cancel()
+
+	n, err := r.Read(buf)
+	if n != 0 || !errors.Is(err, context.Canceled) {
+		t.Errorf("read after cancelling = %d, %v; want 0, context.Canceled", n, err)
+	}
+}
+
+func TestAProgressWriterStopsOnceItsContextIsCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var dst bytes.Buffer
+	w := &ProgressWriter{Writer: &dst, Ctx: ctx}
+
+	if _, err := w.Write([]byte("abc")); err != nil {
+		t.Fatalf("write before cancelling: %v", err)
+	}
+	cancel()
+
+	n, err := w.Write([]byte("def"))
+	if n != 0 || !errors.Is(err, context.Canceled) {
+		t.Errorf("write after cancelling = %d, %v; want 0, context.Canceled", n, err)
+	}
+	if dst.String() != "abc" {
+		t.Errorf("destination holds %q, want only the first write", dst.String())
+	}
+}
+
+func TestProgressWrappersWithoutAContextKeepWorking(t *testing.T) {
+	var dst bytes.Buffer
+	r := &ProgressReader{Reader: strings.NewReader("abcdef")}
+	w := &ProgressWriter{Writer: &dst}
+
+	if _, err := io.Copy(w, r); err != nil || dst.String() != "abcdef" {
+		t.Errorf("copy = %q, %v; want abcdef, nil", dst.String(), err)
 	}
 }
