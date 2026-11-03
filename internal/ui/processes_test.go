@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/MawCeron/lazyftp/internal/shared"
 )
 
@@ -29,7 +31,7 @@ func TestACancelledTransferIsNotShownAsAnError(t *testing.T) {
 	p := NewProcessesPanel()
 	p, _ = p.Update(shared.TransferStartMsg{Transfer: shared.Transfer{ID: 1, Filename: "big.iso", Total: 100}})
 
-	p, _ = p.Update(shared.TransferCancelledMsg{ID: 1, Filename: "big.iso"})
+	p = p.MarkCancelled(1)
 
 	if got := p.transfers[0].Status; got != shared.StatusCancelled {
 		t.Fatalf("status = %v, want StatusCancelled", got)
@@ -49,7 +51,7 @@ func TestCancellingOneRowLeavesItsNamesakeAlone(t *testing.T) {
 		p, _ = p.Update(shared.TransferStartMsg{Transfer: shared.Transfer{ID: id, Filename: "index.html", Total: 100}})
 	}
 
-	p, _ = p.Update(shared.TransferCancelledMsg{ID: 1, Filename: "index.html"})
+	p = p.MarkCancelled(1)
 
 	if p.transfers[0].Status != shared.StatusCancelled || p.transfers[1].Status != shared.StatusInProgress {
 		t.Errorf("statuses = %v, %v; want cancelled, in progress", p.transfers[0].Status, p.transfers[1].Status)
@@ -58,6 +60,7 @@ func TestCancellingOneRowLeavesItsNamesakeAlone(t *testing.T) {
 
 func TestACancelledTransferRefreshesBothPanels(t *testing.T) {
 	a := NewApp(nil, false, nil, "dev", false)
+	a.connected, a.client = true, &stubClient{}
 	a.processes = a.processes.AddTransfer(shared.Transfer{ID: 1, Filename: "big.iso", Total: 100})
 
 	model, cmd := a.Update(shared.TransferCancelledMsg{ID: 1, Filename: "big.iso"})
@@ -66,6 +69,10 @@ func TestACancelledTransferRefreshesBothPanels(t *testing.T) {
 		t.Errorf("status = %v, want StatusCancelled", got)
 	}
 	if cmd == nil {
-		t.Error("no listing was reloaded, so the removed partial file would stay on screen")
+		t.Fatal("no listing was reloaded, so the removed partial file would stay on screen")
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); !ok || len(batch) != 2 {
+		t.Errorf("reload produced %T, want a batch of the local and the remote listing", msg)
 	}
 }
