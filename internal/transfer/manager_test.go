@@ -91,6 +91,59 @@ func TestAPanickingTransferDoesNotTakeTheProcessDown(t *testing.T) {
 	})
 }
 
+// recorder is a tea.Model that hands every message to a channel, so a test can
+// see what a transfer sent to the program.
+type recorder struct{ msgs chan tea.Msg }
+
+func (recorder) Init() tea.Cmd { return nil }
+func (r recorder) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	r.msgs <- msg
+	return r, nil
+}
+func (recorder) View() tea.View { return tea.NewView("") }
+
+type panickingClient struct{ dirClient }
+
+func (panickingClient) Upload(string, string, func(int64)) error { panic("the server hung up") }
+
+func TestAPanickingTransferMarksItsOwnRowAsFailed(t *testing.T) {
+	r := recorder{msgs: make(chan tea.Msg, 16)}
+	p := tea.NewProgram(r,
+		tea.WithInput(strings.NewReader("")),
+		tea.WithOutput(io.Discard),
+		tea.WithoutRenderer(),
+		tea.WithoutSignalHandler(),
+		tea.WithoutSignals(),
+	)
+	go p.Run()
+	t.Cleanup(func() {
+		p.Quit()
+		p.Wait()
+	})
+	m := NewManager(&panickingClient{}, func() *tea.Program { return p })
+
+	m.guard(Job{File: model.FileInfo{Name: "report.pdf"}, Direction: Upload}, m.run)
+
+	var started, failed int64
+	timeout := time.After(5 * time.Second)
+	for failed == 0 {
+		select {
+		case msg := <-r.msgs:
+			switch msg := msg.(type) {
+			case shared.TransferStartMsg:
+				started = msg.Transfer.ID
+			case shared.TransferErrorMsg:
+				failed = msg.ID
+			}
+		case <-timeout:
+			t.Fatal("no TransferErrorMsg arrived for the panicking transfer")
+		}
+	}
+	if started == 0 || failed != started {
+		t.Errorf("error was attributed to row %d, want the started row %d", failed, started)
+	}
+}
+
 func TestGuardRunsTheTransfer(t *testing.T) {
 	m := NewManager(nil, func() *tea.Program { return nil })
 
