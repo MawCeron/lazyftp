@@ -4,10 +4,28 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"unicode"
 
 	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 )
+
+// printable makes text that came from a server safe to draw. Lipgloss and the
+// terminal act on the escape sequences they find in a string instead of
+// showing them, so a name with ESC in it can retitle the window, write to the
+// clipboard or redraw the screen. Control characters become "?", as ls -q
+// does; a tab or a line break becomes a space so a message keeps its words.
+func printable(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\t' || r == '\n':
+			return ' '
+		case unicode.IsControl(r):
+			return '?'
+		}
+		return r
+	}, s)
+}
 
 // pill renders text as a solid-colored block, the segmented status-bar style
 // (lualine, airline) instead of a single flat-colored line: each piece of
