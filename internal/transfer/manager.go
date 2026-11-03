@@ -80,11 +80,6 @@ func (m *Manager) guard(job Job, run func(Job)) {
 			return
 		}
 
-		// Otherwise the row sits at "in progress" for the rest of the session.
-		p.Send(shared.TransferErrorMsg{
-			Filename: job.File.Name,
-			Err:      fmt.Errorf("%v", r),
-		})
 		p.Send(shared.LogMsg{
 			Message: fmt.Sprintf("Transfer of %s failed: %v", job.File.Name, r),
 			Level:   shared.LogError,
@@ -240,6 +235,15 @@ func (m *Manager) run(job Job) {
 
 	filename := job.File.Name
 	id := transferSeq.Add(1)
+
+	// Only run knows the row's ID, and a row left at "in progress" stays so for
+	// the rest of the session. The panic goes on to guard, which logs it.
+	defer func() {
+		if r := recover(); r != nil {
+			p.Send(shared.TransferErrorMsg{ID: id, Filename: filename, Err: fmt.Errorf("%v", r)})
+			panic(r)
+		}
+	}()
 
 	direction := shared.DirectionUpload
 	if job.Direction == Download {
