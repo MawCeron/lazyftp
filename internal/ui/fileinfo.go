@@ -19,7 +19,7 @@ const fileInfoContentWidth = 56
 func fileInfoView(file model.FileInfo, maxWidth int) string {
 	contentWidth := modalContentWidth(fileInfoContentWidth, maxWidth)
 
-	name := runewidth.Truncate(file.Name, contentWidth, "...")
+	name := runewidth.Truncate(printable(file.Name), contentWidth, "...")
 
 	labelStyle := lipgloss.NewStyle().Foreground(colorMuted)
 	valueStyle := lipgloss.NewStyle().Foreground(colorPrimary)

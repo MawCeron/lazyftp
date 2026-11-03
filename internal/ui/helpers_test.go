@@ -96,3 +96,17 @@ func TestPrintableKeepsOrdinaryText(t *testing.T) {
 		}
 	}
 }
+
+// hostileBytes are what a server-supplied name must never put on screen: the
+// introducers of an OSC and a CSI sequence, BEL, an 8-bit CSI, NUL and CR.
+// Lipgloss emits CSI sequences of its own for color, but never these.
+var hostileBytes = []string{"\x1b]", "\x07", "\u009b", "\x1b[2J", "\x00", "\r"}
+
+func requireNoHostileBytes(t *testing.T, what, out string) {
+	t.Helper()
+	for _, bad := range hostileBytes {
+		if strings.Contains(out, bad) {
+			t.Errorf("%s carries %q", what, bad)
+		}
+	}
+}

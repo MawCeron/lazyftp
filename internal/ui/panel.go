@@ -83,7 +83,7 @@ func (d fileDelegate) Render(w io.Writer, m list.Model, index int, item list.Ite
 	isUnique := d.uniqueOnly[fi.file.Name]
 	sizeDiffers := d.sizeDiffers[fi.file.Name]
 
-	name := fi.file.Name
+	name := printable(fi.file.Name)
 	if fi.file.IsDir() {
 		name = name + "/"
 	}
@@ -693,7 +693,7 @@ func (p Panel) View(width, height int, active bool, diff diffMarks) string {
 		if avail < 0 {
 			avail = 0
 		}
-		trimmedPath := runewidth.FillRight(truncateHead(p.path, avail), avail)
+		trimmedPath := runewidth.FillRight(truncateHead(printable(p.path), avail), avail)
 		pathLine = pathStyle.Render(trimmedPath) + " " + counterStyle.Render(counter)
 
 	default:
@@ -711,7 +711,7 @@ func (p Panel) View(width, height int, active bool, diff diffMarks) string {
 		if pathWidth < 1 {
 			pathWidth = 1
 		}
-		path := truncateHead(p.path, pathWidth)
+		path := truncateHead(printable(p.path), pathWidth)
 
 		gap := innerWidth - runewidth.StringWidth(path) - indicatorWidth
 		if gap < 1 {
