@@ -40,3 +40,7 @@ go.work.sum
 
 # Local code index
 .codegraph/
+
+# Brainstorming mockups and design documents
+.superpowers/
+docs/superpowers/
