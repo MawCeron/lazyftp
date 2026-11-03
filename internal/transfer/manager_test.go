@@ -407,6 +407,24 @@ func TestACancelledDirectoryWalkStartsNothing(t *testing.T) {
 	}
 }
 
+// Truncating the destination is the first thing a transfer does, so one that
+// starts after its job was cancelled would destroy a same-named file for nothing.
+func TestAJobCancelledBeforeItStartsTouchesNothing(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	c := &dirClient{}
+	m := NewManager(c, func() *tea.Program { return p })
+
+	m.run(Job{File: model.FileInfo{Name: "report.pdf"}, Direction: Upload, ctx: cancelled})
+	m.run(Job{File: model.FileInfo{Name: "report.pdf"}, Direction: Download, ctx: cancelled})
+
+	waitFor(t, msgs, isLog("Cancelled transfer: report.pdf"))
+	if len(c.uploaded) != 0 || len(c.downloaded) != 0 {
+		t.Errorf("a cancelled job still transferred %v and %v", c.uploaded, c.downloaded)
+	}
+}
+
 func TestCancellingAJobThatIsGoneDoesNothing(t *testing.T) {
 	p, msgs := startRecordingProgram(t)
 	m := NewManager(&ctxClient{pass: map[string]bool{"fast.bin": true}}, func() *tea.Program { return p })
