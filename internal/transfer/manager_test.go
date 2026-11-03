@@ -203,11 +203,17 @@ func endsRow(msg tea.Msg) bool {
 }
 
 // ctxClient holds every transfer until its context is cancelled or release is
-// closed, except the files named in pass, which finish at once.
+// closed, except the files named in pass, which finish at once, call
+// afterPass and, on download, leave the file behind. It records the name of
+// every file it was asked to transfer.
 type ctxClient struct {
 	dirClient
-	pass    map[string]bool
-	release chan struct{}
+	pass      map[string]bool
+	release   chan struct{}
+	afterPass func()
+
+	mu        sync.Mutex
+	requested []string
 }
 
 func (c *ctxClient) hold(ctx context.Context) error {
@@ -219,16 +225,40 @@ func (c *ctxClient) hold(ctx context.Context) error {
 	}
 }
 
+func (c *ctxClient) record(name string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.requested = append(c.requested, name)
+}
+
+func (c *ctxClient) asked() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]string(nil), c.requested...)
+}
+
+func (c *ctxClient) finish() error {
+	if c.afterPass != nil {
+		c.afterPass()
+	}
+	return nil
+}
+
 func (c *ctxClient) Upload(ctx context.Context, localPath, _ string, _ func(int64)) error {
-	if c.pass[filepath.Base(localPath)] {
-		return nil
+	name := filepath.Base(localPath)
+	c.record(name)
+	if c.pass[name] {
+		return c.finish()
 	}
 	return c.hold(ctx)
 }
 
-func (c *ctxClient) Download(ctx context.Context, remotePath, _ string, _ func(int64)) error {
-	if c.pass[path.Base(remotePath)] {
-		return nil
+func (c *ctxClient) Download(ctx context.Context, remotePath, localPath string, _ func(int64)) error {
+	name := path.Base(remotePath)
+	c.record(name)
+	if c.pass[name] {
+		os.WriteFile(filepath.Join(localPath, name), []byte("done"), 0o644)
+		return c.finish()
 	}
 	return c.hold(ctx)
 }
@@ -353,14 +383,47 @@ func isLog(text string) func(tea.Msg) bool {
 	}
 }
 
+func isLogWithPrefix(prefix string) func(tea.Msg) bool {
+	return func(msg tea.Msg) bool {
+		l, ok := msg.(shared.LogMsg)
+		return ok && strings.HasPrefix(l.Message, prefix)
+	}
+}
+
+// collectUntil returns every message up to and including the first that
+// matches. A transfer's goroutine sends in order, so a message it sends last
+// arrives after everything it sent before.
+func collectUntil(t *testing.T, msgs <-chan tea.Msg, match func(tea.Msg) bool) []tea.Msg {
+	t.Helper()
+	var got []tea.Msg
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case msg := <-msgs:
+			got = append(got, msg)
+			if match(msg) {
+				return got
+			}
+		case <-timeout:
+			t.Fatal("the message never arrived")
+		}
+	}
+}
+
+func count(msgs []tea.Msg, match func(tea.Msg) bool) int {
+	n := 0
+	for _, msg := range msgs {
+		if match(msg) {
+			n++
+		}
+	}
+	return n
+}
+
 func TestCancellingADirectoryStopsItsRemainingFiles(t *testing.T) {
 	p, msgs := startRecordingProgram(t)
 	c := &ctxClient{dirClient: dirClient{tree: map[string][]model.FileInfo{
-		"/pub/photos": {
-			{Name: "a.jpg", Size: 1},
-			{Name: "b.jpg", Size: 1},
-			{Name: "c.jpg", Size: 1},
-		},
+		"/pub/photos": {{Name: "a.jpg"}, {Name: "b.jpg"}, {Name: "c.jpg"}},
 	}}}
 	m := NewManager(c, func() *tea.Program { return p })
 
@@ -371,21 +434,90 @@ func TestCancellingADirectoryStopsItsRemainingFiles(t *testing.T) {
 		Direction:  Download,
 	}})[0]
 	waitFor(t, msgs, isStart)
-
 	m.Cancel(id)
-	waitFor(t, msgs, isCancelled)
-	waitFor(t, msgs, isLog("Cancelled: photos"))
+
+	got := collectUntil(t, msgs, isLog("Cancelled: photos"))
 	waitForIdle(t, m)
 
-	for {
-		select {
-		case msg := <-msgs:
-			if isStart(msg) {
-				t.Fatal("a file of the cancelled directory started after the cancellation")
-			}
-		default:
-			return
-		}
+	if n := count(got, isStart); n != 0 {
+		t.Errorf("%d more file(s) started after the cancellation", n)
+	}
+	if n := count(got, isLogWithPrefix("Cancelled transfer:")); n != 1 {
+		t.Errorf("%d files were visited after the cancellation, want only the one in flight", n)
+	}
+	if asked := c.asked(); len(asked) != 1 || asked[0] != "a.jpg" {
+		t.Errorf("client was asked for %v, want [a.jpg]", asked)
+	}
+}
+
+// Cancelling between two files leaves no transfer to fail, so the walk itself
+// has to notice. The first file's transfer cancels the job as it finishes.
+func TestCancellingBetweenFilesStopsTheDirectory(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	ids := make(chan int64, 1)
+	local := t.TempDir()
+	c := &ctxClient{
+		pass: map[string]bool{"a.jpg": true},
+		dirClient: dirClient{tree: map[string][]model.FileInfo{
+			"/pub/photos": {{Name: "a.jpg"}, {Name: "b.jpg"}, {Name: "c.jpg"}},
+		}},
+	}
+	m := NewManager(c, func() *tea.Program { return p })
+	c.afterPass = func() { m.Cancel(<-ids) }
+
+	ids <- m.Enqueue([]Job{{
+		File:       model.FileInfo{Name: "photos", Type: model.FileTypeDir},
+		LocalPath:  local,
+		RemotePath: "/pub",
+		Direction:  Download,
+	}})[0]
+
+	got := collectUntil(t, msgs, isLog("Cancelled: photos"))
+	waitForIdle(t, m)
+
+	if count(got, isDone) != 1 || count(got, isCancelled) != 0 {
+		t.Errorf("want the first file done and nothing cancelled, got %d done and %d cancelled",
+			count(got, isDone), count(got, isCancelled))
+	}
+	if n := count(got, isLogWithPrefix("Cancelled transfer:")); n != 0 {
+		t.Errorf("%d file(s) were visited after the cancellation", n)
+	}
+	if asked := c.asked(); len(asked) != 1 || asked[0] != "a.jpg" {
+		t.Errorf("client was asked for %v, want [a.jpg]", asked)
+	}
+	if _, err := os.Stat(filepath.Join(local, "photos", "a.jpg")); err != nil {
+		t.Errorf("the file that finished before the cancellation is gone: %v", err)
+	}
+}
+
+func TestCancellingBetweenFilesStopsAnUploadedDirectory(t *testing.T) {
+	p, msgs := startRecordingProgram(t)
+	ids := make(chan int64, 1)
+	local := t.TempDir()
+	for _, name := range []string{"a.jpg", "b.jpg", "c.jpg"} {
+		os.MkdirAll(filepath.Join(local, "photos"), 0o755)
+		os.WriteFile(filepath.Join(local, "photos", name), []byte(name), 0o644)
+	}
+	c := &ctxClient{pass: map[string]bool{"a.jpg": true}}
+	m := NewManager(c, func() *tea.Program { return p })
+	c.afterPass = func() { m.Cancel(<-ids) }
+
+	ids <- m.Enqueue([]Job{{
+		File:       model.FileInfo{Name: "photos", Type: model.FileTypeDir},
+		LocalPath:  local,
+		RemotePath: "/pub",
+		Direction:  Upload,
+	}})[0]
+
+	got := collectUntil(t, msgs, isLog("Cancelled: photos"))
+	waitForIdle(t, m)
+
+	if count(got, isDone) != 1 || count(got, isLogWithPrefix("Cancelled transfer:")) != 0 {
+		t.Errorf("want one file done and none visited afterwards, got %d done and %d visited",
+			count(got, isDone), count(got, isLogWithPrefix("Cancelled transfer:")))
+	}
+	if asked := c.asked(); len(asked) != 1 || asked[0] != "a.jpg" {
+		t.Errorf("client was asked for %v, want [a.jpg]", asked)
 	}
 }
 
