@@ -151,11 +151,23 @@ func (m *Manager) guard(job Job, run func(Job)) {
 	}()
 
 	run(job)
+
+	if job.File.IsDir() && job.context().Err() != nil {
+		if p := m.program(); p != nil {
+			p.Send(shared.LogMsg{
+				Message: fmt.Sprintf("Cancelled: %s", job.File.Name),
+				Level:   shared.LogInfo,
+			})
+		}
+	}
 }
 
 func (m *Manager) runDir(job Job) {
 	p := m.program()
 	if p == nil {
+		return
+	}
+	if job.context().Err() != nil {
 		return
 	}
 
@@ -194,6 +206,9 @@ func (m *Manager) runDir(job Job) {
 	}
 
 	for _, entry := range entries {
+		if job.context().Err() != nil {
+			return
+		}
 		info, err := entry.Info()
 		if err != nil {
 			continue
@@ -254,6 +269,9 @@ func (m *Manager) runDirDownload(job Job) {
 	if !m.acceptName(p, job.File.Name) {
 		return
 	}
+	if job.context().Err() != nil {
+		return
+	}
 
 	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
 	remoteDirPath := path.Join(job.RemotePath, job.File.Name)
@@ -281,6 +299,9 @@ func (m *Manager) runDirDownload(job Job) {
 	}
 
 	for _, entry := range entries {
+		if job.context().Err() != nil {
+			return
+		}
 		subJob := Job{
 			File:       entry,
 			LocalPath:  localDirPath,
