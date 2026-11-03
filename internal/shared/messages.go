@@ -13,6 +13,7 @@ const (
 	StatusInProgress TransferStatus = iota
 	StatusDone
 	StatusError
+	StatusCancelled
 )
 
 type Transfer struct {
@@ -45,6 +46,11 @@ type TransferErrorMsg struct {
 	ID       int64
 	Filename string
 	Err      error
+}
+
+type TransferCancelledMsg struct {
+	ID       int64
+	Filename string
 }
 
 type LogLevel int
