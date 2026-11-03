@@ -578,6 +578,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TransferDoneMsg:
 		return a.handleTransferDone(msg)
+
+	case TransferCancelledMsg:
+		return a.handleTransferCancelled(msg)
 	}
 
 	a.processes, _ = a.processes.Update(msg)
@@ -1143,15 +1146,22 @@ func (a App) handleTransfer(msg TransferMsg) (App, tea.Cmd) {
 
 func (a App) handleTransferDone(msg TransferDoneMsg) (App, tea.Cmd) {
 	a.processes = a.processes.MarkDone(msg.ID)
+	return a, a.reloadPanels()
+}
 
-	var cmds []tea.Cmd
-	cmds = append(cmds, loadLocalDir(a.local.path))
+// handleTransferCancelled reloads both listings: the transfer removed the
+// partial file it left behind.
+func (a App) handleTransferCancelled(msg TransferCancelledMsg) (App, tea.Cmd) {
+	a.processes = a.processes.MarkCancelled(msg.ID)
+	return a, a.reloadPanels()
+}
 
+func (a App) reloadPanels() tea.Cmd {
+	cmds := []tea.Cmd{loadLocalDir(a.local.path)}
 	if a.connected {
 		cmds = append(cmds, loadRemoteDir(a.client, a.remote.path))
 	}
-
-	return a, tea.Batch(cmds...)
+	return tea.Batch(cmds...)
 }
 
 func loadRemoteDir(c client.Client, path string) tea.Cmd {
@@ -1301,6 +1311,8 @@ type deleteDoneMsg struct {
 }
 
 type TransferDoneMsg = shared.TransferDoneMsg
+
+type TransferCancelledMsg = shared.TransferCancelledMsg
 
 // WithConfig installs the loaded configuration. A load error means defaults
 // are in use, and the Log is the only place to say so.
