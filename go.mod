@@ -10,7 +10,7 @@ require (
 	github.com/MawCeron/goftp v0.1.0
 	github.com/kevinburke/ssh_config v1.6.0
 	github.com/mattn/go-runewidth v0.0.24
-	github.com/pkg/sftp v1.13.6
+	github.com/pkg/sftp v1.13.12
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/crypto v0.58.0
 )
