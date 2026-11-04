@@ -116,7 +116,7 @@ else; no file in this project imports it, and none should.
 Leave a test behind for anything with real logic — a branch, a loop, a parser. One test that fails
 if the logic breaks is enough. Trivial code needs none.
 
-Two patterns cover almost everything:
+Three patterns cover almost everything:
 
 **`stubClient`** in `internal/ui/app_test.go` implements `client.Client` with canned returns, so
 the update loop and the transfer manager can be exercised with no network. Anything added to the
@@ -125,16 +125,22 @@ interface goes there too, or the package stops compiling.
 **Driving the model with messages.** An `App` is a value: construct one, send messages through
 `Update`, assert on what comes back. No terminal and no `tea.Program` required.
 
-Anything that needs a live server is verified by hand against one, and said plainly when it has
+**A small fake server, when the protocol itself is the subject.** `fakeFTP` in
+`internal/client/ftpserver_test.go` records every command line it receives, which is how a test says
+that a command did not reach the wire. It is not a framework: a loopback listener and a `switch`.
+
+Anything that needs a real server is verified by hand against one, and said plainly when it has
 not been.
 
 ## Dependencies
 
-Seven direct dependencies, three of them Charm's. An eighth needs to be something the standard
+Ten direct dependencies, three of them Charm's. An eleventh needs to be something the standard
 library cannot do and a few lines here cannot either.
 
 Replacing one is a decision with a reason: the FTP client moved from `jlaffaye/ftp` to
-`secsy/goftp` because connections through NAT did not work, and the commit says so.
+`secsy/goftp` because connections through NAT did not work, and from there to the
+`MawCeron/goftp` fork because upstream has had no commit since 2020 and the PASV address could not
+be fixed without changing it. The commits say so.
 
 ## What is not here
 
