@@ -5,6 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
+	"github.com/MawCeron/lazyftp/internal/config"
+	"github.com/zalando/go-keyring"
 )
 
 func keyMsg(s string) tea.KeyPressMsg {
@@ -134,5 +136,80 @@ func TestPortOnlyAcceptsDigits(t *testing.T) {
 	bar, _ = bar.Update(backspace)
 	if got := bar.inputs[fieldPort].Value(); got != "2" {
 		t.Errorf("backspace should still edit the port field, got %q", got)
+	}
+}
+
+// A password belongs to the server it was typed or loaded for. Edit the form
+// toward another server and the old one must not travel with it.
+func focusedOn(bar ConnectionBar, f connField) ConnectionBar {
+	bar = bar.blur()
+	bar.focused = f
+	return bar.focus()
+}
+
+func TestEditingTheHostClearsThePassword(t *testing.T) {
+	bar := NewConnectionBar()
+	bar = fillField(bar, fieldHost, "nas.lan")
+	bar = fillField(bar, fieldUser, "ana")
+	bar = fillField(bar, fieldPass, "hunter2")
+
+	bar, _ = focusedOn(bar, fieldHost).Update(keyMsg("x"))
+
+	if got := bar.inputs[fieldPass].Value(); got != "" {
+		t.Errorf("the password survived a change of host: %q", got)
+	}
+}
+
+func TestEditingTheUserClearsThePassword(t *testing.T) {
+	bar := NewConnectionBar()
+	bar = fillField(bar, fieldHost, "nas.lan")
+	bar = fillField(bar, fieldUser, "ana")
+	bar = fillField(bar, fieldPass, "hunter2")
+
+	bar, _ = focusedOn(bar, fieldUser).Update(keyMsg("x"))
+
+	if got := bar.inputs[fieldPass].Value(); got != "" {
+		t.Errorf("the password survived a change of user: %q", got)
+	}
+}
+
+func TestChangingTheProtocolClearsThePassword(t *testing.T) {
+	bar := NewConnectionBar()
+	bar = fillField(bar, fieldHost, "nas.lan")
+	bar = fillField(bar, fieldPass, "hunter2")
+
+	bar, _ = focusedOn(bar, fieldProtocol).Update(right)
+
+	if got := bar.inputs[fieldPass].Value(); got != "" {
+		t.Errorf("the password survived a change of protocol: %q", got)
+	}
+}
+
+func TestAPasswordLoadedFromTheKeyringDoesNotOutliveItsServer(t *testing.T) {
+	keyring.MockInit()
+	config.SetSecret(fav, "hunter2")
+	bar := NewConnectionBar().fill(fav)
+	if got := bar.inputs[fieldPass].Value(); got != "hunter2" {
+		t.Fatalf("filling the favorite loaded %q, want its password", got)
+	}
+
+	bar, _ = focusedOn(bar, fieldHost).Update(keyMsg("x"))
+
+	if got := bar.inputs[fieldPass].Value(); got != "" {
+		t.Errorf("the keyring password stayed in the form after the host changed: %q", got)
+	}
+}
+
+func TestEditingOnlyThePortOrThePasswordKeepsThePassword(t *testing.T) {
+	bar := NewConnectionBar()
+	bar = fillField(bar, fieldHost, "nas.lan")
+	bar = fillField(bar, fieldUser, "ana")
+	bar = fillField(bar, fieldPass, "hunter2")
+
+	bar, _ = focusedOn(bar, fieldPort).Update(keyMsg("2"))
+	bar, _ = focusedOn(bar, fieldPass).Update(keyMsg("3"))
+
+	if got := bar.inputs[fieldPass].Value(); got != "hunter23" {
+		t.Errorf("the password is %q, want it kept and extended to hunter23", got)
 	}
 }
