@@ -12,8 +12,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `--log-file` was created with mode `0644`, so on a shared machine any local user could read
   it: host names, user names, local and remote paths, and with `--verbose` most of the FTP
   control dialogue. It is now created `0600`, and an existing log with wider permissions is
-  tightened the next time it is opened.
-  ([#107](https://github.com/MawCeron/lazyftp/issues/107))
+  tightened the next time it is opened — thanks to
+  [@lhy8889](https://github.com/lhy8889). ([#107](https://github.com/MawCeron/lazyftp/issues/107))
 - `golang.org/x/crypto` moves from v0.24.0 to v0.58.0, which fixes a panic in the host key check,
   an authentication bypass through an unenforced `@revoked` entry, and several denial-of-service
   cases in the SSH client. These releases need Go 1.26, so that is now the minimum version to
