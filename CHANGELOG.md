@@ -15,7 +15,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   an executable on disk. They are now replaced with `?` wherever a server-supplied name,
   path or message is drawn or logged, alongside the control characters from #99. Ordinary
   right-to-left names are unchanged, and so are the zero-width characters, which do not
-  redirect layout. ([#114](https://github.com/MawCeron/lazyftp/issues/114))
+  redirect layout — thanks to [@lhy8889](https://github.com/lhy8889).
+  ([#114](https://github.com/MawCeron/lazyftp/issues/114))
 
 ## [0.4.2] - 2026-11-04
 
