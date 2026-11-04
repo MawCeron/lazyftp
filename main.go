@@ -22,7 +22,7 @@ func main() {
 	verbose := flag.Bool("verbose", false, "log the FTP control dialogue to the Log panel; for SFTP, one line per request instead")
 	logFile := flag.String("log-file", "", "also write the log to this file, appending to it")
 	noNerdFonts := flag.Bool("no-nerd-fonts", false, "use plain Unicode symbols instead of Nerd Font icons")
-	highlightDiff := flag.Bool("highlight-diff", false, "mark files present on only one side, comparing Local and Remote by name")
+	highlightDiff := flag.Bool("highlight-diff", false, "mark files present on only one side or with a different size, comparing Local and Remote by name")
 	identity := flag.String("identity", "", "SFTP private key `path` to try first")
 	flag.StringVar(identity, "i", "", "shorthand for --identity")
 	protocolFlag := flag.String("protocol", "", "`ftp`, ftps or sftp; by default the destination's scheme, else its port decides")
