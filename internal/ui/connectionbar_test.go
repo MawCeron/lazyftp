@@ -234,3 +234,37 @@ func TestTheDialogWarnsOnlyWhenTheProtocolIsPlainFTP(t *testing.T) {
 		}
 	}
 }
+
+func TestTheStatusLineWarnsWhileConnectingOverPlainFTPOnly(t *testing.T) {
+	for _, tc := range []struct {
+		protocol client.Protocol
+		warns    bool
+	}{{client.FTP, true}, {client.FTPS, false}, {client.SFTP, false}} {
+		a := NewApp(nil, false, nil, "dev", false)
+		a.width = 120
+		a.connecting, a.connProtocol = true, tc.protocol
+
+		if got := strings.Contains(a.statusLine(), "not encrypted"); got != tc.warns {
+			t.Errorf("%s: warning shown = %v, want %v", tc.protocol, got, tc.warns)
+		}
+	}
+}
+
+func TestTheLogRecordsThePlainFTPWarningWhenTheAttemptStarts(t *testing.T) {
+	for _, tc := range []struct {
+		protocol client.Protocol
+		warns    bool
+	}{{client.FTP, true}, {client.FTPS, false}, {client.SFTP, false}} {
+		a := NewApp(nil, false, nil, "dev", false)
+
+		model, _ := a.Update(ConnectMsg{Protocol: tc.protocol, Host: "nas.lan", User: "ana", Pass: "x", Port: "21"})
+
+		var logged bool
+		for _, e := range model.(App).log.entries {
+			logged = logged || strings.Contains(e.Message, "not encrypted")
+		}
+		if logged != tc.warns {
+			t.Errorf("%s: warning in the Log = %v, want %v", tc.protocol, logged, tc.warns)
+		}
+	}
+}

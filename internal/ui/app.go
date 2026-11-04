@@ -764,6 +764,9 @@ func (a App) statusLine() string {
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
 		leftPill = pill(colorAccent, a.spinner.View()+" CONNECTING")
 		detail = detailStyle.Render(elapsed.String())
+		if a.connProtocol == client.FTP {
+			detail += detailStyle.Foreground(colorError).Render("   plain FTP: not encrypted")
+		}
 
 	case a.connected:
 		who := fmt.Sprintf("%s@%s", a.connUser, a.connAddr)
@@ -924,7 +927,11 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	a.connectStart = time.Now()
 	a.connectSeq++
 	seq := a.connectSeq
+	a.connProtocol = msg.Protocol
 	a.log = a.log.Add("Connecting to "+addr+" over "+msg.Protocol.String(), LogInfo)
+	if msg.Protocol == client.FTP {
+		a.log = a.log.Add(plainFTPWarning, LogInfo)
+	}
 
 	attempt := func() tea.Msg {
 		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
