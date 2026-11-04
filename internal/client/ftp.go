@@ -43,6 +43,10 @@ func (c *FTPClient) Connect(host, user, pass string, port int) error {
 		Password: pass,
 		Timeout:  dialTimeout,
 		Logger:   c.logger,
+
+		// The host in a PASV reply is the server's word for where to connect;
+		// EPSV already uses the control connection's host.
+		IgnorePASVHost: true,
 	}
 
 	if c.tls {
