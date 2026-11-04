@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"unicode"
 )
 
 // The bug this guards against: Height(N) on the box is N's own total row
@@ -58,5 +59,54 @@ func TestTruncateHead(t *testing.T) {
 				t.Errorf("truncateHead(%q, %d) = %q, want %q", c.s, c.width, got, c.want)
 			}
 		})
+	}
+}
+
+// What a server sends is text to show, never instructions to the terminal.
+func TestPrintableLeavesNoControlSequenceStanding(t *testing.T) {
+	hostile := map[string]string{
+		"ESC":        "a\x1bb",
+		"BEL":        "a\x07b",
+		"CSI":        "a\x1b[2Jb",
+		"OSC 52":     "a\x1b]52;c;ZXZpbA==\x07b",
+		"8-bit CSI":  "a\u009b2Jb",
+		"DEL":        "a\x7fb",
+		"CR":         "a\rb",
+		"NUL":        "a\x00b",
+		"line break": "a\nb",
+	}
+	for what, in := range hostile {
+		out := printable(in)
+		for _, r := range out {
+			if unicode.IsControl(r) {
+				t.Errorf("%s: %q survived as %q", what, in, out)
+				break
+			}
+		}
+		if !strings.HasPrefix(out, "a") || !strings.HasSuffix(out, "b") {
+			t.Errorf("%s: the text around the control character was lost: %q", what, out)
+		}
+	}
+}
+
+func TestPrintableKeepsOrdinaryText(t *testing.T) {
+	for _, s := range []string{"report.pdf", "my file (1).txt", "résumé.pdf", "日本語", "emoji 🎉", ""} {
+		if got := printable(s); got != s {
+			t.Errorf("printable(%q) = %q, want it unchanged", s, got)
+		}
+	}
+}
+
+// hostileBytes are what a server-supplied name must never put on screen: the
+// introducers of an OSC and a CSI sequence, BEL, an 8-bit CSI, NUL and CR.
+// Lipgloss emits CSI sequences of its own for color, but never these.
+var hostileBytes = []string{"\x1b]", "\x07", "\u009b", "\x1b[2J", "\x00", "\r"}
+
+func requireNoHostileBytes(t *testing.T, what, out string) {
+	t.Helper()
+	for _, bad := range hostileBytes {
+		if strings.Contains(out, bad) {
+			t.Errorf("%s carries %q", what, bad)
+		}
 	}
 }

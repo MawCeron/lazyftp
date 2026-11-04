@@ -12,6 +12,9 @@ import (
 	"github.com/MawCeron/lazyftp/internal/config"
 )
 
+// plainFTPWarning is shown wherever a plain FTP connection is about to be made.
+const plainFTPWarning = "Plain FTP is not encrypted: the password and files travel in the clear. Prefer SFTP or FTPS."
+
 type connField int
 
 // Order matches the visual layout top-to-bottom, so Tab follows reading
@@ -175,8 +178,10 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 			switch {
 			case key.Matches(msg, keyProtocolPrev):
 				c.protocol = c.protocol.Prev()
+				c = c.forgetPassword()
 			case key.Matches(msg, keyProtocolNext):
 				c.protocol = c.protocol.Next()
+				c = c.forgetPassword()
 			}
 			return c.showDefaultPort(), nil
 		}
@@ -193,8 +198,20 @@ func (c ConnectionBar) Update(msg tea.Msg) (ConnectionBar, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	before := c.inputs[c.focused].Value()
 	c.inputs[c.focused], cmd = c.inputs[c.focused].Update(msg)
+	if (c.focused == fieldHost || c.focused == fieldUser) && c.inputs[c.focused].Value() != before {
+		c = c.forgetPassword()
+	}
 	return c, cmd
+}
+
+// forgetPassword empties the password field. A password is for the server it
+// was typed or loaded for, so editing the host, the user or the protocol
+// ends it: otherwise it is sent to whatever the form says next.
+func (c ConnectionBar) forgetPassword() ConnectionBar {
+	c.inputs[fieldPass].SetValue("")
+	return c
 }
 
 // View renders the connection form as a self-contained floating dialog, no
@@ -246,7 +263,12 @@ func (c ConnectionBar) View(maxWidth int) string {
 	}
 
 	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
-	body := strings.Join(fields, "\n") + "\n\n\n" + hint
+	gap := "\n\n\n"
+	if c.protocol == client.FTP {
+		warning := lipgloss.NewStyle().Foreground(colorError).Width(borderInteriorWidth(width)).Render(plainFTPWarning)
+		gap = "\n\n" + warning + "\n\n"
+	}
+	body := strings.Join(fields, "\n") + gap + hint
 
 	return dialogBox("Connection", body, width)
 }

@@ -6,7 +6,7 @@ A simple, keyboard-driven TUI FTP, FTPS and SFTP client inspired by
 [lazygit](https://github.com/jesseduffield/lazygit).
 
 [![Release](https://img.shields.io/github/v/release/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/releases/latest)
-[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/Go-1.26.10+-00ADD8?style=for-the-badge&logo=go)](https://go.dev)
 [![Build](https://img.shields.io/github/actions/workflow/status/MawCeron/lazyftp/ci.yml?style=for-the-badge)](https://github.com/MawCeron/lazyftp/actions)
 [![License](https://img.shields.io/github/license/MawCeron/lazyftp?style=for-the-badge)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/MawCeron/lazyftp?style=for-the-badge)](https://github.com/MawCeron/lazyftp/stargazers)
@@ -144,6 +144,16 @@ Press `Enter` to connect, `Esc` to close the dialog or give up on an attempt tha
 long. Once connected, the status line shows the protocol, user, host and connection state.
 
 FTPS certificates are verified, so a server with a self-signed certificate is refused.
+
+### Plain FTP
+
+Plain FTP sends the user name, the password and every file unencrypted, so anyone on the network
+path can read them. The dialog starts on it, and any port other than 22 or 990 selects it, because
+it is what the most servers offer. lazyftp warns about it in the dialog, in the status line while
+it connects, and in the Log. Prefer SFTP or FTPS whenever the server offers either.
+
+Plain FTP is still the only choice for a server that offers nothing else, such as some older
+hosting plans and network devices. On a network you trust, like a home LAN, the risk is smaller.
 
 ### Servers from `~/.ssh/config`
 
@@ -341,6 +351,7 @@ See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 | [docs/architecture.md](docs/architecture.md) | Where things live, how a keystroke becomes a transfer, the rules that are easy to break |
 | [docs/style.md](docs/style.md) | What a patch is expected to look like — comments, naming, errors, tests |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Picking up an issue, branching, commits, and what is in scope |
+| [docs/SECURITY.md](docs/SECURITY.md) | How to report a vulnerability privately, and which versions get fixes |
 
 ---
 
@@ -349,6 +360,8 @@ See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 Pull requests are welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 For anything larger than a fix, open an issue before writing code.
+
+To report a vulnerability, do not open an issue: follow [SECURITY.md](docs/SECURITY.md).
 
 <a href="https://github.com/MawCeron/lazyftp/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=MawCeron/lazyftp" alt="Contributors" />

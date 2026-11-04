@@ -49,6 +49,7 @@ var levelNames = map[LogLevel]string{
 }
 
 func (l LogPanel) Add(msg string, level LogLevel) LogPanel {
+	msg = printable(msg)
 	entry := LogEntry{
 		Time:    time.Now(),
 		Message: msg,

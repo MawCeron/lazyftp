@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 
 	tea "charm.land/bubbletea/v2"
@@ -190,6 +191,9 @@ func (m *Manager) runDirDownload(job Job) {
 	if p == nil {
 		return
 	}
+	if !m.acceptName(p, job.File.Name) {
+		return
+	}
 
 	localDirPath := filepath.Join(job.LocalPath, job.File.Name)
 	remoteDirPath := path.Join(job.RemotePath, job.File.Name)
@@ -232,6 +236,26 @@ func (m *Manager) runDirDownload(job Job) {
 	}
 }
 
+// safeName is true for a name that, joined to a directory, lands directly
+// inside it. filepath.Join cleans ".." instead of refusing it, so the check has
+// to happen before the join.
+func safeName(name string) bool {
+	return name != "." && filepath.IsLocal(name) && !strings.ContainsAny(name, "/"+string(filepath.Separator))
+}
+
+// acceptName logs and refuses a name a server sent that is not safe to build a
+// local path from.
+func (m *Manager) acceptName(p *tea.Program, name string) bool {
+	if safeName(name) {
+		return true
+	}
+	p.Send(shared.LogMsg{
+		Message: fmt.Sprintf("Skipping %q: the server sent a name that is not a single file name", name),
+		Level:   shared.LogError,
+	})
+	return false
+}
+
 func (m *Manager) run(job Job) {
 	p := m.program()
 	if p == nil {
@@ -239,6 +263,9 @@ func (m *Manager) run(job Job) {
 	}
 
 	filename := job.File.Name
+	if job.Direction == Download && !m.acceptName(p, filename) {
+		return
+	}
 	id := transferSeq.Add(1)
 
 	direction := shared.DirectionUpload

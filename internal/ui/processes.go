@@ -140,7 +140,7 @@ func renderTransfer(t shared.Transfer, width int) string {
 	}
 
 	maxName := 20
-	name := runewidth.Truncate(t.Filename, maxName, "...")
+	name := runewidth.Truncate(printable(t.Filename), maxName, "...")
 	name = runewidth.FillRight(name, maxName)
 
 	barWidth := width - maxName - 12

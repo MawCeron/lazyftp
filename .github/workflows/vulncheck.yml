@@ -1,0 +1,22 @@
+name: Vulnerabilities
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  # A vulnerability can be published for a version that was fine when it was
+  # chosen, so this runs without a commit too.
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...

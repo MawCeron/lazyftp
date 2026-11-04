@@ -2,15 +2,18 @@ package transfer
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/MawCeron/lazyftp/internal/model"
+	"github.com/MawCeron/lazyftp/internal/shared"
 )
 
 // noopModel is the minimal tea.Model a headless Program needs to run so that
@@ -291,5 +294,140 @@ func TestRunDirAbortsOnARealMkdirError(t *testing.T) {
 
 	if len(stub.uploaded) != 0 {
 		t.Errorf("uploaded %v, want none -- a genuine Mkdir error must abort the transfer", stub.uploaded)
+	}
+}
+
+// recorder is a tea.Model that hands every message to a channel, so a test can
+// read what the transfer logged.
+type recorder struct{ msgs chan tea.Msg }
+
+func (recorder) Init() tea.Cmd { return nil }
+func (r recorder) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	r.msgs <- msg
+	return r, nil
+}
+func (recorder) View() tea.View { return tea.NewView("") }
+
+func startRecordingProgram(t *testing.T) (*tea.Program, <-chan tea.Msg) {
+	t.Helper()
+	r := recorder{msgs: make(chan tea.Msg, 64)}
+	p := tea.NewProgram(r,
+		tea.WithInput(strings.NewReader("")),
+		tea.WithOutput(io.Discard),
+		tea.WithoutRenderer(),
+		tea.WithoutSignalHandler(),
+		tea.WithoutSignals(),
+	)
+	go p.Run()
+	t.Cleanup(func() {
+		p.Quit()
+		p.Wait()
+	})
+	return p, r.msgs
+}
+
+// names lists a directory's entries, for checking that nothing else appeared.
+func names(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []string
+	for _, e := range entries {
+		out = append(out, e.Name())
+	}
+	return out
+}
+
+func TestARemoteDirectoryCannotWriteOutsideTheDownloadDirectory(t *testing.T) {
+	base := t.TempDir()
+	dest := filepath.Join(base, "dl")
+	os.Mkdir(dest, 0o755)
+
+	hostile := []string{"..", "../..", "../../outside", "../escape.txt", "/tmp/absolute", "nested/deeper"}
+	var entries []model.FileInfo
+	for _, name := range hostile {
+		typ := model.FileTypeDir
+		if strings.HasSuffix(name, ".txt") || strings.HasPrefix(name, "/") {
+			typ = model.FileTypeFile
+		}
+		entries = append(entries, model.FileInfo{Name: name, Type: typ})
+	}
+	entries = append(entries, model.FileInfo{Name: "ok.jpg", Type: model.FileTypeFile})
+	stub := &dirClient{tree: map[string][]model.FileInfo{
+		"/remote/photos": entries,
+		"/outside":       {{Name: "inside.txt", Type: model.FileTypeFile}},
+	}}
+	prog, msgs := startRecordingProgram(t)
+	m := NewManager(stub, func() *tea.Program { return prog })
+
+	m.runDirDownload(Job{
+		File:       model.FileInfo{Name: "photos", Type: model.FileTypeDir},
+		LocalPath:  dest,
+		RemotePath: "/remote",
+		Direction:  Download,
+	})
+
+	if got := names(t, base); len(got) != 1 || got[0] != "dl" {
+		t.Errorf("the download directory's parent holds %v, want only [dl]", got)
+	}
+	if got := names(t, dest); len(got) != 1 || got[0] != "photos" {
+		t.Errorf("the download directory holds %v, want only [photos]", got)
+	}
+	if got := names(t, filepath.Join(dest, "photos")); len(got) != 0 {
+		t.Errorf("the hostile entries created %v inside the downloaded directory", got)
+	}
+	if len(stub.downloaded) != 1 || stub.downloaded[0] != "/remote/photos/ok.jpg" {
+		t.Errorf("downloaded %v, want only the well-named file", stub.downloaded)
+	}
+
+	logged := map[string]bool{}
+	deadline := time.After(5 * time.Second)
+	for len(logged) < len(hostile) {
+		select {
+		case msg := <-msgs:
+			if l, ok := msg.(shared.LogMsg); ok && l.Level == shared.LogError {
+				for _, name := range hostile {
+					if strings.Contains(l.Message, fmt.Sprintf("%q", name)) {
+						logged[name] = true
+					}
+				}
+			}
+		case <-deadline:
+			t.Fatalf("only %v of the rejected names were logged", logged)
+		}
+	}
+}
+
+func TestARemoteFileNamedAsAPathIsNotDownloaded(t *testing.T) {
+	stub := &dirClient{}
+	prog := startHeadlessProgram(t)
+	m := NewManager(stub, func() *tea.Program { return prog })
+
+	for _, name := range []string{"../escape", "a/b", "..", "."} {
+		m.run(Job{
+			File:       model.FileInfo{Name: name, Type: model.FileTypeFile},
+			LocalPath:  t.TempDir(),
+			RemotePath: "/remote",
+			Direction:  Download,
+		})
+	}
+
+	if len(stub.downloaded) != 0 {
+		t.Errorf("downloaded %v, want nothing", stub.downloaded)
+	}
+}
+
+func TestOrdinaryRemoteNamesAreStillAccepted(t *testing.T) {
+	for _, name := range []string{"report.pdf", "my file (1).txt", "résumé.pdf", ".hidden", "a..b", "...", "日本語"} {
+		if !safeName(name) {
+			t.Errorf("%q was rejected, but it is an ordinary file name", name)
+		}
+	}
+	for _, name := range []string{"", ".", "..", "../x", "a/b", "/abs", "x/.."} {
+		if safeName(name) {
+			t.Errorf("%q was accepted", name)
+		}
 	}
 }

@@ -764,6 +764,9 @@ func (a App) statusLine() string {
 		elapsed := time.Since(a.connectStart).Truncate(100 * time.Millisecond)
 		leftPill = pill(colorAccent, a.spinner.View()+" CONNECTING")
 		detail = detailStyle.Render(elapsed.String())
+		if a.connProtocol == client.FTP {
+			detail += detailStyle.Foreground(colorError).Render("   plain FTP: not encrypted")
+		}
 
 	case a.connected:
 		who := fmt.Sprintf("%s@%s", a.connUser, a.connAddr)
@@ -924,7 +927,11 @@ func (a App) handleConnect(msg ConnectMsg) (App, tea.Cmd) {
 	a.connectStart = time.Now()
 	a.connectSeq++
 	seq := a.connectSeq
+	a.connProtocol = msg.Protocol
 	a.log = a.log.Add("Connecting to "+addr+" over "+msg.Protocol.String(), LogInfo)
+	if msg.Protocol == client.FTP {
+		a.log = a.log.Add(plainFTPWarning, LogInfo)
+	}
 
 	attempt := func() tea.Msg {
 		if err := c.Connect(msg.Host, msg.User, msg.Pass, port); err != nil {
@@ -1342,12 +1349,21 @@ func (a App) handleSaveFavorite(msg saveFavoriteMsg) (App, tea.Cmd) {
 	a.log = a.log.Add(verb+" favorite "+msg.Conn.Name, LogSuccess)
 
 	if verb == "Replaced" {
-		releaseSecret(old, conns)
+		a = a.releaseSecret(old, conns)
 	}
-	if msg.Remember && msg.Pass != "" {
+	switch {
+	case msg.Remember && msg.Pass != "":
 		if err := config.SetSecret(msg.Conn, msg.Pass); err != nil {
 			a.log = a.log.Add("Password not saved: no keyring available. It will be asked on connect", LogError)
 		}
+	case !msg.Remember:
+		var others []config.Connection
+		for _, f := range conns {
+			if f.Name != msg.Conn.Name {
+				others = append(others, f)
+			}
+		}
+		a = a.releaseSecret(msg.Conn, others)
 	}
 	return a, nil
 }
@@ -1365,20 +1381,22 @@ func (a App) handleDeleteFavorite(msg deleteFavoriteMsg) (App, tea.Cmd) {
 	a.cfg.Connections = kept
 	a = a.persistConfig()
 	a.log = a.log.Add("Deleted favorite "+msg.Name, LogInfo)
-	releaseSecret(gone, kept)
+	a = a.releaseSecret(gone, kept)
 	return a, nil
 }
 
 // releaseSecret drops a keyring entry once no favorite names its server: two
 // favorites can point at the same one and so share it.
-func releaseSecret(gone config.Connection, kept []config.Connection) {
+func (a App) releaseSecret(gone config.Connection, kept []config.Connection) App {
 	for _, f := range kept {
-		f.Name = gone.Name
-		if f == gone {
-			return
+		if f.SameServer(gone) {
+			return a
 		}
 	}
-	config.DeleteSecret(gone)
+	if err := config.DeleteSecret(gone); err != nil {
+		a.log = a.log.Add("Could not remove the saved password for "+describe(gone)+": "+err.Error(), LogError)
+	}
+	return a
 }
 
 const maxRecent = 10

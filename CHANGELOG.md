@@ -7,6 +7,54 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- `--log-file` was created with mode `0644`, so on a shared machine any local user could read
+  it: host names, user names, local and remote paths, and with `--verbose` most of the FTP
+  control dialogue. It is now created `0600`, and an existing log with wider permissions is
+  tightened the next time it is opened — thanks to
+  [@lhy8889](https://github.com/lhy8889). ([#107](https://github.com/MawCeron/lazyftp/issues/107))
+- `golang.org/x/crypto` moves from v0.24.0 to v0.58.0, which fixes a panic in the host key check,
+  an authentication bypass through an unenforced `@revoked` entry, and several denial-of-service
+  cases in the SSH client. These releases need Go 1.26, and the standard library of earlier 1.26
+  patches has vulnerabilities fixed up to 1.26.10, so that is now the minimum version to build
+  lazyftp. `pkg/sftp` moves to v1.13.12, CI scans for reachable vulnerabilities with
+  `govulncheck`, and Dependabot proposes updates every week.
+  ([#101](https://github.com/MawCeron/lazyftp/issues/101))
+- A server could name a file or folder `../..` or `../../outside` and make a download create
+  folders and write files outside the download directory. Names that are not a single file name
+  are now skipped and logged, and the rest of the folder goes on.
+  ([#98](https://github.com/MawCeron/lazyftp/issues/98))
+- What a server sends was drawn as it came, so a file name or message with an escape sequence in
+  it could retitle the window, write to the clipboard or redraw the screen. Control characters are
+  now replaced with `?` in the panels, the Log and the log file.
+  ([#99](https://github.com/MawCeron/lazyftp/issues/99))
+- A file name with a line break or a NUL could inject extra FTP commands. Such names are now
+  refused before anything is sent. ([#100](https://github.com/MawCeron/lazyftp/issues/100))
+- Passive FTP now connects to the host you logged in to and ignores the address in the server's
+  PASV reply, which a hostile server could point anywhere and a server behind NAT sets to a private
+  address. This needs a fix that upstream goftp does not have, so lazyftp uses the
+  [MawCeron/goftp](https://github.com/MawCeron/goftp) fork.
+  ([#102](https://github.com/MawCeron/lazyftp/issues/102))
+- Turning off "remember password" when saving a favorite now removes the password from the
+  keyring, unless another favorite uses the same server. Before, it stayed there and filled the
+  field again. ([#105](https://github.com/MawCeron/lazyftp/issues/105))
+- The password field is cleared when you change the host, the user or the protocol, so a password
+  typed or loaded for one server is not sent to another.
+  ([#106](https://github.com/MawCeron/lazyftp/issues/106))
+
+### Added
+
+- A security policy in `docs/SECURITY.md`: how to report a vulnerability privately, which versions
+  get fixes, and what lazyftp does with passwords and the log.
+  ([#113](https://github.com/MawCeron/lazyftp/issues/113))
+
+### Changed
+
+- The connection dialog warns when the protocol is plain FTP, which sends the password and the
+  files unencrypted. The status line and the Log say so as well while it connects.
+  ([#112](https://github.com/MawCeron/lazyftp/issues/112))
+
 ## [0.4.1] - 2026-09-30
 
 A fix for the question lazyftp asks the first time it sees an SFTP server, which was never on

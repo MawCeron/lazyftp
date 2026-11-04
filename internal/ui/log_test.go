@@ -149,3 +149,23 @@ func TestVerboseLinesAreMarkedAndStyledApartFromNormalEntries(t *testing.T) {
 		t.Error("a verbose entry renders exactly like an info one")
 	}
 }
+
+// The Log panel and --log-file take the same text, and neither may pass on a
+// terminal sequence or a line break that would forge a log line.
+func TestTheLogNeverPassesOnControlCharacters(t *testing.T) {
+	var file bytes.Buffer
+	log := NewLogPanel(&file).SetSize(120, 10)
+
+	log = log.Add("Error: \x1b]52;c;ZXZpbA==\x07 \x1b[2J \u009b0m evil\nforged line", LogError)
+
+	for what, out := range map[string]string{"file": file.String(), "panel": log.View(120, 10, false)} {
+		for _, bad := range []string{"\x1b]", "\x07", "\u009b", "\x1b[2J"} {
+			if strings.Contains(out, bad) {
+				t.Errorf("the %s carries %q: %q", what, bad, out)
+			}
+		}
+	}
+	if lines := strings.Split(strings.TrimSpace(file.String()), "\n"); len(lines) != 1 {
+		t.Errorf("a line break in the message made %d lines in the file: %q", len(lines), file.String())
+	}
+}

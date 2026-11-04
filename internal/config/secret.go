@@ -17,6 +17,9 @@ func account(c Connection) string {
 	return fmt.Sprintf("%s://%s@%s:%d", c.Protocol, c.User, c.Host, c.Port)
 }
 
+// SameServer is true when both connections use the same keyring entry.
+func (c Connection) SameServer(o Connection) bool { return account(c) == account(o) }
+
 func Secret(c Connection) (string, error) {
 	s, err := keyring.Get(service, account(c))
 	if err != nil {
