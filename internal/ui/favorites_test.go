@@ -2,6 +2,7 @@ package ui
 
 import (
 	"charm.land/lipgloss/v2"
+	"errors"
 	"strings"
 	"testing"
 
@@ -184,6 +185,61 @@ func TestReplacingChangesServerReleasesItsPassword(t *testing.T) {
 	}
 	if n := len(model.(App).cfg.Connections); n != 1 {
 		t.Fatalf("%d favorites, want 1", n)
+	}
+}
+
+func TestSavingWithRememberOffForgetsThePassword(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp(func() *tea.Program { return nil }, false, nil, "dev", false)
+	model, _ := a.Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2", Remember: true})
+	model, _ = model.(App).Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2"})
+
+	if _, err := config.Secret(fav); err == nil {
+		t.Fatal("the password stayed in the keyring after remember was turned off")
+	}
+	if got := model.(App).connBar.fill(fav).inputs[fieldPass].Value(); got != "" {
+		t.Errorf("reopening the favorite filled the password field with %q", got)
+	}
+}
+
+func TestSavingANewFavoriteWithRememberOffDropsAnOldEntry(t *testing.T) {
+	keyring.MockInit()
+	config.SetSecret(fav, "left over")
+	a := NewApp(func() *tea.Program { return nil }, false, nil, "dev", false)
+
+	a.Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2"})
+
+	if _, err := config.Secret(fav); err == nil {
+		t.Fatal("a password nobody asked to remember was still in the keyring")
+	}
+}
+
+func TestRememberOffKeepsAPasswordAnotherFavoriteShares(t *testing.T) {
+	keyring.MockInit()
+	other := fav
+	other.Name = "the same server again"
+	a := NewApp(func() *tea.Program { return nil }, false, nil, "dev", false)
+	model, _ := a.Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2", Remember: true})
+	model, _ = model.(App).Update(saveFavoriteMsg{Conn: other, Pass: "hunter2", Remember: true})
+
+	model.(App).Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2"})
+
+	if got, err := config.Secret(fav); err != nil || got != "hunter2" {
+		t.Fatalf("the other favorite lost its password: %q, %v", got, err)
+	}
+}
+
+func TestAPasswordThatCannotBeForgottenIsReportedInTheLog(t *testing.T) {
+	keyring.MockInit()
+	a := NewApp(func() *tea.Program { return nil }, false, nil, "dev", false)
+	model, _ := a.Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2", Remember: true})
+
+	keyring.MockInitWithError(errors.New("the keyring is locked"))
+	model, _ = model.(App).Update(saveFavoriteMsg{Conn: fav, Pass: "hunter2"})
+
+	last := model.(App).log.entries[len(model.(App).log.entries)-1]
+	if !strings.Contains(last.Message, "remove the saved password") || last.Level != LogError {
+		t.Errorf("the failure was not reported: %+v", last)
 	}
 }
 
