@@ -74,6 +74,30 @@ Requires extending the client interface with rename and remove operations.
 - [#93](https://github.com/MawCeron/lazyftp/issues/93) Keep the cursor on the same file when a panel reloads, and
   [#95](https://github.com/MawCeron/lazyftp/issues/95) a scrollable help screen.
 
+## v0.4.2 — Security fixes
+
+An audit of v0.4.1 found that a hostile server could make a download write outside its directory,
+inject FTP commands, redirect the data connection and draw on the user's terminal. This release
+closes those and updates the dependencies that had known vulnerabilities.
+
+- [#98](https://github.com/MawCeron/lazyftp/issues/98) Remote names that would escape the download directory are skipped.
+- [#99](https://github.com/MawCeron/lazyftp/issues/99) Control characters in server text are replaced before they are drawn or logged.
+- [#100](https://github.com/MawCeron/lazyftp/issues/100) File names that could inject an FTP command are refused.
+- [#101](https://github.com/MawCeron/lazyftp/issues/101) Dependencies updated, `govulncheck` in CI, weekly Dependabot.
+- [#102](https://github.com/MawCeron/lazyftp/issues/102) Passive FTP connects to the host that was logged in to. This needed a change goftp
+  does not have, so lazyftp moved to a fork of it.
+- [#105](https://github.com/MawCeron/lazyftp/issues/105), [#106](https://github.com/MawCeron/lazyftp/issues/106) A saved password no longer outlives "remember" or the server it
+  was for.
+- [#107](https://github.com/MawCeron/lazyftp/issues/107) The log file is created readable only by the user.
+- [#112](https://github.com/MawCeron/lazyftp/issues/112) A warning when the protocol is plain FTP.
+- [#113](https://github.com/MawCeron/lazyftp/issues/113) A security policy.
+
+## v0.4.3 — Hardening
+
+- [#114](https://github.com/MawCeron/lazyftp/issues/114) Bidirectional text controls in file names could disguise a file's extension.
+- Dependency updates, among them Bubble Tea 2.1.1, which carries a security fix for terminal size
+  reports.
+
 ## v0.5.0 — Transfer queue and permissions
 
 - [#6](https://github.com/MawCeron/lazyftp/issues/6) Remember pending transfers across restarts, offering them back as new transfers.
@@ -85,6 +109,23 @@ Requires extending the client interface with rename and remove operations.
 - [#45](https://github.com/MawCeron/lazyftp/issues/45) **Overwrite protection** — existing files are clobbered silently today.
 - [#46](https://github.com/MawCeron/lazyftp/issues/46) Transfer speed and estimated time.
 - [#47](https://github.com/MawCeron/lazyftp/issues/47) Confirm before quitting with transfers in flight.
+- [#87](https://github.com/MawCeron/lazyftp/issues/87) Completion logs that show direction, size and duration.
+- [#88](https://github.com/MawCeron/lazyftp/issues/88) Visibility into the transfer queue's pending work.
+- [#94](https://github.com/MawCeron/lazyftp/issues/94) Open the remote panel at the server's login directory, not at `/`.
+- [#103](https://github.com/MawCeron/lazyftp/issues/103) **Atomic writes.** A failed transfer truncates the file it was replacing; writing to
+  a temporary sibling and renaming it keeps the old one until the new one is whole. It belongs with
+  #45 and #44, which decide what a transfer may overwrite and how it ends.
+- [#104](https://github.com/MawCeron/lazyftp/issues/104) Limits on the depth, entries and size of a recursive transfer, and a free-space
+  check before a download.
+
+## v0.6.0 — Interoperability
+
+- [#108](https://github.com/MawCeron/lazyftp/issues/108) Implicit FTPS, which port 990 already promises and only explicit TLS delivers.
+- [#109](https://github.com/MawCeron/lazyftp/issues/109) The rest of `ssh_config`: known_hosts paths, `ProxyJump` with one hop, and
+  `ServerLocation`.
+- [#110](https://github.com/MawCeron/lazyftp/issues/110) `keyboard-interactive` authentication for SFTP, for servers with PAM, one-time
+  passwords or two-factor login.
+- [#111](https://github.com/MawCeron/lazyftp/issues/111) Negotiate UTF-8 over FTP, so non-ASCII names do not depend on the server default.
 
 ## Someday
 
@@ -101,5 +142,5 @@ editor and pager the user already has are better at reading and changing them.
 
 ## Toward v1.0
 
-After v0.5.0 the goal is to stabilize the configuration format and the key bindings so they
+After v0.6.0 the goal is to stabilize the configuration format and the key bindings so they
 can be committed to, and tag v1.0.0.
