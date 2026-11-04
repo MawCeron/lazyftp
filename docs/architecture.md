@@ -200,7 +200,7 @@ flowchart TD
     UI["internal/ui + internal/transfer"] --> C{{"client.Client<br/>interface"}}
     C --> F["FTPClient"]
     C --> S["SFTPClient"]
-    F --> G["secsy/goftp"]
+    F --> G["MawCeron/goftp"]
     S --> P["pkg/sftp"]
     P --> X["x/crypto/ssh"]
     G --> N(["network"])
@@ -262,8 +262,17 @@ EPSV is accepted and the data connection then fails to open — that case hangs,
 reason the library exposes `DisableEPSV` at all. A hung transfer is not evidence that the
 fallback is broken; it may be a fallback that was never going to run.
 
+**PASV connects to the host you logged in to.** The address in a PASV reply is the server's
+word for where to connect: a server behind NAT announces a private one, and a hostile one can name
+any host and port. EPSV never had the problem, because it reuses the control connection's host.
+`FTPClient.Connect` sets `IgnorePASVHost`, which the fork described below adds, so PASV does the
+same.
+
 The FTP client was originally `jlaffaye/ftp`, replaced by `secsy/goftp` for its handling of
-connections through NAT.
+connections through NAT. That library has had no commit since 2020, so lazyftp now depends on
+[MawCeron/goftp](https://github.com/MawCeron/goftp), a fork that keeps its API and adds what
+lazyftp needs. It is an ordinary module with its own path, not a `replace` directive, which
+`go install` refuses.
 
 ### What SSH does not do for you
 
@@ -356,6 +365,10 @@ an included file defines, so `aliases` reads those files again to enumerate them
   operating system keyring (Secret Service, Keychain, Credential Manager), keyed by
   `protocol://user@host:port`, so a favorite connects without asking. With no keyring available,
   `Secret` returns `ErrNoSecret` and the caller asks for the password as it does today.
+- **A password lasts as long as something remembers it.** Saving a favorite with "remember" off
+  removes the keyring entry, unless another favorite names the same server, since they share it.
+  The connection form empties its password field when the host, the user or the protocol changes,
+  so a password typed or loaded for one server is never sent to another.
 
 ## Themes
 
@@ -426,6 +439,24 @@ reaches the log panel or a file, is the UI's decision.
 a pointer to a panel or mutating one in place will appear to work and then lose changes, because
 the loop keeps whatever `Update` returned rather than whatever you modified.
 
+**Text from a server is never drawn as it came.** Lipgloss and the terminal act on the escape
+sequences they find in a string, so a file name with one in it can retitle the window, write to the
+clipboard or redraw the screen. Names, paths and messages go through `printable`
+(`internal/ui/helpers.go`) before they are rendered or logged. `LogPanel.Add` applies it to every
+message, which covers the Log panel and `--log-file` at once; the file rows, the path line, the
+file info box and the Processes rows call it where they draw a name. The names themselves are not
+changed, so a file with such a name can still be transferred.
+
+**A name from a server is one path component.** A download builds its local path with
+`filepath.Join`, and Join cleans `..` instead of refusing it, so a listing entry called
+`../../outside` writes outside the download directory. `safeName` in `internal/transfer/manager.go`
+has to accept a name before any path is built from it; a refused entry is logged and skipped.
+
+**An FTP path cannot hold a line break or a NUL.** goftp ends each command with CRLF but does not
+look inside the path, so a name with a line break in it becomes two commands. `checkPath` in
+`internal/client/ftp.go` refuses such a path in every `FTPClient` method before anything is sent.
+SFTP is binary and has no such problem.
+
 ## Known traps
 
 Defects that exist today, listed because building on top of one is expensive to undo. Each has an
@@ -443,9 +474,15 @@ go build ./... && go vet ./... && go test ./...
 ```
 
 CI runs those three on Linux and Windows for every pull request and for pushes to `main` and
-`develop`, plus `go test -race` on Linux — the race detector needs cgo, which is not available on every runner. Windows is in the
-matrix deliberately: path handling differs there, and the crash that put it in the matrix was
-reachable on the first keystroke of a fresh install.
+`develop`, plus `go test -race` and a `gofmt` check on Linux. The race detector needs cgo, which
+is not available on every runner. Windows is in the matrix deliberately: path handling differs
+there, and the crash that put it in the matrix was reachable on the first keystroke of a fresh
+install.
+
+A second workflow runs `govulncheck` on the same events and every Monday, and fails when a
+vulnerability is reachable from the code. The Go version is the one `go.mod` names, so it names a
+release whose standard library is already patched. Pushing a tag builds the release with
+GoReleaser, and Dependabot opens weekly pull requests for the modules and the actions.
 
 `--verbose` puts the FTP control dialogue, or SFTP's request lines, in the Log panel, and `--log-file <path>` writes
 everything the panel shows to a file as well. Together they are how a connection problem becomes
@@ -453,7 +490,7 @@ something readable, including one against a server you cannot reach yourself.
 
 ### What the tests cover, and how
 
-There is no mocking framework and no fixtures. Two patterns carry everything:
+There is no mocking framework and no fixtures. Three patterns carry almost everything:
 
 **A stub for the `Client` interface.** `stubClient` in `internal/ui/app_test.go` implements the
 interface with canned returns, which makes the update loop and the transfer manager testable with
@@ -475,5 +512,11 @@ Some tests are worth knowing about before changing what they guard:
 - `protocol_test.go` and `progress_test.go` cover pure logic — default ports, cycling, and the
   progress wrapper's seeking.
 
-Tests are worth writing where logic is pure or reachable by message. Anything that needs a live
+**A fake server, where the protocol itself is the subject.** `fakeFTP` in
+`internal/client/ftpserver_test.go` is a small FTP server that records every command line it
+receives, serves a chosen `LIST` and can announce another address in a PASV reply, so a test can say
+which commands did and did not reach the wire. The SFTP side has `testServer` in
+`sftp_recover_test.go`, which can also cut its connections on demand.
+
+Tests are worth writing where logic is pure or reachable by message. Anything that needs a real
 server is verified by hand against one, and said plainly when it has not been.
