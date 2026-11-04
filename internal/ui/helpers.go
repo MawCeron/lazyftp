@@ -15,16 +15,35 @@ import (
 // showing them, so a name with ESC in it can retitle the window, write to the
 // clipboard or redraw the screen. Control characters become "?", as ls -q
 // does; a tab or a line break becomes a space so a message keeps its words.
+//
+// The bidirectional overrides and embeddings (U+202A to U+202E) and the
+// isolates (U+2066 to U+2069) are not control characters, but they are
+// invisible and reverse the order of everything drawn after them: a name of
+// "report" + U+202E + "gpj.exe" reads as "reportexe.jpg", so a picture is
+// displayed and an executable is run. They become "?" as well, which keeps
+// every name at the width it was drawn at before.
+//
+// Zero-width characters (U+200B to U+200D, U+2060, U+FEFF) are left alone.
+// They do not change the direction or the order of the text around them, and
+// U+200C (ZWNJ) is ordinary punctuation in Persian, Hindi and other scripts,
+// so replacing it would damage real names.
 func printable(s string) string {
 	return strings.Map(func(r rune) rune {
 		switch {
 		case r == '\t' || r == '\n':
 			return ' '
-		case unicode.IsControl(r):
+		case unicode.IsControl(r), isBidiControl(r):
 			return '?'
 		}
 		return r
 	}, s)
+}
+
+// isBidiControl reports whether r is one of the Unicode bidirectional
+// overrides and embeddings (U+202A to U+202E) or isolates (U+2066 to U+2069):
+// invisible characters that change how the rest of the line is laid out.
+func isBidiControl(r rune) bool {
+	return (r >= '\u202A' && r <= '\u202E') || (r >= '\u2066' && r <= '\u2069')
 }
 
 // pill renders text as a solid-colored block, the segmented status-bar style
