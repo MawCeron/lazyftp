@@ -18,6 +18,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   redirect layout — thanks to [@lhy8889](https://github.com/lhy8889).
   ([#114](https://github.com/MawCeron/lazyftp/issues/114))
 
+### Changed
+
+- The interface libraries are updated. Bubble Tea goes from 2.0.8 to 2.1.1, which fixes leftover
+  screen artifacts when switching terminal tabs, a deadlock on shutdown and a terminal that reports
+  a size of 0x0, and closes a denial of service from a forged window-size report that affected only
+  2.1.0. Bubbles goes to 2.2.1, and go-runewidth to 0.0.31, which measures combining marks in Indic
+  scripts and multi-rune grapheme clusters correctly, so names in those scripts line up in the
+  panels. ([#118](https://github.com/MawCeron/lazyftp/pull/118),
+  [#119](https://github.com/MawCeron/lazyftp/pull/119),
+  [#120](https://github.com/MawCeron/lazyftp/pull/120))
+
 ## [0.4.2] - 2026-11-04
 
 Security fixes for v0.4.1. A hostile server could make a download write outside its directory,
