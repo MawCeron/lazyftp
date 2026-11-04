@@ -351,6 +351,7 @@ See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 | [docs/architecture.md](docs/architecture.md) | Where things live, how a keystroke becomes a transfer, the rules that are easy to break |
 | [docs/style.md](docs/style.md) | What a patch is expected to look like — comments, naming, errors, tests |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) | Picking up an issue, branching, commits, and what is in scope |
+| [docs/SECURITY.md](docs/SECURITY.md) | How to report a vulnerability privately, and which versions get fixes |
 
 ---
 
@@ -359,6 +360,8 @@ See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 Pull requests are welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 For anything larger than a fix, open an issue before writing code.
+
+To report a vulnerability, do not open an issue: follow [SECURITY.md](docs/SECURITY.md).
 
 <a href="https://github.com/MawCeron/lazyftp/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=MawCeron/lazyftp" alt="Contributors" />
