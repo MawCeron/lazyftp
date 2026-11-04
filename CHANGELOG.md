@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- `--log-file` was created with mode `0644`, so on a shared machine any local user could read
+  it: host names, user names, local and remote paths, and with `--verbose` most of the FTP
+  control dialogue. It is now created `0600`, and an existing log with wider permissions is
+  tightened the next time it is opened.
+  ([#107](https://github.com/MawCeron/lazyftp/issues/107))
+
 ## [0.4.1] - 2026-09-30
 
 A fix for the question lazyftp asks the first time it sees an SFTP server, which was never on
