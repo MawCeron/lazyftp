@@ -82,7 +82,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		f, err := os.OpenFile(*logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		f, err := openLogFile(*logFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: cannot write to %s: %v\n", *logFile, err)
 			os.Exit(1)
@@ -115,6 +115,25 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// openLogFile appends to the log while keeping it private to the user running
+// lazyftp. The log records host names, user names, local and remote paths, and
+// with --verbose most of the FTP dialogue, so it should not be readable by
+// other local users.
+//
+// The 0600 below only applies when the file is created. An existing log may
+// still be wider, so it is tightened as well; failing to do that is not fatal,
+// the log keeps working, it is just more visible than it should be.
+func openLogFile(path string) (*os.File, error) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if info, err := f.Stat(); err == nil && info.Mode().Perm()&0o077 != 0 {
+		_ = f.Chmod(0o600)
+	}
+	return f, nil
 }
 
 func usage() {
