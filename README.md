@@ -90,6 +90,10 @@ cd lazyftp
 go build -o lazyftp .
 ```
 
+Building needs Go 1.26.10 or later. The standard library of earlier 1.26 releases has
+vulnerabilities, so `go.mod` requires the patched one; with the default settings the `go` command
+fetches that toolchain by itself.
+
 ### With go install
 
 ```bash
@@ -120,7 +124,7 @@ invalid one prints the usage and exits with status 2.
 | Flag | What it does |
 |------|--------------|
 | `--verbose` | Show the FTP control dialogue in the Log panel. SFTP has no such dialogue, so it shows one line per request instead (see Troubleshooting) |
-| `--log-file <path>` | Write the log to a file as well, appending to it |
+| `--log-file <path>` | Write the log to a file as well, appending to it. A new file is created readable only by you, and an existing one is tightened to match |
 | `--no-nerd-fonts` | Use plain Unicode symbols instead of Nerd Font icons |
 | `--highlight-diff` | Mark files that differ between Local and Remote (by name, and by size when both share a name) |
 | `-i`, `--identity <path>` | SFTP private key to try first |
@@ -142,6 +146,9 @@ Press `Ctrl+L` to open the connection dialog:
 
 Press `Enter` to connect, `Esc` to close the dialog or give up on an attempt that is taking too
 long. Once connected, the status line shows the protocol, user, host and connection state.
+
+Changing the host, the user or the protocol empties the Pass field, so a password typed or loaded
+for one server is never sent to another.
 
 FTPS certificates are verified, so a server with a self-signed certificate is refused.
 
@@ -167,23 +174,24 @@ are not supported.
 ### Recent connections
 
 Every successful connection is remembered — protocol, host, port and user, never the password.
-`Ctrl+R` in the dialog lists the last ten, most recent first; `Enter` connects and `e` fills the form to edit it first. They live
-in `history.toml` next to `config.toml`. A server that is also a favorite gets its keyring
-password filled in too.
+`Ctrl+R` in the dialog lists the last ten, most recent first; `Enter` connects and `e` fills the
+form to edit it first. They live in `history.toml` next to `config.toml`. A server that is also a
+favorite gets its keyring password filled in too.
 
 ### Favorites
 
 `Ctrl+S` in the dialog saves the current host, user, port and protocol under a name. The
 suggested name never collides with an existing one, and typing one that exists asks before
-replacing it, showing the old favorite next to the new. `Ctrl+O`
-lists your favorites: `Enter` connects, `e` fills the form to edit it first, `d` deletes one. Favorites live in `config.toml`
+replacing it, showing the old favorite next to the new. `Ctrl+O` lists your favorites: `Enter`
+connects, `e` fills the form to edit it first, `d` deletes one. Favorites live in `config.toml`
 under your config directory (`~/.config/lazyftp/` on Linux).
 
-The password is never written to that file. While saving, `Tab` toggles "remember password", which
-stores it in the system keyring (Secret Service, Keychain or Credential Manager) so the favorite
-connects without asking. `Enter` on a favorite with no stored password opens the form on the Pass
-field, except for SFTP, which tries the agent and your keys first. Without a keyring the favorite is still saved and the password is asked
-each time; the Log says so.
+The password is never written to that file. While saving, `Tab` toggles "remember password",
+which stores it in the system keyring (Secret Service, Keychain or Credential Manager) so the
+favorite connects without asking. Saving with it off removes the stored password, unless another
+favorite uses the same server. `Enter` on a favorite with no stored password opens the form on the
+Pass field, except for SFTP, which tries the agent and your keys first. Without a keyring the
+favorite is still saved and the password is asked each time; the Log says so.
 
 ### Transferring files
 
@@ -194,6 +202,10 @@ each time; the Log says so.
 
 If you are in the **local panel**, the file will be uploaded to the current remote path. If you are
 in the **remote panel**, it will be downloaded to the current local path.
+
+A name the server sends that is not a single file name, such as `..` or one with a slash in it, is
+skipped and written to the Log, and the rest of the folder goes on. Control characters and
+bidirectional overrides in names, paths and messages are shown as `?`.
 
 ### Themes
 
@@ -241,6 +253,7 @@ press `?`.
 | `Shift+Tab` | Switch between the Local/Remote group and the Log/Processes group |
 | `U` / `D` | Upload / download whichever side has marked files, regardless of focus |
 | `q` / `Q` | Quit |
+| `Ctrl+C` | Quit from anywhere, including the dialogs |
 
 ### File panels (Local, Remote)
 
@@ -274,7 +287,7 @@ press `?`.
 |-----|--------|
 | `Tab` | Next field |
 | `Shift+Tab` | Previous field |
-| `←` / `→` | Change protocol (on the Proto field) |
+| `←` / `→` / `Space` | Change protocol (on the Proto field) |
 | `Enter` | Connect |
 | `Ctrl+S` / `Ctrl+O` | Save the connection as a favorite / open the favorites list |
 | `Ctrl+R` | Open the recent connections |
@@ -307,8 +320,10 @@ Connect over `FTP` instead.
 ```
 lazyftp/
 ├── .github/
-│   └── workflows/     CI on Linux and Windows, plus the release build
-├── docs/              Contributor documentation, and example themes under themes/
+│   ├── workflows/     CI on Linux and Windows, the vulnerability scan, and the release build
+│   └── dependabot.yml Weekly updates for the modules and the actions
+├── assets/            The demo recording, its fixtures and the throwaway SFTP server it uses
+├── docs/              Contributor documentation, the security policy, and example themes
 ├── internal/
 │   ├── client/        FTP, FTPS and SFTP behind one interface
 │   ├── config/        config.toml, the history, themes by name, the keyring
@@ -335,7 +350,8 @@ lazyftp/
 | v0.2.0 | TUI overhaul — responsive layout, sort/filter/jump, help screen |
 | v0.3.0 | File operations — rename, delete, create directories |
 | v0.4.0 | Connections and authentication — favorites, history, SSH keys, themes |
-| v0.5.0 | Transfer queue and permissions |
+| v0.5.0 | Transfer queue, safe writes and permissions |
+| v0.6.0 | Interoperability — implicit FTPS, the rest of ssh_config, keyboard-interactive, UTF-8 over FTP |
 
 See [ROADMAP.md](ROADMAP.md) for what each release contains and why, or the
 [milestones](https://github.com/MawCeron/lazyftp/milestones) for progress.
