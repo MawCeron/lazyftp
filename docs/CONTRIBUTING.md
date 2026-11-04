@@ -22,7 +22,13 @@ enough for most changes.
 ## Branches
 
 Work lands on `develop`. Branch from it and target it with your pull request. `main` only moves
-when a release is tagged.
+when a release is tagged, by fast-forward, so the history stays a straight line. A release that is
+still far off, such as v0.5.0, is built on a `features/` branch until it is ready to join
+`develop`; if you are not sure where a change belongs, ask in the issue.
+
+Pull requests are merged with "Rebase and merge". A squash would flatten your commits and a merge
+commit would break the line, so merge commits are switched off in the repository. Keep one logical
+change per commit.
 
 ## Before opening a pull request
 
@@ -30,17 +36,20 @@ when a release is tagged.
 go build ./...
 go vet ./...
 go test ./...
+test -z "$(gofmt -l .)"
 ```
 
-All three have to pass. CI runs them on Linux and Windows for every pull request, so running them
-first saves a round trip.
+All four have to pass, with Go 1.26.10 or later: the standard library of earlier 1.26 releases has
+vulnerabilities, and `go.mod` requires the patched one. CI runs them on Linux and Windows for every
+pull request, so running them first saves a round trip. It also runs `govulncheck`, which fails
+when a vulnerability is reachable from the code.
 
 Leave a test behind for anything with real logic — a branch, a loop, a parser. One test that
 fails if the logic breaks is enough; no frameworks or fixtures.
 
 ## Commits
 
-Conventional commits, with the subject in English:
+Conventional commits, with the subject in English and no scope: `fix:`, not `fix(ui):`.
 
 ```
 fix: correct visible rows calculation in processes panel
