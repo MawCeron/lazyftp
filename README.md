@@ -145,6 +145,16 @@ long. Once connected, the status line shows the protocol, user, host and connect
 
 FTPS certificates are verified, so a server with a self-signed certificate is refused.
 
+### Plain FTP
+
+Plain FTP sends the user name, the password and every file unencrypted, so anyone on the network
+path can read them. The dialog starts on it, and any port other than 22 or 990 selects it, because
+it is what the most servers offer. lazyftp warns about it in the dialog, in the status line while
+it connects, and in the Log. Prefer SFTP or FTPS whenever the server offers either.
+
+Plain FTP is still the only choice for a server that offers nothing else, such as some older
+hosting plans and network devices. On a network you trust, like a home LAN, the risk is smaller.
+
 ### Servers from `~/.ssh/config`
 
 Every concrete `Host` entry in `~/.ssh/config` shows up in the `Ctrl+O` list after your favorites,
