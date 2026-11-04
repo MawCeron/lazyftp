@@ -7,10 +7,10 @@ require (
 	charm.land/bubbletea/v2 v2.0.8
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/BurntSushi/toml v1.6.0
+	github.com/MawCeron/goftp v0.1.0
 	github.com/kevinburke/ssh_config v1.6.0
 	github.com/mattn/go-runewidth v0.0.24
 	github.com/pkg/sftp v1.13.6
-	github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/crypto v0.24.0
 )

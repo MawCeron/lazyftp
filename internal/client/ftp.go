@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	goftp "github.com/MawCeron/goftp"
 	"github.com/MawCeron/lazyftp/internal/model"
 	"github.com/MawCeron/lazyftp/internal/shared"
-	goftp "github.com/secsy/goftp"
 )
 
 type FTPClient struct {
