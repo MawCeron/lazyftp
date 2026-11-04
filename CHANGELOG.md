@@ -14,6 +14,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   control dialogue. It is now created `0600`, and an existing log with wider permissions is
   tightened the next time it is opened.
   ([#107](https://github.com/MawCeron/lazyftp/issues/107))
+- `golang.org/x/crypto` moves from v0.24.0 to v0.58.0, which fixes a panic in the host key check,
+  an authentication bypass through an unenforced `@revoked` entry, and several denial-of-service
+  cases in the SSH client. These releases need Go 1.26, so that is now the minimum version to
+  build lazyftp. `pkg/sftp` moves to v1.13.12, CI scans for reachable vulnerabilities with
+  `govulncheck`, and Dependabot proposes updates every week.
+  ([#101](https://github.com/MawCeron/lazyftp/issues/101))
 
 ## [0.4.1] - 2026-09-30
 
