@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security
+
+- The Unicode bidirectional controls (U+202A to U+202E, U+2066 to U+2069) are invisible but
+  reverse the order of everything drawn after them, so a server could name a file
+  `report` + U+202E + `gpj.exe` and it would read as `reportexe.jpg`: a picture on screen,
+  an executable on disk. They are now replaced with `?` wherever a server-supplied name,
+  path or message is drawn or logged, alongside the control characters from #99. Ordinary
+  right-to-left names are unchanged, and so are the zero-width characters, which do not
+  redirect layout. ([#114](https://github.com/MawCeron/lazyftp/issues/114))
+
 ## [0.4.2] - 2026-11-04
 
 Security fixes for v0.4.1. A hostile server could make a download write outside its directory,

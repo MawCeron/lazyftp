@@ -97,6 +97,52 @@ func TestPrintableKeepsOrdinaryText(t *testing.T) {
 	}
 }
 
+// The name from issue #114: U+202E makes "gpj.exe" draw to the left of
+// "report", so the name reads as reportexe.jpg -- a picture on screen, an
+// executable on disk. Every override, embedding and isolate must be gone,
+// and the placeholder keeps the drawn width what it was.
+func TestPrintableReplacesBidirectionalControls(t *testing.T) {
+	for _, r := range []rune{
+		'\u202A', '\u202B', '\u202C', '\u202D', '\u202E', // overrides, embeddings, pop
+		'\u2066', '\u2067', '\u2068', '\u2069', // isolates
+	} {
+		in := "report" + string(r) + "gpj.exe"
+		out := printable(in)
+		if out != "report?gpj.exe" {
+			t.Errorf("printable(%q) = %q, want %q", in, out, "report?gpj.exe")
+		}
+	}
+}
+
+func TestPrintableKeepsRightToLeftNames(t *testing.T) {
+	// Ordinary Hebrew and Arabic names need no explicit bidirectional
+	// control to display correctly, so they must come through untouched.
+	for _, s := range []string{"דוח.pdf", "تقرير.jpg", "עברית וערבית.txt"} {
+		if got := printable(s); got != s {
+			t.Errorf("printable(%q) = %q, want it unchanged", s, got)
+		}
+	}
+}
+
+// Zero-width characters are kept, and this test records that decision: they
+// do not change the direction or the order of the text around them, and
+// U+200C (ZWNJ) is ordinary punctuation in Persian, Hindi and other scripts,
+// so replacing it would damage real names.
+func TestPrintableKeepsZeroWidthCharacters(t *testing.T) {
+	for _, s := range []string{
+		"re\u200Cport.pdf", // ZWNJ inside a real-looking name
+		"a\u200Bb",         // zero-width space
+		"a\u200Cb",         // ZWNJ
+		"a\u200Db",         // zero-width joiner
+		"a\u2060b",         // word joiner
+		"\uFEFFreport.pdf", // BOM prefix
+	} {
+		if got := printable(s); got != s {
+			t.Errorf("printable(%q) = %q, want it unchanged", s, got)
+		}
+	}
+}
+
 // hostileBytes are what a server-supplied name must never put on screen: the
 // introducers of an OSC and a CSI sequence, BEL, an 8-bit CSI, NUL and CR.
 // Lipgloss emits CSI sequences of its own for color, but never these.
