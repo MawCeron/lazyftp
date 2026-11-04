@@ -7,6 +7,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-11-04
+
+Security fixes for v0.4.1. A hostile server could make a download write outside its directory,
+inject FTP commands through a file name, point the passive data connection at another host and
+draw on your terminal. Those are fixed and the dependencies with known vulnerabilities are updated.
+A saved password no longer outlives "remember" or the server it was for, and plain FTP now warns
+that it is unencrypted. Building lazyftp needs Go 1.26.10.
+
 ### Security
 
 - `--log-file` was created with mode `0644`, so on a shared machine any local user could read
@@ -448,7 +456,8 @@ First working release.
 - Keyboard navigation, vim-style keys and arrows.
 - A hints bar reflecting the focused panel, and a panel logging transfers and connections.
 
-[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/MawCeron/lazyftp/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/MawCeron/lazyftp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/MawCeron/lazyftp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MawCeron/lazyftp/compare/v0.3.0...v0.3.1
