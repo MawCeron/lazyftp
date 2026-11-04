@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // fakeFTP is a minimal FTP server that records every command line it receives,
@@ -20,8 +21,14 @@ type fakeFTP struct {
 	// listing is what a LIST sends over the data connection.
 	listing string
 
-	mu    sync.Mutex
-	lines []string
+	// announce, when set, is the address a PASV reply names, while the data
+	// connection is accepted on both it and the control connection's address.
+	// EPSV is refused then, so that PASV is what the client uses.
+	announce string
+
+	mu      sync.Mutex
+	lines   []string
+	dataVia string
 }
 
 func startFakeFTP(t *testing.T) *fakeFTP {
@@ -71,6 +78,13 @@ func (s *fakeFTP) tainted() bool {
 	return false
 }
 
+// usedHost is the address the last data connection arrived on.
+func (s *fakeFTP) usedHost() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.dataVia
+}
+
 // reached reports whether any received line starts with the command verb.
 func (s *fakeFTP) reached(verb string) bool {
 	for _, l := range s.sent() {
@@ -87,12 +101,14 @@ func (s *fakeFTP) serve(c net.Conn) {
 	reply := func(format string, args ...any) { fmt.Fprintf(c, format+"\r\n", args...) }
 	reply("220 ready")
 
-	var data net.Listener
-	defer func() {
-		if data != nil {
-			data.Close()
+	var data []net.Listener
+	closeData := func() {
+		for _, l := range data {
+			l.Close()
 		}
-	}()
+		data = nil
+	}
+	defer closeData()
 	for {
 		line, err := r.ReadString('\n')
 		if err != nil {
@@ -117,23 +133,64 @@ func (s *fakeFTP) serve(c net.Conn) {
 		case "RNFR":
 			reply("350 ready for RNTO")
 		case "EPSV":
-			if data != nil {
-				data.Close()
+			if s.announce != "" {
+				reply("500 EPSV is not supported")
+				continue
 			}
-			data, err = net.Listen("tcp", "127.0.0.1:0")
+			closeData()
+			l, err := net.Listen("tcp", "127.0.0.1:0")
 			if err != nil {
 				reply("425 no data connection")
 				continue
 			}
-			reply("229 Entering Extended Passive Mode (|||%s|)", strconv.Itoa(data.Addr().(*net.TCPAddr).Port))
+			data = []net.Listener{l}
+			reply("229 Entering Extended Passive Mode (|||%s|)", strconv.Itoa(l.Addr().(*net.TCPAddr).Port))
+		case "PASV":
+			closeData()
+			l, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				reply("425 no data connection")
+				continue
+			}
+			data = []net.Listener{l}
+			port := l.Addr().(*net.TCPAddr).Port
+			host := "127.0.0.1"
+			if s.announce != "" {
+				host = s.announce
+				decoy, err := net.Listen("tcp", net.JoinHostPort(host, strconv.Itoa(port)))
+				if err != nil {
+					reply("425 no data connection")
+					continue
+				}
+				data = append(data, decoy)
+			}
+			reply("227 Entering Passive Mode (%s,%d,%d)", strings.ReplaceAll(host, ".", ","), port>>8, port&0xff)
 		case "STOR", "RETR", "LIST":
-			if data == nil {
-				reply("425 use EPSV first")
+			if len(data) == 0 {
+				reply("425 use EPSV or PASV first")
 				continue
 			}
 			reply("150 opening data connection")
-			dc, err := data.Accept()
-			if err != nil {
+			type accepted struct {
+				conn net.Conn
+				host string
+			}
+			conns := make(chan accepted, len(data))
+			for _, l := range data {
+				go func(l net.Listener) {
+					if dc, err := l.Accept(); err == nil {
+						conns <- accepted{dc, l.Addr().(*net.TCPAddr).IP.String()}
+					}
+				}(l)
+			}
+			var dc net.Conn
+			select {
+			case got := <-conns:
+				dc = got.conn
+				s.mu.Lock()
+				s.dataVia = got.host
+				s.mu.Unlock()
+			case <-time.After(2 * time.Second):
 				reply("425 no data connection")
 				continue
 			}
