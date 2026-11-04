@@ -12,6 +12,9 @@ import (
 	"github.com/MawCeron/lazyftp/internal/config"
 )
 
+// plainFTPWarning is shown wherever a plain FTP connection is about to be made.
+const plainFTPWarning = "Plain FTP is not encrypted: the password and files travel in the clear. Prefer SFTP or FTPS."
+
 type connField int
 
 // Order matches the visual layout top-to-bottom, so Tab follows reading
@@ -260,7 +263,12 @@ func (c ConnectionBar) View(maxWidth int) string {
 	}
 
 	hint := lipgloss.NewStyle().Foreground(colorMuted).Render("Enter connect · Esc cancel")
-	body := strings.Join(fields, "\n") + "\n\n\n" + hint
+	gap := "\n\n\n"
+	if c.protocol == client.FTP {
+		warning := lipgloss.NewStyle().Foreground(colorError).Width(borderInteriorWidth(width)).Render(plainFTPWarning)
+		gap = "\n\n" + warning + "\n\n"
+	}
+	body := strings.Join(fields, "\n") + gap + hint
 
 	return dialogBox("Connection", body, width)
 }

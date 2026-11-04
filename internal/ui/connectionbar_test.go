@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/MawCeron/lazyftp/internal/client"
 	"github.com/MawCeron/lazyftp/internal/config"
 	"github.com/zalando/go-keyring"
@@ -211,5 +213,24 @@ func TestEditingOnlyThePortOrThePasswordKeepsThePassword(t *testing.T) {
 
 	if got := bar.inputs[fieldPass].Value(); got != "hunter23" {
 		t.Errorf("the password is %q, want it kept and extended to hunter23", got)
+	}
+}
+
+func TestTheDialogWarnsOnlyWhenTheProtocolIsPlainFTP(t *testing.T) {
+	for _, tc := range []struct {
+		protocol client.Protocol
+		warns    bool
+	}{{client.FTP, true}, {client.FTPS, false}, {client.SFTP, false}} {
+		bar := NewConnectionBar()
+		bar.protocol = tc.protocol
+
+		view := bar.View(minWidth)
+
+		if got := strings.Contains(view, "Plain FTP is not encrypted"); got != tc.warns {
+			t.Errorf("%s: warning shown = %v, want %v", tc.protocol, got, tc.warns)
+		}
+		if h := lipgloss.Height(view); h > minHeight-2 {
+			t.Errorf("%s: the dialog is %d rows, the canvas has %d", tc.protocol, h, minHeight-2)
+		}
 	}
 }
