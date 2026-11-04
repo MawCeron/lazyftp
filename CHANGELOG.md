@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-11-04
+
+Hardening on top of v0.4.2. A server can no longer use the Unicode text-direction controls to
+disguise a file's extension, and the interface libraries are brought up to date.
+
 ### Security
 
 - The Unicode bidirectional controls (U+202A to U+202E, U+2066 to U+2069) are invisible but
@@ -478,7 +483,8 @@ First working release.
 - Keyboard navigation, vim-style keys and arrows.
 - A hints bar reflecting the focused panel, and a panel logging transfers and connections.
 
-[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/MawCeron/lazyftp/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/MawCeron/lazyftp/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/MawCeron/lazyftp/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/MawCeron/lazyftp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/MawCeron/lazyftp/compare/v0.3.1...v0.4.0
