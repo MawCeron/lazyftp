@@ -5,7 +5,7 @@ go 1.26.10
 require (
 	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.1.1
-	charm.land/lipgloss/v2 v2.0.6
+	charm.land/lipgloss/v2 v2.1.0
 	github.com/BurntSushi/toml v1.6.0
 	github.com/MawCeron/goftp v0.1.0
 	github.com/kevinburke/ssh_config v1.6.0
